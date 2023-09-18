@@ -1,34 +1,16 @@
 import argparse
-from dataclasses import (
-  asdict,
-  dataclass,
-)
+from dataclasses import (asdict,dataclass,)
 import functools
 import random
 from textwrap import dedent, indent
 import json
 from pathlib import Path
 # from toolz import curry
-from typing import (
-  List,
-  Optional,
-  Sequence,
-  Tuple,
-  Union,
-)
-
+from typing import (List,Optional,Sequence,Tuple,Union,)
 import toml
 import voluptuous
-from voluptuous import (
-  Any,
-  ExactSequence,
-  MultipleInvalid,
-  Object,
-  Required,
-  Schema,
-)
+from voluptuous import (Any,ExactSequence,MultipleInvalid,Object,Required,Schema,)
 from transformers import CLIPTokenizer
-
 from . import train_util
 from .train_util import (
   DreamBoothSubset,
@@ -343,8 +325,7 @@ class ConfigSanitizer:
 
 
 class BlueprintGenerator:
-  BLUEPRINT_PARAM_NAME_TO_CONFIG_OPTNAME = {
-  }
+  BLUEPRINT_PARAM_NAME_TO_CONFIG_OPTNAME = {}
 
   def __init__(self, sanitizer: ConfigSanitizer):
     self.sanitizer = sanitizer
@@ -388,7 +369,6 @@ class BlueprintGenerator:
       dataset_blueprints.append(DatasetBlueprint(is_dreambooth, is_controlnet, params, subset_blueprints))
 
     dataset_group_blueprint = DatasetGroupBlueprint(dataset_blueprints)
-
     return Blueprint(dataset_group_blueprint)
 
   @staticmethod

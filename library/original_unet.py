@@ -1307,7 +1307,8 @@ def get_up_block(
             upcast_attention=upcast_attention,
         )
 
-
+# down_block_types: Tuple[str] = ("CrossAttnDownBlock2D","CrossAttnDownBlock2D","CrossAttnDownBlock2D","DownBlock2D",)
+# up_block_types: Tuple[str] = ("UpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D")
 class UNet2DConditionModel(nn.Module):
     _supports_gradient_checkpointing = True
 
@@ -1460,7 +1461,6 @@ class UNet2DConditionModel(nn.Module):
             module.gradient_checkpointing = value
 
     # endregion
-
     def forward(
         self,
         sample: torch.FloatTensor,
@@ -1471,29 +1471,7 @@ class UNet2DConditionModel(nn.Module):
         down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
     ) -> Union[Dict, Tuple]:
-        r"""
-        Args:
-            sample (`torch.FloatTensor`): (batch, channel, height, width) noisy inputs tensor
-            timestep (`torch.FloatTensor` or `float` or `int`): (batch) timesteps
-            encoder_hidden_states (`torch.FloatTensor`): (batch, sequence_length, feature_dim) encoder hidden states
-            return_dict (`bool`, *optional*, defaults to `True`):
-                Whether or not to return a dict instead of a plain tuple.
-
-        Returns:
-            `SampleOutput` or `tuple`:
-            `SampleOutput` if `return_dict` is True, otherwise a `tuple`. When returning a tuple, the first element is the sample tensor.
-        """
-        # By default samples have to be AT least a multiple of the overall upsampling factor.
-        # The overall upsampling factor is equal to 2 ** (# num of upsampling layears).
-        # However, the upsampling interpolation output size can be forced to fit any upsampling size
-        # on the fly if necessary.
-        # デフォルトではサンプルは「2^アップサンプルの数」、つまり64の倍数である必要がある
-        # ただそれ以外のサイズにも対応できるように、必要ならアップサンプルのサイズを変更する
-        # 多分画質が悪くなるので、64で割り切れるようにしておくのが良い
         default_overall_up_factor = 2**self.num_upsamplers
-
-        # upsample size should be forwarded when sample is not a multiple of `default_overall_up_factor`
-        # 64で割り切れないときはupsamplerにサイズを伝える
         forward_upsample_size = False
         upsample_size = None
 
@@ -1506,13 +1484,6 @@ class UNet2DConditionModel(nn.Module):
         timesteps = self.handle_unusual_timesteps(sample, timesteps)  # 変な時だけ処理
 
         t_emb = self.time_proj(timesteps)
-
-        # timesteps does not contain any weights and will always return f32 tensors
-        # but time_embedding might actually be running in fp16. so we need to cast here.
-        # there might be better ways to encapsulate this.
-        # timestepsは重みを含まないので常にfloat32のテンソルを返す
-        # しかしtime_embeddingはfp16で動いているかもしれないので、ここでキャストする必要がある
-        # time_projでキャストしておけばいいんじゃね？
         t_emb = t_emb.to(dtype=self.dtype)
         emb = self.time_embedding(t_emb)
 
@@ -1522,58 +1493,48 @@ class UNet2DConditionModel(nn.Module):
         # 3. down
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
-            # downblockはforwardで必ずencoder_hidden_statesを受け取るようにしても良さそうだけど、
-            # まあこちらのほうがわかりやすいかもしれない
             if downsample_block.has_cross_attention:
-                sample, res_samples = downsample_block(
-                    hidden_states=sample,
+                sample, res_samples = downsample_block(hidden_states=sample,
                     temb=emb,
-                    encoder_hidden_states=encoder_hidden_states,
-                )
+                    encoder_hidden_states=encoder_hidden_states,)
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
-
             down_block_res_samples += res_samples
-
         # skip connectionにControlNetの出力を追加する
         if down_block_additional_residuals is not None:
             down_block_res_samples = list(down_block_res_samples)
             for i in range(len(down_block_res_samples)):
                 down_block_res_samples[i] += down_block_additional_residuals[i]
             down_block_res_samples = tuple(down_block_res_samples)
-
         # 4. mid
-        sample = self.mid_block(sample, emb, encoder_hidden_states=encoder_hidden_states)
-
+        sample = self.mid_block(sample,
+                                emb,
+                                encoder_hidden_states=encoder_hidden_states)
         # ControlNetの出力を追加する
         if mid_block_additional_residual is not None:
             sample += mid_block_additional_residual
-
+        #print(f'after mid block, down_block_res_samples : {len(down_block_res_samples)}')
         # 5. up
+        #print(f'right before start of upblock, len of down_block_res_samples (12) : {len(down_block_res_samples)}')
         for i, upsample_block in enumerate(self.up_blocks):
             is_final_block = i == len(self.up_blocks) - 1
-
+            #print(f'{i} down_block_res_samples : {len(down_block_res_samples)}')
             res_samples = down_block_res_samples[-len(upsample_block.resnets) :]
             down_block_res_samples = down_block_res_samples[: -len(upsample_block.resnets)]  # skip connection
-
-            # if we have not reached the final block and need to forward the upsample size, we do it here
-            # 前述のように最後のブロック以外ではupsample_sizeを伝える
             if not is_final_block and forward_upsample_size:
                 upsample_size = down_block_res_samples[-1].shape[2:]
 
             if upsample_block.has_cross_attention:
-                sample = upsample_block(
-                    hidden_states=sample,
-                    temb=emb,
-                    res_hidden_states_tuple=res_samples,
-                    encoder_hidden_states=encoder_hidden_states,
-                    upsample_size=upsample_size,
-                )
+                sample = upsample_block(hidden_states=sample,
+                                        temb=emb,
+                                        res_hidden_states_tuple=res_samples,
+                                        encoder_hidden_states=encoder_hidden_states, # text information
+                                        upsample_size=upsample_size,)                #
             else:
-                sample = upsample_block(
-                    hidden_states=sample, temb=emb, res_hidden_states_tuple=res_samples, upsample_size=upsample_size
-                )
-
+                sample = upsample_block(hidden_states=sample,
+                                        temb=emb,
+                                        res_hidden_states_tuple=res_samples,
+                                        upsample_size=upsample_size)
         # 6. post-process
         sample = self.conv_norm_out(sample)
         sample = self.conv_act(sample)

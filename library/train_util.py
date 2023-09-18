@@ -1037,13 +1037,12 @@ class BaseDataset(torch.utils.data.Dataset):
         return self._length
 
     def __getitem__(self, index):
+
         bucket = self.bucket_manager.buckets[self.buckets_indices[index].bucket_index]
         bucket_batch_size = self.buckets_indices[index].bucket_batch_size
         image_index = self.buckets_indices[index].batch_index * bucket_batch_size
-
         if self.caching_mode is not None:  # return batch for latents/text encoder outputs caching
             return self.get_item_for_caching(bucket, bucket_batch_size, image_index)
-
         loss_weights = []
         captions = []
         input_ids_list = []
@@ -1057,12 +1056,21 @@ class BaseDataset(torch.utils.data.Dataset):
         text_encoder_outputs1_list = []
         text_encoder_outputs2_list = []
         text_encoder_pool2_list = []
-
+        absolute_paths = []
+        mask_dirs = []
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
+            absolute_path = image_info.absolute_path
+            absolute_paths.append(absolute_path)
+
+            parent, dir = os.path.split(absolute_path)
+            name, ext = os.path.splitext(dir)
+            mask_base_dir = r'/data7/sooyeon/MyData/haibara_mask'
+            mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
+            mask_dirs.append(mask_dir)
+
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
-
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
 
             # image/latentsを処理する
@@ -1073,25 +1081,23 @@ class BaseDataset(torch.utils.data.Dataset):
                     latents = image_info.latents
                 else:
                     latents = image_info.latents_flipped
-
                 image = None
+
             elif image_info.latents_npz is not None:  # FineTuningDatasetまたはcache_latents_to_disk=Trueの場合
                 latents, original_size, crop_ltrb, flipped_latents = load_latents_from_disk(image_info.latents_npz)
                 if flipped:
                     latents = flipped_latents
                     del flipped_latents
                 latents = torch.FloatTensor(latents)
-
                 image = None
+
             else:
                 # 画像を読み込み、必要ならcropする
                 img, face_cx, face_cy, face_w, face_h = self.load_image_with_face_info(subset, image_info.absolute_path)
                 im_h, im_w = img.shape[0:2]
 
                 if self.enable_bucket:
-                    img, original_size, crop_ltrb = trim_and_resize_if_required(
-                        subset.random_crop, img, image_info.bucket_reso, image_info.resized_size
-                    )
+                    img, original_size, crop_ltrb = trim_and_resize_if_required(subset.random_crop, img, image_info.bucket_reso, image_info.resized_size)
                 else:
                     if face_cx > 0:  # 顔位置情報あり
                         img = self.crop_target(subset, img, face_cx, face_cy, face_w, face_h)
@@ -1124,18 +1130,14 @@ class BaseDataset(torch.utils.data.Dataset):
 
                 latents = None
                 image = self.image_transforms(img)  # -1.0~1.0のtorch.Tensorになる
-
             images.append(image)
             latents_list.append(latents)
-
             target_size = (image.shape[2], image.shape[1]) if image is not None else (latents.shape[2] * 8, latents.shape[1] * 8)
-
             if not flipped:
                 crop_left_top = (crop_ltrb[0], crop_ltrb[1])
             else:
                 # crop_ltrb[2] is right, so target_size[0] - crop_ltrb[2] is left in flipped image
                 crop_left_top = (target_size[0] - crop_ltrb[2], crop_ltrb[1])
-
             original_sizes_hw.append((int(original_size[1]), int(original_size[0])))
             crop_top_lefts.append((int(crop_left_top[1]), int(crop_left_top[0])))
             target_sizes_hw.append((int(target_size[1]), int(target_size[0])))
@@ -1184,6 +1186,8 @@ class BaseDataset(torch.utils.data.Dataset):
                         input_ids2_list.append(token_caption2)
 
         example = {}
+        example["absolute_paths"] = absolute_paths
+        example["mask_dirs"] = mask_dirs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
 
         if len(text_encoder_outputs1_list) == 0:
@@ -1218,15 +1222,12 @@ class BaseDataset(torch.utils.data.Dataset):
         else:
             images = None
         example["images"] = images
-
         example["latents"] = torch.stack(latents_list) if latents_list[0] is not None else None
         example["captions"] = captions
-
         example["original_sizes_hw"] = torch.stack([torch.LongTensor(x) for x in original_sizes_hw])
         example["crop_top_lefts"] = torch.stack([torch.LongTensor(x) for x in crop_top_lefts])
         example["target_sizes_hw"] = torch.stack([torch.LongTensor(x) for x in target_sizes_hw])
         example["flippeds"] = flippeds
-
         if self.debug_dataset:
             example["image_keys"] = bucket[image_index : image_index + self.batch_size]
         return example
@@ -1449,7 +1450,6 @@ class DreamBoothDataset(BaseDataset):
         if num_reg_images == 0:
             print("no regularization images / 正則化画像が見つかりませんでした")
         else:
-            # num_repeatsを計算する：どうせ大した数ではないのでループで処理する
             n = 0
             first_loop = True
             while n < num_train_images:
@@ -1463,7 +1463,6 @@ class DreamBoothDataset(BaseDataset):
                     if n >= num_train_images:
                         break
                 first_loop = False
-
         self.num_reg_images = num_reg_images
 
 
@@ -1959,15 +1958,12 @@ def save_latents_to_disk(npz_path, latents_tensor, original_size, crop_ltrb, fli
 def debug_dataset(train_dataset, show_input_ids=False):
     print(f"Total dataset length (steps) / データセットの長さ（ステップ数）: {len(train_dataset)}")
     print("`S` for next step, `E` for next epoch no. , Escape for exit. / Sキーで次のステップ、Eキーで次のエポック、Escキーで中断、終了します")
-
     epoch = 1
     while True:
         print(f"\nepoch: {epoch}")
-
         steps = (epoch - 1) * len(train_dataset) + 1
         indices = list(range(len(train_dataset)))
         random.shuffle(indices)
-
         k = 0
         for i, idx in enumerate(indices):
             train_dataset.set_current_epoch(epoch)
@@ -3655,10 +3651,10 @@ def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
 
     if name == SchedulerType.CONSTANT:
         return wrap_check_needless_num_warmup_steps(schedule_func(optimizer, **lr_scheduler_kwargs))
-
+    """
     if name == SchedulerType.PIECEWISE_CONSTANT:
         return schedule_func(optimizer, **lr_scheduler_kwargs)  # step_rules and last_epoch are given as kwargs
-
+    """
     # All other schedulers require `num_warmup_steps`
     if num_warmup_steps is None:
         raise ValueError(f"{name} requires `num_warmup_steps`, please provide that argument.")
@@ -4390,7 +4386,7 @@ def sample_images_common(
     unet,
     prompt_replacement=None,
     controlnet=None,
-):
+    attention_storer=None,):
     """
     StableDiffusionLongPromptWeightingPipelineの改造版を使うようにしたので、clip skipおよびプロンプトの重みづけに対応した
     """
@@ -4403,20 +4399,12 @@ def sample_images_common(
     else:
         if steps % args.sample_every_n_steps != 0 or epoch is not None:  # steps is not divisible or end of epoch
             return
-
     print(f"\ngenerating sample images at step / サンプル画像生成 ステップ: {steps}")
     if not os.path.isfile(args.sample_prompts):
         print(f"No prompt file / プロンプトファイルがありません: {args.sample_prompts}")
         return
-
     org_vae_device = vae.device  # CPUにいるはず
     vae.to(device)
-
-    # read prompts
-
-    # with open(args.sample_prompts, "rt", encoding="utf-8") as f:
-    #     prompts = f.readlines()
-
     if args.sample_prompts.endswith(".txt"):
         with open(args.sample_prompts, "r", encoding="utf-8") as f:
             lines = f.readlines()
@@ -4459,45 +4447,34 @@ def sample_images_common(
 
     if args.v_parameterization:
         sched_init_args["prediction_type"] = "v_prediction"
-
     scheduler = scheduler_cls(
         num_train_timesteps=SCHEDULER_TIMESTEPS,
         beta_start=SCHEDULER_LINEAR_START,
         beta_end=SCHEDULER_LINEAR_END,
         beta_schedule=SCHEDLER_SCHEDULE,
-        **sched_init_args,
-    )
-
+        **sched_init_args,)
     # clip_sample=Trueにする
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
-        # print("set clip_sample to True")
         scheduler.config.clip_sample = True
 
-    pipeline = pipe_class(
-        text_encoder=text_encoder,
-        vae=vae,
-        unet=unet,
-        tokenizer=tokenizer,
-        scheduler=scheduler,
-        safety_checker=None,
-        feature_extractor=None,
-        requires_safety_checker=False,
-        clip_skip=args.clip_skip,
-    )
+    pipeline = pipe_class(text_encoder=text_encoder,
+                            vae=vae,
+                            unet=unet,
+                            tokenizer=tokenizer,
+                            scheduler=scheduler,
+                            safety_checker=None,
+                            feature_extractor=None,
+                            requires_safety_checker=False,
+                            clip_skip=args.clip_skip,)
     pipeline.to(device)
-
     save_dir = args.output_dir + "/sample"
     os.makedirs(save_dir, exist_ok=True)
-
     rng_state = torch.get_rng_state()
     cuda_rng_state = torch.cuda.get_rng_state() if torch.cuda.is_available() else None
-
     with torch.no_grad():
-        # with accelerator.autocast():
         for i, prompt in enumerate(prompts):
             if not accelerator.is_main_process:
                 continue
-
             if isinstance(prompt, dict):
                 negative_prompt = prompt.get("negative_prompt")
                 sample_steps = prompt.get("sample_steps", 30)
@@ -4508,14 +4485,9 @@ def sample_images_common(
                 controlnet_image = prompt.get("controlnet_image")
                 prompt = prompt.get("prompt")
             else:
-                # prompt = prompt.strip()
-                # if len(prompt) == 0 or prompt[0] == "#":
-                #     continue
-
-                # subset of gen_img_diffusers
                 prompt_args = prompt.split(" --")
                 prompt = prompt_args[0]
-                negative_prompt = None
+                negative_prompt = None #args.negative_prompt
                 sample_steps = 30
                 width = height = 512
                 scale = 7.5
@@ -4561,20 +4533,16 @@ def sample_images_common(
                     except ValueError as ex:
                         print(f"Exception in parsing / 解析エラー: {parg}")
                         print(ex)
-
             if seed is not None:
                 torch.manual_seed(seed)
                 torch.cuda.manual_seed(seed)
-
             if prompt_replacement is not None:
                 prompt = prompt.replace(prompt_replacement[0], prompt_replacement[1])
                 if negative_prompt is not None:
                     negative_prompt = negative_prompt.replace(prompt_replacement[0], prompt_replacement[1])
-
             if controlnet_image is not None:
                 controlnet_image = Image.open(controlnet_image).convert("RGB")
                 controlnet_image = controlnet_image.resize((width, height), Image.LANCZOS)
-
             height = max(64, height - height % 8)  # round to divisible by 8
             width = max(64, width - width % 8)  # round to divisible by 8
             print(f"prompt: {prompt}")
@@ -4592,20 +4560,22 @@ def sample_images_common(
                     guidance_scale=scale,
                     negative_prompt=negative_prompt,
                     controlnet=controlnet,
-                    controlnet_image=controlnet_image,
-                )
-
+                    controlnet_image=controlnet_image,)
             image = pipeline.latents_to_image(latents)[0]
+            if attention_storer :
+                attention_storer.reset()
 
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
             num_suffix = f"e{epoch:06d}" if epoch is not None else f"{steps:06d}"
             seed_suffix = "" if seed is None else f"_{seed}"
             img_filename = (
-                f"{'' if args.output_name is None else args.output_name + '_'}{ts_str}_{num_suffix}_{i:02d}{seed_suffix}.png"
-            )
-
-            image.save(os.path.join(save_dir, img_filename))
-
+                f"{'' if args.output_name is None else args.output_name + '_'}{ts_str}_{num_suffix}_{i:02d}{seed_suffix}.png")
+            name, ext = os.path.splitext(img_filename)
+            img_dir = os.path.join(save_dir, img_filename)
+            txt_dir = os.path.join(save_dir, f'{name}.txt')
+            image.save(img_dir)
+            with open(txt_dir, 'w') as f:
+                f.write(prompt)
             # wandb有効時のみログを送信
             try:
                 wandb_tracker = accelerator.get_tracker("wandb")
