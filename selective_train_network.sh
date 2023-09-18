@@ -1,0 +1,23 @@
+accelerate launch --config_file gpu_3_4_config selective_train_network.py \
+                        --pretrained_model_name_or_path pretrained/animefull-final-pruned-fp16.safetensors \
+                        --train_data_dir /data7/sooyeon/MyData/haibara \
+                        --shuffle_caption \
+                        --caption_extension ".txt" \
+                        --random_crop \
+                        --resolution "768,768" \
+                        --enable_bucket --bucket_no_upscale \
+                        --output_dir ./training/model_common_lora_haibara_without_conv_alpha_4_selective_test \
+                        --output_name agnes_tachyon_seal \
+                        --mixed_precision fp16 --save_precision fp16 --full_fp16 \
+                        --save_every_n_epochs 1 --train_batch_size 4 --max_token_length 225 --xformers \
+                        --max_train_steps 2880 \
+                        --persistent_data_loader_workers \
+                        --seed 42 \
+                        --gradient_checkpointing \
+                        --logging_dir ./training/logs \
+                        --noise_offset 0.0357 --optimizer_type AdamW --learning_rate 0.0003 \
+                        --lr_scheduler cosine_with_restarts \
+                        --sample_prompts test/test_haibara.txt \
+                        --network_module networks.lora \
+                        --sample_every_n_epochs 1 --wandb_init_name haiba_test \
+                        --lr_warmup_steps 144 --unet_lr 0.00005 --text_encoder_lr 0.000025 --network_dim 320 --network_alpha 4.0

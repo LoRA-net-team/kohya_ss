@@ -3607,9 +3607,9 @@ def get_optimizer(args, trainable_params):
 
 
 def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
-    """
-    Unified API to get any scheduler from its name.
-    """
+    
+    #Unified API to get any scheduler from its name.
+    
     name = args.lr_scheduler
     num_warmup_steps: Optional[int] = args.lr_warmup_steps
     num_training_steps = args.max_train_steps * num_processes  # * args.gradient_accumulation_steps
@@ -3655,10 +3655,10 @@ def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
 
     if name == SchedulerType.CONSTANT:
         return wrap_check_needless_num_warmup_steps(schedule_func(optimizer, **lr_scheduler_kwargs))
-
+    """
     if name == SchedulerType.PIECEWISE_CONSTANT:
         return schedule_func(optimizer, **lr_scheduler_kwargs)  # step_rules and last_epoch are given as kwargs
-
+    """
     # All other schedulers require `num_warmup_steps`
     if num_warmup_steps is None:
         raise ValueError(f"{name} requires `num_warmup_steps`, please provide that argument.")
@@ -4465,6 +4465,7 @@ def sample_images_common(
         beta_start=SCHEDULER_LINEAR_START,
         beta_end=SCHEDULER_LINEAR_END,
         beta_schedule=SCHEDLER_SCHEDULE,
+        steps_offset=1,
         **sched_init_args,
     )
 
@@ -4613,15 +4614,8 @@ def sample_images_common(
                     import wandb
                 except ImportError:  # 事前に一度確認するのでここはエラー出ないはず
                     raise ImportError("No wandb / wandb がインストールされていないようです")
-                # log generation information to wandb
-                logging_caption_key = f"prompt : {prompt} seed: {str(seed)}"
-                # remove invalid characters from the caption for filenames
-                logging_caption_key = re.sub(r"[^a-zA-Z0-9_\-. ]+", "", logging_caption_key)
-                wandb_tracker.log(
-                    {
-                        logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),
-                    }
-                )
+
+                wandb_tracker.log({f"sample_{i}": wandb.Image(image)})
             except:  # wandb 無効時
                 pass
 

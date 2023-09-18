@@ -33,7 +33,9 @@ from library.custom_train_functions import (
     scale_v_prediction_loss_like_noise_prediction,
     add_v_prediction_like_loss,
 )
+from setproctitle import *
 
+setproctitle('parksooyeon')
 
 def generate_step_logs(args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
                        keys_scaled=None, mean_norm=None, maximum_norm=None, task_loss=None, reg_loss=None, ):
@@ -793,7 +795,6 @@ def train(args):
                 task_loss_dict[global_step] = loss.item()
                 # ----------------------------------------------------------------------------------------------------------------
                 # reg loss
-
                 org_means, org_stds = [], []
                 new_means, new_stds = [], []
                 layer_dict = get_weight(network)
@@ -814,7 +815,11 @@ def train(args):
                 new_stds = torch.stack(new_stds)
                 reg_loss = torch.mean((org_means - new_means) ** 2) + torch.mean((org_stds - new_stds) ** 2)
                 reg_loss_dict[global_step] = reg_loss.item()
-                loss = loss * (1-args.reg_loss_weight) + reg_loss * args.reg_loss_weight
+
+
+
+                #loss = loss * (1-args.reg_loss_weight) + reg_loss * args.reg_loss_weight
+                loss = loss + reg_loss * args.reg_loss_weight
                 total_loss_dict[global_step] = loss.item()
                 accelerator.backward(loss)
                 if accelerator.sync_gradients and args.max_grad_norm != 0.0:
