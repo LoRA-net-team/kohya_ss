@@ -396,7 +396,7 @@ class NetworkTrainer:
                 unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                     unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler
                 )
-                text_encoder = text_encoders = [t_enc1, t_enc2 ]
+                text_encoder = text_encoders = [t_enc1, t_enc2]
                 del t_enc1, t_enc2
             else:
                 unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
