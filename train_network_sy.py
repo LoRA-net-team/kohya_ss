@@ -1030,6 +1030,79 @@ class NetworkTrainer:
                         param_dict = {"lr": lr, "params": param}
                         all_params.append(param_dict)
                 optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
+                # 実験的機能：勾配も含めたfp16/bf16学習を行う　モデル全体をfp16/bf16にする
+                if args.full_fp16:
+                    assert (args.mixed_precision == "fp16"
+                    ), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
+                    accelerator.print("enable full fp16 training.")
+                    network.to(weight_dtype)
+                elif args.full_bf16:
+                    assert (args.mixed_precision == "bf16"
+                    ), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
+                    accelerator.print("enable full bf16 training.")
+                    network.to(weight_dtype)
+                unet.requires_grad_(False)
+                unet.to(dtype=weight_dtype)
+                for t_enc in text_encoders:
+                    t_enc.requires_grad_(False)
+                # acceleratorがなんかよろしくやってくれるらしい
+                # TODO めちゃくちゃ冗長なのでコードを整理する
+                if train_unet and train_text_encoder:
+                    if len(text_encoders) > 1:
+                        unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                            unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler
+                        )
+                        text_encoder = text_encoders = [t_enc1, t_enc2]
+                        del t_enc1, t_enc2
+                    else:
+                        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler
+                        )
+                        text_encoders = [text_encoder]
+                elif train_unet:
+                    unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                        unet, network, optimizer, train_dataloader, lr_scheduler
+                    )
+                elif train_text_encoder:
+                    if len(text_encoders) > 1:
+                        t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                            text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler
+                        )
+                        text_encoder = text_encoders = [t_enc1, t_enc2]
+                        del t_enc1, t_enc2
+                    else:
+                        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                            text_encoder, network, optimizer, train_dataloader, lr_scheduler
+                        )
+                        text_encoders = [text_encoder]
+                    unet.to(accelerator.device,
+                            dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+                else:
+                    network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                        network, optimizer, train_dataloader, lr_scheduler
+                    )
+
+                # transform DDP after prepare (train_network here only)
+                text_encoders = train_util.transform_models_if_DDP(text_encoders)
+                unet, network = train_util.transform_models_if_DDP([unet, network])
+
+                if args.gradient_checkpointing:
+                    unet.train()
+                    for t_enc in text_encoders:
+                        t_enc.train()
+                        t_enc.text_model.embeddings.requires_grad_(True)
+                else:
+                    unet.eval()
+                    for t_enc in text_encoders:
+                        t_enc.eval()
+                del t_enc
+                network.prepare_grad_etc(text_encoder, unet)
+                if not cache_latents:  # キャッシュしない場合はVAEを使うのでVAEを準備する
+                    vae.requires_grad_(False)
+                    vae.eval()
+                    vae.to(accelerator.device, dtype=vae_dtype)
+
+
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
 
