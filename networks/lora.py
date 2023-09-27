@@ -106,11 +106,6 @@ class LoRAModule(torch.nn.Module):
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
 
-        if org_module.__class__.__name__ == "Conv2d":
-            self.layer_norm = torch.nn.GroupNorm(2,out_dim)
-        else :
-            self.layer_norm = torch.nn.LayerNorm(out_dim)
-
 
     def apply_to(self):
         self.org_forward = self.org_module.forward
@@ -146,7 +141,6 @@ class LoRAModule(torch.nn.Module):
         else:
             scale = self.scale
         lx = self.lora_up(lx)
-        lx = self.layer_norm(lx)
         return org_forwarded + lx * self.multiplier * scale
 
 
