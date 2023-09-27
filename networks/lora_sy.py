@@ -1253,6 +1253,7 @@ class LoRANetwork(torch.nn.Module):
 
     def add_layers(self, unet, trg_res):
         self.param_add = False
+        print(f'trg_res : {trg_res}')
         def add_extra_modules(unet_loras,
                               trg_blocks,
                               root_module: torch.nn.Module,

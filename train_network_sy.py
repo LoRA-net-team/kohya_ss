@@ -781,7 +781,7 @@ class NetworkTrainer:
                     all_params.append(param_dict)
             optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
             print(f'len of all_params : {len(all_params)}')
-            
+
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
