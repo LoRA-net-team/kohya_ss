@@ -105,6 +105,7 @@ class LoRAModule(torch.nn.Module):
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
+        self.layer_norm = torch.nn.LayerNorm(out_dim)
 
     def apply_to(self):
         self.org_forward = self.org_module.forward
@@ -141,7 +142,7 @@ class LoRAModule(torch.nn.Module):
             scale = self.scale
 
         lx = self.lora_up(lx)
-
+        lx = self.layer_norm(lx)
         return org_forwarded + lx * self.multiplier * scale
 
 
