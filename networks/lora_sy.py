@@ -1283,6 +1283,7 @@ class LoRANetwork(torch.nn.Module):
                                     skipped.append(lora_name)
                                 continue
                                 for i, trg_block in enumerate(trg_blocks) :
+                                    print(f'trg_block : {trg_block}')
                                     if trg_block in lora_name and lora_name not in self.names :
                                         print(f'add {lora_name}')
                                         lora = module_class(lora_name,
@@ -1299,6 +1300,7 @@ class LoRANetwork(torch.nn.Module):
             return unet_loras, skipped
 
         trg_blocks = block_res_dict[trg_res]
+        print(f'trg_blocks : {trg_blocks}')
         target_replace_modules = self.UNET_TARGET_REPLACE_MODULE
         self.unet_loras, _ = add_extra_modules(self.unet_loras,
                                                trg_blocks,
