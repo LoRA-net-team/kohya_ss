@@ -828,6 +828,7 @@ class NetworkTrainer:
                             for key in standard_dict.keys() :
                                 spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
                                 spot_name = spot_name.replace('.','_')
+                                """
                                 file_name = os.path.join(f'layerwise_collections',f'{spot_name}.txt')
                                 with open(file_name,'r') as f :
                                     content = f.readlines()
@@ -841,7 +842,7 @@ class NetworkTrainer:
                                         optimal_norm = standard_dict[key] * scaling_factor
                                         if optimal_norm > 0 :
                                             param_dict['params'][0].data = param_dict['params'][0].data * (optimal_norm/original_norm)
-
+                                """
                                 
                                 if key in layer_name :
                                     block_name = layer_name.split(key)[0]
