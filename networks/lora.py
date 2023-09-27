@@ -105,7 +105,11 @@ class LoRAModule(torch.nn.Module):
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
-        self.layer_norm = torch.nn.LayerNorm(out_dim)
+
+        if org_module.__class__.__name__ == "Conv2d":
+            self.layer_norm = torch.nn.GroupNorm(2,out_dim)
+        else :
+            self.layer_norm = torch.nn.LayerNorm(out_dim)
 
 
     def apply_to(self):
