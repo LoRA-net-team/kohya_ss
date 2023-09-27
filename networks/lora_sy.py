@@ -1279,7 +1279,7 @@ class LoRANetwork(torch.nn.Module):
                                 dim = self.conv_lora_dim
                                 alpha = self.conv_alpha
                             if dim is None or dim == 0:
-                                if is_linear or is_conv2d_1x1 or (self.conv_lora_dim is not None or conv_block_dims is not None):
+                                if is_linear or is_conv2d_1x1 or (self.conv_lora_dim is not None):
                                     skipped.append(lora_name)
                                 continue
                             for i, trg_block in enumerate(trg_blocks)  :
@@ -1291,10 +1291,7 @@ class LoRANetwork(torch.nn.Module):
                                                         child_module,
                                                         self.multiplier,
                                                         dim,
-                                                        alpha,
-                                                        dropout=dropout,
-                                                        rank_dropout=rank_dropout,
-                                                        module_dropout=module_dropout,)
+                                                        alpha)
                                     unet_loras.append(lora)
                                     self.names.add(lora_name)
                                     self.param_add = True
