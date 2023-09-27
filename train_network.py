@@ -303,7 +303,8 @@ class NetworkTrainer:
             for unet_lora in unet_loras :
                 lora_name = unet_lora.lora_name
                 org_forward = unet_lora.org_forward
-                print(f'{lora_name}: {org_forward}')
+                lora_up = unet_lora.lora_up
+                print(f'{lora_name}: {org_forward} | lora_up : {lora_up}')
 
 
 
