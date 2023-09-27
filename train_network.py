@@ -306,9 +306,6 @@ class NetworkTrainer:
                 print(f'{lora_name}: {org_forward.shape}')
 
 
-
-
-        """ 
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -1009,7 +1006,7 @@ class NetworkTrainer:
             loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
             with open(loss_save_dir, 'wb') as fw:
                 pickle.dump(loss_dict, fw)
-        """
+
 
 
 def setup_parser() -> argparse.ArgumentParser:
