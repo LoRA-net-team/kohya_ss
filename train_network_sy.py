@@ -1013,7 +1013,15 @@ class NetworkTrainer:
             res = res / 2
             if res > 4 :
                 network.add_layers(unet, int(res))
-                trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+                try:
+                    trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
+                                                                        unet_lr=args.unet_lr,
+                                                                        default_lr=args.learning_rate)
+
+                except TypeError:
+                    accelerator.print(
+                        "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
+                    trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
                 all_params = []
                 for trainable_param in trainable_params:
                     lr = trainable_param["lr"]
