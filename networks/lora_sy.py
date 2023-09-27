@@ -1282,22 +1282,22 @@ class LoRANetwork(torch.nn.Module):
                                 if is_linear or is_conv2d_1x1 or (self.conv_lora_dim is not None or conv_block_dims is not None):
                                     skipped.append(lora_name)
                                 continue
-                                for i, trg_block in enumerate(trg_blocks)  :
-                                    print(f'trg_block : {trg_block}')
-                                    if trg_block in lora_name :
-                                        #if and lora_name not in self.names :
-                                        print(f'add {lora_name}')
-                                        lora = module_class(lora_name,
-                                                            child_module,
-                                                            self.multiplier,
-                                                            dim,
-                                                            alpha,
-                                                            dropout=dropout,
-                                                            rank_dropout=rank_dropout,
-                                                            module_dropout=module_dropout,)
-                                        unet_loras.append(lora)
-                                        self.names.add(lora_name)
-                                        self.param_add = True
+                            for i, trg_block in enumerate(trg_blocks)  :
+                                print(f'trg_block : {trg_block}')
+                                if trg_block in lora_name :
+                                    #if and lora_name not in self.names :
+                                    print(f'add {lora_name}')
+                                    lora = module_class(lora_name,
+                                                        child_module,
+                                                        self.multiplier,
+                                                        dim,
+                                                        alpha,
+                                                        dropout=dropout,
+                                                        rank_dropout=rank_dropout,
+                                                        module_dropout=module_dropout,)
+                                    unet_loras.append(lora)
+                                    self.names.add(lora_name)
+                                    self.param_add = True
             return unet_loras, skipped
 
         trg_blocks = block_res_dict[trg_res]
