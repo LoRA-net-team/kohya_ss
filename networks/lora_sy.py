@@ -1284,6 +1284,7 @@ class LoRANetwork(torch.nn.Module):
                                 continue
                                 for i, trg_block in enumerate(trg_blocks) :
                                     print(f'trg_block : {trg_block}')
+                                    print(f'lora_name : {lora_name}')
                                     if trg_block in lora_name and lora_name not in self.names :
                                         print(f'add {lora_name}')
                                         lora = module_class(lora_name,
