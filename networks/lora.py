@@ -105,7 +105,7 @@ class LoRAModule(torch.nn.Module):
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
-        self.layer_norm = torch.nn.LayerNorm(net_dim)
+        self.layer_norm = torch.nn.LayerNorm(lora_dim)
 
     def apply_to(self):
         self.org_forward = self.org_module.forward
