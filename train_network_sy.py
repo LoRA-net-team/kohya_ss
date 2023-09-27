@@ -758,30 +758,6 @@ class NetworkTrainer:
             gradient_dict = {}
             loss_dict = {}
         res = 64
-        # ------------------------------------------------------------------------------------------------------- #
-        res = res / 2
-        if res > 4:
-            print(f'res : {res}')
-            network.add_layers(unet, int(res))
-            try:
-                trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
-                                                                    unet_lr=args.unet_lr,
-                                                                    default_lr=args.learning_rate)
-
-            except TypeError:
-                accelerator.print(
-                    "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
-                trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-            all_params = []
-            for trainable_param in trainable_params:
-                lr = trainable_param["lr"]
-                params = trainable_param["params"]
-                for param in params:
-                    param_dict = {"lr": lr, "params": param}
-                    all_params.append(param_dict)
-            optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
-            print(f'len of all_params : {len(all_params)}')
-
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
@@ -1033,11 +1009,9 @@ class NetworkTrainer:
 
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
                                text_encoder, unet)
-
             # ------------------------------------------------------------------------------------------------------- #
             res = res / 2
             if res > 4 :
-                print(f'res : {res}')
                 network.add_layers(unet, int(res))
                 try:
                     trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
@@ -1056,11 +1030,6 @@ class NetworkTrainer:
                         param_dict = {"lr": lr, "params": param}
                         all_params.append(param_dict)
                 optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
-                print(f'len of all_params : {len(all_params)}')
-
-
-
-
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
 
