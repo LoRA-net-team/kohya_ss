@@ -145,10 +145,7 @@ class LoRAModule(torch.nn.Module):
             scale = self.scale * (1.0 / (1.0 - self.rank_dropout))  # redundant for readability
         else:
             scale = self.scale
-
         lx = self.lora_up(lx)
-        print(f'lx : {lx.shape}')
-        print(f'self.layer_norm: {self.layer_norm}')
         lx = self.layer_norm(lx)
         return org_forwarded + lx * self.multiplier * scale
 
