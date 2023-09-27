@@ -310,13 +310,7 @@ class NetworkTrainer:
         train_unet = not args.network_train_text_encoder_only
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
-        if is_main_process:
-            unet_loras = network.unet_loras
-            for unet_lora in unet_loras:
-                lora_name = unet_lora.lora_name
-                org_forward = unet_lora.org_forward.weight.data
-                print(f'{lora_name}: {org_forward.shape}')
-
+        
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
