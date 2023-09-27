@@ -1270,8 +1270,6 @@ class LoRANetwork(torch.nn.Module):
                         if is_linear or is_conv2d:
                             lora_name = prefix + "." + name + "." + child_name
                             lora_name = lora_name.replace(".", "_")
-                            print(f'lora_name : {lora_name}')
-
                             dim = None
                             alpha = None
                             if is_linear or is_conv2d_1x1:
@@ -1286,7 +1284,8 @@ class LoRANetwork(torch.nn.Module):
                                 continue
                                 for i, trg_block in enumerate(trg_blocks) :
                                     print(f'trg_block : {trg_block}')
-                                    if trg_block in lora_name and lora_name not in self.names :
+                                    if trg_block in lora_name :
+                                        #if and lora_name not in self.names :
                                         print(f'add {lora_name}')
                                         lora = module_class(lora_name,
                                                             child_module,
