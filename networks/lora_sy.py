@@ -1256,6 +1256,7 @@ class LoRANetwork(torch.nn.Module):
         def add_extra_modules(unet_loras,
                               trg_blocks,
                               root_module: torch.nn.Module,
+                              module_class: torch.nn.Module,
                               target_replace_modules: List[torch.nn.Module],) -> List[LoRAModule]:
             prefix = self.LORA_PREFIX_UNET
             skipped = []
@@ -1300,5 +1301,6 @@ class LoRANetwork(torch.nn.Module):
         target_replace_modules = self.UNET_TARGET_REPLACE_MODULE
         self.unet_loras, _ = add_extra_modules(self.unet_loras,
                                                trg_blocks,
-                                               self.module_class,
-                                               target_replace_modules)
+                                               root_module = unet,
+                                               module_class=self.module_class,
+                                               target_replace_modules=target_replace_modules)
