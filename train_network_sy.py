@@ -493,6 +493,7 @@ class NetworkTrainer:
         accelerator.print(f"  gradient accumulation steps / 勾配を合計するステップ数 = {args.gradient_accumulation_steps}")
         accelerator.print(f"  total optimization steps / 学習ステップ数: {args.max_train_steps}")
 
+
         # TODO refactor metadata creation and move to util
         metadata = {
             "ss_session_id": session_id,  # random integer indicating which group of epochs the model came from
@@ -757,6 +758,30 @@ class NetworkTrainer:
             gradient_dict = {}
             loss_dict = {}
         res = 64
+        # ------------------------------------------------------------------------------------------------------- #
+        res = res / 2
+        if res > 4:
+            print(f'res : {res}')
+            network.add_layers(unet, int(res))
+            try:
+                trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
+                                                                    unet_lr=args.unet_lr,
+                                                                    default_lr=args.learning_rate)
+
+            except TypeError:
+                accelerator.print(
+                    "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
+                trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+            all_params = []
+            for trainable_param in trainable_params:
+                lr = trainable_param["lr"]
+                params = trainable_param["params"]
+                for param in params:
+                    param_dict = {"lr": lr, "params": param}
+                    all_params.append(param_dict)
+            optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
+            print(f'len of all_params : {len(all_params)}')
+            
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
