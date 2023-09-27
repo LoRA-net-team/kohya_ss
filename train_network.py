@@ -155,19 +155,12 @@ class NetworkTrainer:
                 user_config = config_util.load_user_config(args.dataset_config)
                 ignored = ["train_data_dir", "reg_data_dir", "in_json"]
                 if any(getattr(args, attr) is not None for attr in ignored):
-                    print(
-                        "ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(
-                            ", ".join(ignored)
-                        )
-                    )
+                    print("ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(", ".join(ignored)))
             else:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
-                    user_config = {
-                        "datasets": [
-                            {"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(
-                                    args.train_data_dir, args.reg_data_dir
-                                )}]}
+                    user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(
+                        args.train_data_dir, args.reg_data_dir)}]}
                 else:
                     print("Training with captions.")
                     user_config = {
@@ -308,11 +301,14 @@ class NetworkTrainer:
         if is_main_process:
             unet_loras = network.unet_loras
             for unet_lora in unet_loras :
-                print(f'loras: {unet_lora.lora_name}')
+                lora_name = unet_lora.lora_name
+                org_forward = unet_lora.org_forward.weight.data
+                print(f'{lora_name}: {org_forward.shape}')
 
 
 
 
+        """ 
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -828,7 +824,7 @@ class NetworkTrainer:
                             for key in standard_dict.keys() :
                                 spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
                                 spot_name = spot_name.replace('.','_')
-                                """
+                                
                                 file_name = os.path.join(f'layerwise_collections',f'{spot_name}.txt')
                                 with open(file_name,'r') as f :
                                     content = f.readlines()
@@ -842,7 +838,6 @@ class NetworkTrainer:
                                         optimal_norm = standard_dict[key] * scaling_factor
                                         if optimal_norm > 0 :
                                             param_dict['params'][0].data = param_dict['params'][0].data * (optimal_norm/original_norm)
-                                """
                                 
                                 if key in layer_name :
                                     block_name = layer_name.split(key)[0]
@@ -1014,7 +1009,7 @@ class NetworkTrainer:
             loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
             with open(loss_save_dir, 'wb') as fw:
                 pickle.dump(loss_dict, fw)
-
+        """
 
 
 def setup_parser() -> argparse.ArgumentParser:
