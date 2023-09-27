@@ -761,11 +761,8 @@ class NetworkTrainer:
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-
             metadata["ss_epoch"] = str(epoch + 1)
-
             network.on_epoch_start(text_encoder, unet)
-
             for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
@@ -1029,6 +1026,7 @@ class NetworkTrainer:
                     for param in params:
                         param_dict = {"lr": lr, "params": param}
                         all_params.append(param_dict)
+                print(f'len of all_params : {len(all_params)}')
                 optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
                 # 実験的機能：勾配も含めたfp16/bf16学習を行う　モデル全体をfp16/bf16にする
                 if args.full_fp16:
