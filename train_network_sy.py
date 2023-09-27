@@ -356,6 +356,7 @@ class NetworkTrainer:
             for param in params:
                 param_dict = {"lr": lr, "params": param}
                 all_params.append(param_dict)
+        print(f'len of all_params : {len(all_params)}')
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
 
         # dataloaderを準備する
@@ -721,7 +722,347 @@ class NetworkTrainer:
         loss_total = 0.0
         del train_dataset_group
 
-        network.add_layers(unet, 32)
+        # callback for step start
+        if hasattr(network, "on_step_start"):
+            on_step_start = network.on_step_start
+        else:
+            on_step_start = lambda *args, **kwargs: None
+
+        # function for saving/removing
+        def save_model(ckpt_name, unwrapped_nw, steps, epoch_no, force_sync_upload=False):
+            os.makedirs(args.output_dir, exist_ok=True)
+            ckpt_file = os.path.join(args.output_dir, ckpt_name)
+
+            accelerator.print(f"\nsaving checkpoint: {ckpt_file}")
+            metadata["ss_training_finished_at"] = str(time.time())
+            metadata["ss_steps"] = str(steps)
+            metadata["ss_epoch"] = str(epoch_no)
+
+            metadata_to_save = minimum_metadata if args.no_metadata else metadata
+            sai_metadata = train_util.get_sai_model_spec(None, args, self.is_sdxl, True, False)
+            metadata_to_save.update(sai_metadata)
+
+            unwrapped_nw.save_weights(ckpt_file, save_dtype, metadata_to_save)
+            if args.huggingface_repo_id is not None:
+                huggingface_util.upload(args, ckpt_file, "/" + ckpt_name, force_sync_upload=force_sync_upload)
+
+        def remove_model(old_ckpt_name):
+            old_ckpt_file = os.path.join(args.output_dir, old_ckpt_name)
+            if os.path.exists(old_ckpt_file):
+                accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
+                os.remove(old_ckpt_file)
+
+        # training loop
+        if is_main_process:
+            gradient_dict = {}
+            loss_dict = {}
+        res = 64
+        for epoch in range(num_train_epochs):
+            accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
+            current_epoch.value = epoch + 1
+
+            metadata["ss_epoch"] = str(epoch + 1)
+
+            network.on_epoch_start(text_encoder, unet)
+
+            for step, batch in enumerate(train_dataloader):
+                current_step.value = global_step
+                with accelerator.accumulate(network):
+                    on_step_start(text_encoder, unet)
+                    with torch.no_grad():
+                        if "latents" in batch and batch["latents"] is not None:
+                            latents = batch["latents"].to(accelerator.device)
+                        else:
+                            latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
+                            if torch.any(torch.isnan(latents)):
+                                accelerator.print("NaN found in latents, replacing with zeros")
+                                latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
+                        latents = latents * self.vae_scale_factor
+                    b_size = latents.shape[0]
+                    with torch.set_grad_enabled(train_text_encoder):
+                        # Get the text embedding for conditioning
+                        if args.weighted_captions:
+                            text_encoder_conds = get_weighted_text_embeddings(
+                                tokenizer,
+                                text_encoder,
+                                batch["captions"],
+                                accelerator.device,
+                                args.max_token_length // 75 if args.max_token_length else 1,
+                                clip_skip=args.clip_skip,
+                            )
+                        else:
+                            text_encoder_conds = self.get_text_cond(
+                                args, accelerator, batch, tokenizers, text_encoders, weight_dtype
+                            )
+
+                    # Sample noise, sample a random timestep for each image, and add noise to the latents,
+                    # with noise offset and/or multires noise if specified
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(
+                        args, noise_scheduler, latents
+                    )
+
+                    # Predict the noise residual
+                    with accelerator.autocast():
+                        noise_pred = self.call_unet(
+                            args, accelerator, unet, noisy_latents, timesteps, text_encoder_conds, batch, weight_dtype
+                        )
+
+                    if args.v_parameterization:
+                        # v-parameterization training
+                        target = noise_scheduler.get_velocity(latents, noise, timesteps)
+                    else:
+                        target = noise
+                    loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                    loss = loss.mean([1, 2, 3])
+                    loss_weights = batch["loss_weights"]  # 各sampleごとのweight
+                    loss = loss * loss_weights
+                    if args.min_snr_gamma:
+                        loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.min_snr_gamma)
+                    if args.scale_v_pred_loss_like_noise_pred:
+                        loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
+                    if args.v_pred_like_loss:
+                        loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
+
+                    loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
+
+                    accelerator.backward(loss)
+                    if accelerator.sync_gradients and args.max_grad_norm != 0.0:
+                        params_to_clip = network.get_trainable_params()
+                        accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+
+                    i = 0
+                    standard_dict = {}
+                    for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
+                        if 'mid' in layer_name:
+                            net_name = layer_name.split('lora_unet_mid_block_attentions_0_')[1]
+                            standard_dict[net_name] = param_dict['params'][0].data.norm(2)
+
+                    wandb_logs = {}
+                    grad_norm_dict = {}
+                    for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
+                        if args.algorithm_test:
+                            for key in standard_dict.keys():
+                                spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
+                                spot_name = spot_name.replace('.', '_')
+                                """
+                                file_name = os.path.join(f'layerwise_collections',f'{spot_name}.txt')
+                                with open(file_name,'r') as f :
+                                    content = f.readlines()
+                                for line in content :
+                                    scaling_layer_name =  line.split(' : ')[0]
+                                    if layer_name == scaling_layer_name :
+                                        scale_factor = line.split(' : ')[-1]
+                                        scaling_factor = float(scale_factor.strip())
+                                        gradient = param_dict['params'][0].data
+                                        original_norm = param_dict['params'][0].data.norm(2)
+                                        optimal_norm = standard_dict[key] * scaling_factor
+                                        if optimal_norm > 0 :
+                                            param_dict['params'][0].data = param_dict['params'][0].data * (optimal_norm/original_norm)
+                                """
+                                if key in layer_name:
+                                    block_name = layer_name.split(key)[0]
+                                    if 'down_blocks_0' in layer_name:
+                                        gradient = param_dict['params'][0].data
+                                        original_norm = param_dict['params'][0].data.norm(2)
+                                        optimal_norm = standard_dict[key] * args.down_blocks_0_norm_weight
+                                        if optimal_norm > 0:
+                                            scaling_factor = optimal_norm / original_norm
+                                        else:
+                                            scaling_factor = 1
+                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
+                                    elif 'down_blocks_1' in layer_name:
+                                        original_norm = param_dict['params'][0].data.norm(2)
+                                        optimal_norm = standard_dict[key] * args.down_blocks_1_norm_weight
+                                        if optimal_norm > 0:
+                                            scaling_factor = optimal_norm / original_norm
+                                        else:
+                                            scaling_factor = 1
+                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
+                                    elif 'down_blocks_2' in layer_name:
+                                        original_norm = param_dict['params'][0].data.norm(2)
+                                        optimal_norm = standard_dict[key] * args.down_blocks_2_norm_weight
+                                        if optimal_norm > 0:
+                                            scaling_factor = optimal_norm / original_norm
+                                        else:
+                                            scaling_factor = 1
+                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
+                                    elif 'up_blocks_1' in layer_name:
+                                        original_norm = param_dict['params'][0].data.norm(2)
+                                        optimal_norm = standard_dict[key] * args.up_blocks_1_norm_weight
+                                        if optimal_norm > 0:
+                                            scaling_factor = optimal_norm / original_norm
+                                        else:
+                                            scaling_factor = 1
+                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
+                                    elif 'up_blocks_2' in layer_name:
+                                        original_norm = param_dict['params'][0].data.norm(2)
+                                        optimal_norm = standard_dict[key] * args.up_blocks_2_norm_weight
+                                        if optimal_norm > 0:
+                                            scaling_factor = optimal_norm / original_norm
+                                        else:
+                                            scaling_factor = 1
+                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
+                                    elif 'up_blocks_3' in layer_name:
+                                        original_norm = param_dict['params'][0].data.norm(2)
+                                        optimal_norm = standard_dict[key] * args.up_blocks_3_norm_weight
+                                        if optimal_norm > 0:
+                                            scaling_factor = optimal_norm / original_norm
+                                        else:
+                                            scaling_factor = 1
+                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
+
+                        if is_main_process:
+                            wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
+                            try:
+                                gradient_dict[layer_name].append(param_dict['params'][0].grad.data.norm(2).item())
+                            except:
+                                gradient_dict[layer_name] = []
+                                gradient_dict[layer_name].append(param_dict['params'][0].grad.data.norm(2).item())
+                    if is_main_process:
+                        wandb.log(wandb_logs, step=global_step)
+                    optimizer.step()
+                    lr_scheduler.step()
+                    optimizer.zero_grad(set_to_none=True)
+                if args.scale_weight_norms:
+                    keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(
+                        args.scale_weight_norms,
+                        accelerator.device)
+                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
+                else:
+                    keys_scaled, mean_norm, maximum_norm = None, None, None
+
+                # Checks if the accelerator has performed an optimization step behind the scenes
+                if accelerator.sync_gradients:
+                    progress_bar.update(1)
+                    global_step += 1
+                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer,
+                                       text_encoder, unet)
+
+                    # 指定ステップごとにモデルを保存
+                    if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
+                        accelerator.wait_for_everyone()
+                        if accelerator.is_main_process:
+                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
+                            save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
+
+                            if args.save_state:
+                                train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
+
+                            remove_step_no = train_util.get_remove_step_no(args, global_step)
+                            if remove_step_no is not None:
+                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,
+                                                                                 remove_step_no)
+                                remove_model(remove_ckpt_name)
+
+                current_loss = loss.detach().item()
+                if epoch == 0:
+                    loss_list.append(current_loss)
+                else:
+                    loss_total -= loss_list[step]
+                    loss_list[step] = current_loss
+
+                loss_total += current_loss
+                avr_loss = loss_total / len(loss_list)
+                if is_main_process:
+                    loss_dict[global_step] = avr_loss
+                logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
+                progress_bar.set_postfix(**logs)
+
+                if args.scale_weight_norms:
+                    progress_bar.set_postfix(**{**max_mean_logs, **logs})
+
+                if args.logging_dir is not None:
+                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm,
+                                                   maximum_norm)
+                    accelerator.log(logs, step=global_step)
+                    if is_main_process:
+                        wandb.log(logs, step=global_step)
+
+                if global_step >= args.max_train_steps:
+                    break
+
+            if args.logging_dir is not None:
+                logs = {"loss/epoch": loss_total / len(loss_list)}
+                accelerator.log(logs, step=epoch + 1)
+
+            accelerator.wait_for_everyone()
+
+            # 指定エポックごとにモデルを保存
+            if args.save_every_n_epochs is not None:
+                saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
+                if is_main_process and saving:
+                    ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
+                    if args.unwrap:
+                        save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
+                    else:
+                        save_model(ckpt_name, network, global_step, epoch + 1)
+
+                    remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
+                    if remove_epoch_no is not None:
+                        remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as,
+                                                                          remove_epoch_no)
+                        remove_model(remove_ckpt_name)
+
+                    if args.save_state:
+                        train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
+
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
+                               text_encoder, unet)
+
+            # ------------------------------------------------------------------------------------------------------- #
+            res = res / 2
+            if res > 4 :
+                network.add_layers(unet, int(res))
+                trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+                all_params = []
+                for trainable_param in trainable_params:
+                    lr = trainable_param["lr"]
+                    params = trainable_param["params"]
+                    for param in params:
+                        param_dict = {"lr": lr, "params": param}
+                        all_params.append(param_dict)
+                optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
+                print(f'len of all_params : {len(all_params)}')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # metadata["ss_epoch"] = str(num_train_epochs)
+        metadata["ss_training_finished_at"] = str(time.time())
+
+        if is_main_process:
+            network = accelerator.unwrap_model(network)
+        accelerator.end_training()
+        if is_main_process and args.save_state:
+            train_util.save_state_on_train_end(args, accelerator)
+        if is_main_process:
+            print("model saved.")
+            ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
+            save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
+
+            print("gradient recording")
+            gradient_save_dir = os.path.join(record_save_dir, "gradient_norm.pickle")
+            import pickle
+            with open(gradient_save_dir, 'wb') as fw:
+                pickle.dump(gradient_dict, fw)
+
+            print("loss recording")
+            loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
+            with open(loss_save_dir, 'wb') as fw:
+                pickle.dump(loss_dict, fw)
+
+
 
 
 def setup_parser() -> argparse.ArgumentParser:
