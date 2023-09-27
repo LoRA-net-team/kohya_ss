@@ -780,24 +780,17 @@ class NetworkTrainer:
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(
-                                tokenizer,
-                                text_encoder,
-                                batch["captions"],
-                                accelerator.device,
-                                args.max_token_length // 75 if args.max_token_length else 1,
-                                clip_skip=args.clip_skip,
-                            )
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,
+                                                                              text_encoder,
+                                                                              batch["captions"],
+                                                                              accelerator.device,
+                                                                              args.max_token_length // 75 if args.max_token_length else 1,
+                                                                              clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(
-                                args, accelerator, batch, tokenizers, text_encoders, weight_dtype
-                            )
-
+                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(
-                        args, noise_scheduler, latents
-                    )
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
 
                     # Predict the noise residual
                     with accelerator.autocast():
@@ -820,14 +813,11 @@ class NetworkTrainer:
                         loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
-
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-
                     i = 0
                     standard_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
@@ -935,7 +925,6 @@ class NetworkTrainer:
                     global_step += 1
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer,
                                        text_encoder, unet)
-
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
@@ -951,24 +940,20 @@ class NetworkTrainer:
                                 remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,
                                                                                  remove_step_no)
                                 remove_model(remove_ckpt_name)
-
                 current_loss = loss.detach().item()
                 if epoch == 0:
                     loss_list.append(current_loss)
                 else:
                     loss_total -= loss_list[step]
                     loss_list[step] = current_loss
-
                 loss_total += current_loss
                 avr_loss = loss_total / len(loss_list)
                 if is_main_process:
                     loss_dict[global_step] = avr_loss
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 progress_bar.set_postfix(**logs)
-
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
-
                 if args.logging_dir is not None:
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm,
                                                    maximum_norm)
@@ -1010,6 +995,7 @@ class NetworkTrainer:
             res = res / 2
             if res > 4 :
                 network.add_layers(unet, int(res))
+                network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
                 try:
                     trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
                                                                         unet_lr=args.unet_lr,
@@ -1062,7 +1048,6 @@ class NetworkTrainer:
                     unet.to(accelerator.device,dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
                 else:
                     network, optimizer = accelerator.prepare(network, optimizer)
-
                 # transform DDP after prepare (train_network here only)
                 text_encoders = train_util.transform_models_if_DDP(text_encoders)
                 unet, network = train_util.transform_models_if_DDP([unet, network])

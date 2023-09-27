@@ -815,6 +815,7 @@ class LoRANetwork(torch.nn.Module):
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
         self.module_class = module_class
+        self.lora_layers = []
         if modules_dim is not None:
             print(f"create LoRA network from weights")
         elif block_dims is not None:
@@ -972,15 +973,17 @@ class LoRANetwork(torch.nn.Module):
             print("enable LoRA for text encoder")
         else:
             self.text_encoder_loras = []
-
         if apply_unet:
             print("enable LoRA for U-Net")
         else:
             self.unet_loras = []
 
         for lora in self.text_encoder_loras + self.unet_loras:
-            lora.apply_to()
-            self.add_module(lora.lora_name, lora)
+            lora_name = lora.lora_name
+            if lora_name not in self.lora_layers :
+                lora.apply_to()
+                self.lora_layers.append(lora_name)
+                self.add_module(lora.lora_name, lora)
 
     # マージできるかどうかを返す
     def is_mergeable(self):
