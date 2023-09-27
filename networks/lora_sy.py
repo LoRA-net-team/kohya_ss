@@ -1252,7 +1252,7 @@ class LoRANetwork(torch.nn.Module):
         return keys_scaled, sum(norms) / len(norms), max(norms)
 
     def add_layers(self, unet, trg_res):
-
+        self.param_add = False
         def add_extra_modules(unet_loras,
                               trg_blocks,
                               root_module: torch.nn.Module,
@@ -1292,10 +1292,10 @@ class LoRANetwork(torch.nn.Module):
                                                             dropout=dropout,
                                                             rank_dropout=rank_dropout,
                                                             module_dropout=module_dropout,)
-
                                         unet_loras.append(lora)
                                         self.names.add(lora_name)
-            return loras, skipped
+                                        self.param_add = True
+            return unet_loras, skipped
 
         trg_blocks = block_res_dict[trg_res]
         target_replace_modules = self.UNET_TARGET_REPLACE_MODULE
