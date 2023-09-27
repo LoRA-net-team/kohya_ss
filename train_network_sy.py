@@ -1012,6 +1012,7 @@ class NetworkTrainer:
             # ------------------------------------------------------------------------------------------------------- #
             res = res / 2
             if res > 4 :
+                print(f'res : {res}')
                 network.add_layers(unet, int(res))
                 try:
                     trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
@@ -1031,17 +1032,6 @@ class NetworkTrainer:
                         all_params.append(param_dict)
                 optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
                 print(f'len of all_params : {len(all_params)}')
-
-
-
-
-
-
-
-
-
-
-
 
 
 
