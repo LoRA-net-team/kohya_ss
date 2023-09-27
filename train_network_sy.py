@@ -757,7 +757,7 @@ class NetworkTrainer:
         if is_main_process:
             gradient_dict = {}
             loss_dict = {}
-        res = 64
+        res = 8
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
@@ -992,8 +992,8 @@ class NetworkTrainer:
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
                                text_encoder, unet)
             # ------------------------------------------------------------------------------------------------------- #
-            res = res / 2
-            if res > 4 :
+            res = res * 2
+            if res < 65 :
                 network.add_layers(unet, int(res))
                 network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
                 try:
