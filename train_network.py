@@ -298,6 +298,8 @@ class NetworkTrainer:
         train_unet = not args.network_train_text_encoder_only
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
+
+        """
         if is_main_process:
             unet_loras = network.unet_loras
             for unet_lora in unet_loras :
@@ -305,11 +307,7 @@ class NetworkTrainer:
                 org_forward = unet_lora.org_forward
                 lora_up = unet_lora.lora_up
                 print(f'{lora_name}: {org_forward.weight} | lora_up : {lora_up}')
-
-
-
-
-        """ 
+        """
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -1010,7 +1008,7 @@ class NetworkTrainer:
             loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
             with open(loss_save_dir, 'wb') as fw:
                 pickle.dump(loss_dict, fw)
-        """
+
 
 
 def setup_parser() -> argparse.ArgumentParser:
