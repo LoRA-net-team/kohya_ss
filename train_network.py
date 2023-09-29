@@ -327,6 +327,13 @@ class NetworkTrainer:
         # 学習に必要なクラスを準備する
         accelerator.print("prepare optimizer, data loader etc.")
 
+        if is_main_process:
+            unet_loras = network.unet_loras
+            for unet_lora in unet_loras :
+                lora_name = unet_lora.lora_name
+                common_dim = unet_lora.common_dim
+                print(f'{lora_name} : common_dim : {common_dim}')
+        """
         if args.unet_blockwise_lr :
             network.set_block_lr_weight(up_lr_weight   = args.up_lr_weight, # 0 ~ 11
                                         mid_lr_weight  = args.mid_lr_weight,
@@ -1013,6 +1020,7 @@ class NetworkTrainer:
             loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
             with open(loss_save_dir, 'wb') as fw:
                 pickle.dump(loss_dict, fw)
+    """
 
 
 def setup_parser() -> argparse.ArgumentParser:
