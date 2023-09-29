@@ -101,14 +101,14 @@ class LoRAModule(torch.nn.Module):
             #self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
             self.lora_down = torch.nn.Conv2d(in_dim, down_dim, kernel_size, stride, padding, bias=False)
             self.lora_middle = torch.nn.Conv2d(down_dim, up_dim, (1, 1), (1, 1), bias=False)
-            self.up = torch.nn.Conv2d(up_dim, out_dim, (1, 1), (1, 1), bias=False)
+            self.lora_up = torch.nn.Conv2d(up_dim, out_dim, (1, 1), (1, 1), bias=False)
 
         else:
             #self.lora_down = torch.nn.Linear(in_dim, self.lora_dim, bias=False)
             #self.lora_up = torch.nn.Linear(self.lora_dim, out_dim, bias=False)
             self.lora_down = torch.nn.Linear(in_dim, down_dim, bias=False)
             self.lora_middle = torch.nn.Linear(down_dim, up_dim, bias=False)
-            self.up = torch.nn.Linear(up_dim, out_dim, bias=False)
+            self.lora_up = torch.nn.Linear(up_dim, out_dim, bias=False)
 
         if type(alpha) == torch.Tensor:
             alpha = alpha.detach().float().numpy()  # without casting, bf16 causes error
