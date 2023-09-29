@@ -771,9 +771,9 @@ def create_network_from_weights(multiplier, file, block_wise, vae, text_encoder,
 
 class LoRANetwork(torch.nn.Module):
     NUM_OF_BLOCKS = 12  # フルモデル相当でのup,downの層の数
-    #UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
+    UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
     UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
-    UNET_TARGET_REPLACE_MODULE = ["ResnetBlock2D"]
+    #UNET_TARGET_REPLACE_MODULE = ["ResnetBlock2D"]
     TEXT_ENCODER_TARGET_REPLACE_MODULE = ["CLIPAttention", "CLIPMLP"]
     LORA_PREFIX_UNET = "lora_unet"
     LORA_PREFIX_TEXT_ENCODER = "lora_te"
@@ -885,28 +885,30 @@ class LoRANetwork(torch.nn.Module):
                                     skipped.append(lora_name)
                                 continue
                             if block_wise == None :
-                                lora = module_class(lora_name,
-                                                    child_module,
-                                                    self.multiplier,
-                                                    dim,
-                                                    alpha,
-                                                    dropout=dropout,
-                                                    rank_dropout=rank_dropout,
-                                                    module_dropout=module_dropout,)
-                                loras.append(lora)
+                                if 'attn2_to_k' not in lora_name :
+                                    lora = module_class(lora_name,
+                                                        child_module,
+                                                        self.multiplier,
+                                                        dim,
+                                                        alpha,
+                                                        dropout=dropout,
+                                                        rank_dropout=rank_dropout,
+                                                        module_dropout=module_dropout,)
+                                    loras.append(lora)
                             else :
                                 for i, block in enumerate(BLOCKS) :
                                     if block in lora_name and block_wise[i] == 1:
-                                        lora = module_class(lora_name,
-                                                            child_module,
-                                                            self.multiplier,
-                                                            dim,
-                                                            alpha,
-                                                            dropout=dropout,
-                                                            rank_dropout=rank_dropout,
-                                                            module_dropout=module_dropout,)
+                                        if 'attn2_to_k' not in lora_name:
+                                            lora = module_class(lora_name,
+                                                                child_module,
+                                                                self.multiplier,
+                                                                dim,
+                                                                alpha,
+                                                                dropout=dropout,
+                                                                rank_dropout=rank_dropout,
+                                                                module_dropout=module_dropout,)
 
-                                        loras.append(lora)
+                                            loras.append(lora)
             return loras, skipped
 
         text_encoders = text_encoder if type(text_encoder) == list else [text_encoder]
