@@ -822,15 +822,17 @@ class NetworkTrainer:
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
 
                     i = 0
+                    """
                     standard_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if 'mid' in layer_name :
                             net_name  = layer_name.split('lora_unet_mid_block_attentions_0_')[1]
                             standard_dict[net_name] = param_dict['params'][0].data.norm(2)
-
+                    """
                     wandb_logs = {}
                     grad_norm_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
+                        """
                         if args.algorithm_test :
                             for key in standard_dict.keys() :
                                 spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
@@ -901,7 +903,7 @@ class NetworkTrainer:
                                         else:
                                             scaling_factor = 1
                                         param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                
+                        """
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
                             try:
