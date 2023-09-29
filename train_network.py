@@ -332,7 +332,7 @@ class NetworkTrainer:
             for unet_lora in unet_loras :
                 lora_name = unet_lora.lora_name
                 common_dim = unet_lora.common_dim
-                print(f'{lora_name} : common_dim : {common_dim}')
+                print(f'{lora_name} : common_dim : {common_dim} | in_dim : {unet_lora.in_dim} | out_dim : {unet_lora.out_dim}')
         """
         if args.unet_blockwise_lr :
             network.set_block_lr_weight(up_lr_weight   = args.up_lr_weight, # 0 ~ 11
