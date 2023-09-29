@@ -1,4 +1,4 @@
-import os
+import os, torch
 from safetensors.torch import load_file, safe_open
 
 pretrained_lora_dir = 'PlatformGameV0_2.safetensors'
@@ -12,4 +12,12 @@ for layer in weights_sd.keys():
         down_weight = weights_sd[layer]
         up_layer_key = f'{layer_name}.lora_up.weight'
         up_weight = weights_sd[up_layer_key]
-        print(f'down_weight : {down_weight.shape} | up_weight : {up_weight.shape}')
+        if len(weight.size()) == 2:
+            weight = (up_weight @ down_weight)
+        elif down_weight.size()[2:4] == (1, 1):
+            # conv2d 1x1
+            weight = (up_weight.squeeze(3).squeeze(2) @ down_weight.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)
+        else :
+            weight = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2, 3)
+
+        print(f'layer_name : {layer_name} | lora weight : {weight.shape}')
