@@ -390,7 +390,7 @@ class NetworkTrainer:
         unet.to(dtype=weight_dtype)
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
-
+        """
         # acceleratorがなんかよろしくやってくれるらしい
         # TODO めちゃくちゃ冗長なのでコードを整理する
         if train_unet and train_text_encoder:
@@ -1008,8 +1008,7 @@ class NetworkTrainer:
             loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
             with open(loss_save_dir, 'wb') as fw:
                 pickle.dump(loss_dict, fw)
-
-
+    """
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()

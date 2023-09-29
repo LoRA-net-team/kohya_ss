@@ -23,6 +23,13 @@ BLOCKS = ["text_model",
           "unet_up_blocks_1_attentions_0","unet_up_blocks_1_attentions_1","unet_up_blocks_1_attentions_2",
           "unet_up_blocks_2_attentions_0","unet_up_blocks_2_attentions_1","unet_up_blocks_2_attentions_2",
           "unet_up_blocks_3_attentions_0","unet_up_blocks_3_attentions_1","unet_up_blocks_3_attentions_2", ]
+
+def gcd(a, b):
+    for i in range(min(a, b), 0, -1):
+        if a % i == 0 and b % i == 0:
+            return i
+
+
 """
 BLOCKS = ["text_model",
           "unet_down_blocks_0_attentions_0","unet_down_blocks_0_attentions_1","unet_down_blocks_0_resnets",
@@ -71,7 +78,8 @@ class LoRAModule(torch.nn.Module):
             in_dim = org_module.in_features
             out_dim = org_module.out_features
             self.is_linear = True
-
+        self.in_dim = in_dim
+        self.out_dim = out_dim
         # if limit_rank:
         #   self.lora_dim = min(lora_dim, in_dim, out_dim)
         #   if self.lora_dim != lora_dim:
