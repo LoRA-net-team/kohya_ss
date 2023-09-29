@@ -118,7 +118,7 @@ class LoRAModule(torch.nn.Module):
 
         # same as microsoft's
         torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
-        torch.nn.init.zeros_(self.lora_middle.weight, a=math.sqrt(5))
+        torch.nn.init.zeros_(self.lora_middle.weight)
         torch.nn.init.zeros_(self.lora_up.weight)
 
         self.multiplier = multiplier
