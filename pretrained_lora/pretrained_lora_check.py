@@ -9,9 +9,9 @@ for layer in weights_sd.keys():
         alpha_value = weights_sd[layer]
     elif "lora_down" in layer :
         layer_name = layer.split('.lora')[0]
-        down_weight = weights_sd[layer]
+        down_weight = weights_sd[layer].type(torch.float32)
         up_layer_key = f'{layer_name}.lora_up.weight'
-        up_weight = weights_sd[up_layer_key]
+        up_weight = weights_sd[up_layer_key].type(torch.float32)
         if len(down_weight.size()) == 2:
             weight = (up_weight @ down_weight)
         elif down_weight.size()[2:4] == (1, 1):
