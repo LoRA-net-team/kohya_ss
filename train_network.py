@@ -310,7 +310,7 @@ class NetworkTrainer:
                 org_forward = unet_lora.org_forward
                 lora_up = unet_lora.lora_up
                 lora_down = unet_lora.lora_down
-                print(f'{lora_name}: {org_forward.weight} | lora_up : {lora_up}')
+                print(f'{lora_name}: lora_up : {lora_up.weight}')
 
         """
         if args.network_weights is not None:
