@@ -12,7 +12,7 @@ for layer in weights_sd.keys():
         down_weight = weights_sd[layer]
         up_layer_key = f'{layer_name}.lora_up.weight'
         up_weight = weights_sd[up_layer_key]
-        if len(weight.size()) == 2:
+        if len(down_weight.size()) == 2:
             weight = (up_weight @ down_weight)
         elif down_weight.size()[2:4] == (1, 1):
             # conv2d 1x1
