@@ -19,5 +19,6 @@ for layer in weights_sd.keys():
             weight = (up_weight.squeeze(3).squeeze(2) @ down_weight.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)
         else :
             weight = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2, 3)
-
-        print(f'layer_name : {layer_name} | lora weight : {weight.shape}')
+        mean = weight.mean()
+        std = weight.std()
+        print(f'layer_name : {layer_name} | lora weight mean : {mean} | std : {std}')
