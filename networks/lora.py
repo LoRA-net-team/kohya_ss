@@ -80,6 +80,9 @@ class LoRAModule(torch.nn.Module):
             self.is_linear = True
         self.in_dim = in_dim
         self.out_dim = out_dim
+
+        common_dim = gcd(in_dim, out_dim)
+        self.common_dim = common_dim
         # if limit_rank:
         #   self.lora_dim = min(lora_dim, in_dim, out_dim)
         #   if self.lora_dim != lora_dim:
