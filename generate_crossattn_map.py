@@ -3226,6 +3226,29 @@ def main(args):
             process_batch(batch_data, highres_fix)
             batch_data.clear()
 
+    def generate_text_embedding(prompt, tokenizer, text_encoder, device):
+        text_input = tokenizer([prompt],
+                               padding="max_length",
+                               max_length=tokenizer.model_max_length,
+                               truncation=True,
+                               return_tensors="pt", )
+        cls_token = 49406
+        pad_token = 49407
+        trg_indexs = []
+        trg_index = 0
+        token_ids = text_input.input_ids[0]
+        print(f'token_ids : {token_ids}')
+        attns = text_input.attention_mask[0]
+        for token_id, attn in zip(token_ids, attns):
+            if token_id != cls_token and token_id != pad_token and attn == 1:
+                trg_indexs.append(trg_index)
+            trg_index += 1
+        text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+        return text_embeddings, trg_indexs
+
+    text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
+    print(f'prompt: {prompt} | trg_indexs : {trg_indexs}')
+
     print("done!")
     atten_collection = attention_storer.step_store
     layer_names = atten_collection.keys()
@@ -3238,8 +3261,10 @@ def main(args):
         pix_len, sen_len = maps.shape
         res = int(math.sqrt(pix_len))
         maps = maps.permute(1, 0) # [sen_len, pix_len]
-        maps = maps.reshape(sen_len, res, res)
-        print(f'{layer_name}, after permute, maps : {maps.shape}')
+        global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
+        #heat_map = global_heat_map.compute_word_heat_map(attention)
+
+        #print(f'{layer_name}, after permute, maps : {maps.shape}')
 
 
     print("atten_collection")
