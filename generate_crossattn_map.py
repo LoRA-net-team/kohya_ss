@@ -2728,7 +2728,9 @@ def main(args):
             random.shuffle(prompt_list)
 
         # バッチ処理の関数
-        def process_batch(batch: List[BatchData], highres_fix, highres_1st=False):
+        def process_batch(batch: List[BatchData],
+                          highres_fix, highres_1st=False):
+            print(f'Process Batch')
             batch_size = len(batch)
 
             # highres_fixの処理
@@ -3017,7 +3019,6 @@ def main(args):
             # repeat prompt
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
-
                 if pi == 0 or len(raw_prompts) > 1:
                     # parse prompt: if prompt is not changed, skip parsing
                     width = args.W
@@ -3031,11 +3032,9 @@ def main(args):
                     negative_prompt = ""
                     clip_prompt = None
                     network_muls = None
-
                     prompt_args = raw_prompt.strip().split(" --")
                     prompt = prompt_args[0]
                     print(f"prompt {prompt_index + 1}/{len(prompt_list)}: {prompt}")
-
                     for parg in prompt_args[1:]:
                         try:
                             m = re.match(r"w (\d+)", parg, re.IGNORECASE)
@@ -3043,31 +3042,26 @@ def main(args):
                                 width = int(m.group(1))
                                 print(f"width: {width}")
                                 continue
-
                             m = re.match(r"h (\d+)", parg, re.IGNORECASE)
                             if m:
                                 height = int(m.group(1))
                                 print(f"height: {height}")
                                 continue
-
                             m = re.match(r"s (\d+)", parg, re.IGNORECASE)
                             if m:  # steps
                                 steps = max(1, min(1000, int(m.group(1))))
                                 print(f"steps: {steps}")
                                 continue
-
                             m = re.match(r"d ([\d,]+)", parg, re.IGNORECASE)
                             if m:  # seed
                                 seeds = [int(d) for d in m.group(1).split(",")]
                                 print(f"seeds: {seeds}")
                                 continue
-
                             m = re.match(r"l ([\d\.]+)", parg, re.IGNORECASE)
                             if m:  # scale
                                 scale = float(m.group(1))
                                 print(f"scale: {scale}")
                                 continue
-
                             m = re.match(r"nl ([\d\.]+|none|None)", parg, re.IGNORECASE)
                             if m:  # negative scale
                                 if m.group(1).lower() == "none":
@@ -3076,25 +3070,21 @@ def main(args):
                                     negative_scale = float(m.group(1))
                                 print(f"negative scale: {negative_scale}")
                                 continue
-
                             m = re.match(r"t ([\d\.]+)", parg, re.IGNORECASE)
                             if m:  # strength
                                 strength = float(m.group(1))
                                 print(f"strength: {strength}")
                                 continue
-
                             m = re.match(r"n (.+)", parg, re.IGNORECASE)
                             if m:  # negative prompt
                                 negative_prompt = m.group(1)
                                 print(f"negative prompt: {negative_prompt}")
                                 continue
-
                             m = re.match(r"c (.+)", parg, re.IGNORECASE)
                             if m:  # clip prompt
                                 clip_prompt = m.group(1)
                                 print(f"clip prompt: {clip_prompt}")
                                 continue
-
                             m = re.match(r"am ([\d\.\-,]+)", parg, re.IGNORECASE)
                             if m:  # network multiplies
                                 network_muls = [float(v) for v in m.group(1).split(",")]
@@ -3102,11 +3092,11 @@ def main(args):
                                     network_muls.append(network_muls[-1])
                                 print(f"network mul: {network_muls}")
                                 continue
-
                         except ValueError as ex:
                             print(f"Exception in parsing / 解析エラー: {parg}")
                             print(ex)
 
+                # -------------------------------------------------------------------------------------------------------
                 # prepare seed
                 if seeds is not None:  # given in prompt
                     # 数が足りないなら前のをそのまま使う
@@ -3123,19 +3113,16 @@ def main(args):
                         seeds = iter_seed
                     else:
                         seed = None  # 前のを消す
-
                 if seed is None:
                     seed = random.randint(0, 0x7FFFFFFF)
                 if args.interactive:
                     print(f"seed: {seed}")
-
-                # prepare init image, guide image and mask
+                # -------------------------------------------------------------------------------------------------------
+                # 2) prepare init image, guide image and mask
                 init_image = mask_image = guide_image = None
-
                 # 同一イメージを使うとき、本当はlatentに変換しておくと無駄がないが面倒なのでとりあえず毎回処理する
                 if init_images is not None:
                     init_image = init_images[global_step % len(init_images)]
-
                     # img2imgの場合は、基本的に元画像のサイズで生成する。highres fixの場合はargs.W, args.Hとscaleに従いリサイズ済みなので無視する
                     # 32単位に丸めたやつにresizeされるので踏襲する
                     if not highres_fix:
@@ -3146,10 +3133,8 @@ def main(args):
                             print(
                                 f"img2img image size is not divisible by 32 so aspect ratio is changed / img2imgの画像サイズが32で割り切れないためリサイズされます。画像が歪みます"
                             )
-
                 if mask_images is not None:
                     mask_image = mask_images[global_step % len(mask_images)]
-
                 if guide_images is not None:
                     if control_nets:  # 複数件の場合あり
                         c = len(control_nets)
@@ -3163,43 +3148,30 @@ def main(args):
                     else:
                         print("Use previous image as guide image.")
                         guide_image = prev_image
-
+                # -------------------------------------------------------------------------------------------------------
+                # 3) regional network
                 if regional_network:
                     num_sub_prompts = len(prompt.split(" AND "))
-                    assert (
-                            len(networks) <= num_sub_prompts
-                    ), "Number of networks must be less than or equal to number of sub prompts."
+                    assert (len(networks) <= num_sub_prompts), "Number of networks must be less than or equal to number of sub prompts."
                 else:
                     num_sub_prompts = None
-
-                b1 = BatchData(
-                    False,
-                    BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt,
-                                  guide_image),
-                    BatchDataExt(
-                        width,
-                        height,
-                        steps,
-                        scale,
-                        negative_scale,
-                        strength,
-                        tuple(network_muls) if network_muls else None,
-                        num_sub_prompts,
-                    ),
-                )
+                b1 = BatchData(False,
+                               BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt,guide_image),
+                               BatchDataExt(width,height,steps,scale,negative_scale,strength,
+                                            tuple(network_muls) if network_muls else None,
+                                            num_sub_prompts,),)
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext:  # バッチ分割必要？
                     process_batch(batch_data, highres_fix)
                     batch_data.clear()
-
                 batch_data.append(b1)
                 if len(batch_data) == args.batch_size:
                     prev_image = process_batch(batch_data, highres_fix)[0]
                     batch_data.clear()
-
                 global_step += 1
 
             prompt_index += 1
-
+        # -------------------------------------------------------------------------------------------------------
+        # 4) regional network
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
