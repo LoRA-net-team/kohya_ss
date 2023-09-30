@@ -3285,6 +3285,9 @@ def main(args):
         for trg_index in trg_indexs:
             word_map = global_heat_map[trg_index, :, :]
             maps.append(word_map)
+        heat_maps = torch.stack(maps, dim=0)
+        print(f'heat_maps (res,res): {heat_maps.shape}')
+
         #heat_map = global_heat_map.compute_word_heat_map(attention)
 
         #print(f'{layer_name}, after permute, maps : {maps.shape}')
