@@ -3239,7 +3239,7 @@ def main(args):
         heat_map_img = expand_image(heat_map,512,512)
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map_img)
-        print(img)
+        img.save(f'attn_{layer_name}.png')
 
         """
         
