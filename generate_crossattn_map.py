@@ -2714,7 +2714,7 @@ def main(args):
         args.W = 512
     if args.H is None:
         args.H = 512
-    """
+
     # 画像生成のループ
     os.makedirs(args.outdir, exist_ok=True)
     max_embeddings_multiples = 1 if args.max_embeddings_multiples is None else args.max_embeddings_multiples
@@ -3205,7 +3205,6 @@ def main(args):
             batch_data.clear()
 
     print("done!")
-    """
 
 
 def setup_parser() -> argparse.ArgumentParser:
