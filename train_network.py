@@ -833,18 +833,16 @@ class NetworkTrainer:
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(
-                                tokenizer,
-                                text_encoder,
-                                batch["captions"],
-                                accelerator.device,
-                                args.max_token_length // 75 if args.max_token_length else 1,
-                                clip_skip=args.clip_skip,)
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder,
+                                                                              batch["captions"],accelerator.device,
+                                                                              args.max_token_length // 75 if args.max_token_length else 1,
+                                                                              clip_skip=args.clip_skip,)
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator,
                                                                     batch, tokenizers,
                                                                     text_encoders, weight_dtype)
                             print(f'text_encoder_conds : {text_encoder_conds.shape}')
+
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
@@ -913,7 +911,7 @@ class NetworkTrainer:
                         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
                         return text_embeddings, trg_indexs
 
-                    text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
+                    #text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
 
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
@@ -944,7 +942,7 @@ class NetworkTrainer:
                         img.save(attn_save_dir)
                         """
                     #print("atten_collection")
-                    
+
 
 
                     attention_storer.reset()
