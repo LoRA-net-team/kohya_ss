@@ -2732,7 +2732,6 @@ def main(args):
                           highres_fix, highres_1st=False):
             print(f'Process Batch')
             batch_size = len(batch)
-
             # highres_fixの処理
             if highres_fix and not highres_1st:
                 # 1st stageのバッチを作成して呼び出す：サイズを小さくして呼び出す
@@ -2811,27 +2810,19 @@ def main(args):
                     pipe.set_enable_control_net(False)  # オプション指定時、2nd stageではControlNetを無効にする
 
             # このバッチの情報を取り出す
-            (
-                return_latents,
-                (step_first, _, _, _, init_image, mask_image, _, guide_image),
-                (width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),
-            ) = batch[0]
+            (return_latents,(step_first, _, _, _, init_image, mask_image, _, guide_image),
+             (width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
-
             prompts = []
             negative_prompts = []
             start_code = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-            noises = [
-                torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-                for _ in range(steps * scheduler_num_noises_per_step)
-            ]
+            noises = [torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
+                      for _ in range(steps * scheduler_num_noises_per_step)]
             seeds = []
             clip_prompts = []
-
             if init_image is not None:  # img2img?
                 i2i_noises = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
                 init_images = []
-
                 if mask_image is not None:
                     mask_images = []
                 else:
@@ -2880,9 +2871,9 @@ def main(args):
                 # make start code
                 torch.manual_seed(seed)
                 start_code[i] = torch.randn(noise_shape, device=device, dtype=dtype)
-
                 # make each noises
                 for j in range(steps * scheduler_num_noises_per_step):
+                    print(f' time step {j}')
                     noises[j][i] = torch.randn(noise_shape, device=device, dtype=dtype)
 
                 if i2i_noises is not None:  # img2img noise
