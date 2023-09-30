@@ -3234,7 +3234,9 @@ def main(args):
         attn_list = atten_collection[layer_name]
         print(f'layer_name : {layer_name} | attn_list : {len(attn_list)}')
         for x in attn_list :
-            print(f'x : {x.shape}')
+            # x = [16, pix_len, sen_len]
+            torch_x = torch.stack(x, 0)  # [4,77,1,64,64]
+            print(f'x : {x.shape} | torch_x : {torch_x.shape}')
 
     print("atten_collection")
 
