@@ -2798,7 +2798,6 @@ def main(args):
             if highres_fix and not highres_1st:
                 # 1st stageのバッチを作成して呼び出す：サイズを小さくして呼び出す
                 is_1st_latent = upscaler.support_latents() if upscaler else args.highres_fix_latents_upscaling
-
                 print("process 1st stage")
                 batch_1st = []
                 for _, base, ext in batch:
@@ -2827,37 +2826,24 @@ def main(args):
                 # 2nd stageのバッチを作成して以下処理する
                 print("process 2nd stage")
                 width_2nd, height_2nd = batch[0].ext.width, batch[0].ext.height
-
                 if upscaler:
-                    # upscalerを使って画像を拡大する
                     lowreso_imgs = None if is_1st_latent else images_1st
                     lowreso_latents = None if not is_1st_latent else images_1st
-
-                    # 戻り値はPIL.Image.Imageかtorch.Tensorのlatents
                     batch_size = len(images_1st)
-                    vae_batch_size = (
-                        batch_size
+                    vae_batch_size = (batch_size
                         if args.vae_batch_size is None
                         else (max(1,
-                                  int(batch_size * args.vae_batch_size)) if args.vae_batch_size < 1 else args.vae_batch_size)
-                    )
+                                  int(batch_size * args.vae_batch_size)) if args.vae_batch_size < 1 else args.vae_batch_size))
                     vae_batch_size = int(vae_batch_size)
-                    images_1st = upscaler.upscale(
-                        vae, lowreso_imgs, lowreso_latents, dtype, width_2nd, height_2nd, batch_size, vae_batch_size
-                    )
-
+                    images_1st = upscaler.upscale(vae, lowreso_imgs, lowreso_latents, dtype, width_2nd, height_2nd, batch_size, vae_batch_size)
                 elif args.highres_fix_latents_upscaling:
                     # latentを拡大する
                     org_dtype = images_1st.dtype
                     if images_1st.dtype == torch.bfloat16:
                         images_1st = images_1st.to(torch.float)  # interpolateがbf16をサポートしていない
-                    images_1st = torch.nn.functional.interpolate(
-                        images_1st, (batch[0].ext.height // 8, batch[0].ext.width // 8), mode="bilinear"
-                    )  # , antialias=True)
+                    images_1st = torch.nn.functional.interpolate(images_1st, (batch[0].ext.height // 8, batch[0].ext.width // 8), mode="bilinear")  # , antialias=True)
                     images_1st = images_1st.to(org_dtype)
-
                 else:
-                    # 画像をLANCZOSで拡大する
                     images_1st = [image.resize((width_2nd, height_2nd), resample=PIL.Image.LANCZOS) for image in
                                   images_1st]
 
@@ -2903,24 +2889,19 @@ def main(args):
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
-            for i, (
-            _, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(
-                    batch):
+            for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
                 prompts.append(prompt)
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
                 clip_prompts.append(clip_prompt)
-
                 if init_image is not None:
                     init_images.append(init_image)
                     if i > 0 and all_images_are_same:
                         all_images_are_same = init_images[-2] is init_image
-
                 if mask_image is not None:
                     mask_images.append(mask_image)
                     if i > 0 and all_masks_are_same:
                         all_masks_are_same = mask_images[-2] is mask_image
-
                 if guide_image is not None:
                     if type(guide_image) is list:
                         guide_images.extend(guide_image)
@@ -2929,14 +2910,12 @@ def main(args):
                         guide_images.append(guide_image)
                         if i > 0 and all_guide_images_are_same:
                             all_guide_images_are_same = guide_images[-2] is guide_image
-
                 # make start code
                 torch.manual_seed(seed)
                 start_code[i] = torch.randn(noise_shape, device=device, dtype=dtype)
                 # make each noises
                 for j in range(steps * scheduler_num_noises_per_step):
-                    # for fifty steps
-                    noises[j][i] = torch.randn(noise_shape, device=device, dtype=dtype)
+                    noises[j][i] = torch.randn(noise_shape, device=device, dtype=dtype) # for fifty steps
                 if i2i_noises is not None:  # img2img noise
                     i2i_noises[i] = torch.randn(noise_shape, device=device, dtype=dtype)
             noise_manager.reset_sampler_noises(noises)
@@ -2947,7 +2926,6 @@ def main(args):
                 mask_images = mask_images[0]
             if guide_images is not None and all_guide_images_are_same:
                 guide_images = guide_images[0]
-
             # ControlNet使用時はguide imageをリサイズする
             if control_nets:
                 # TODO resampleのメソッド
@@ -2963,44 +2941,30 @@ def main(args):
                     n.set_multiplier(m)
                     if regional_network:
                         n.set_current_generation(batch_size, num_sub_prompts, width, height, shared)
-
                 if not regional_network and network_pre_calc:
                     for n in networks:
                         n.restore_weights()
                     for n in networks:
                         n.pre_calculation()
                     print("pre-calculation... done")
+
             # ----------------------------------------------------------------------------------------------------------
             # generate image through pipe
-            images = pipe(
-                prompts,
-                negative_prompts,
-                init_images,
-                mask_images,
-                height,
-                width,
-                steps,
-                scale,
-                negative_scale,
-                strength,
-                latents=start_code,
-                output_type="pil",
-                max_embeddings_multiples=max_embeddings_multiples,
-                img2img_noise=i2i_noises,
-                vae_batch_size=args.vae_batch_size,
-                return_latents=return_latents,
-                clip_prompts=clip_prompts,
-                clip_guide_images=guide_images,
-            )[0]
+            images = pipe(prompts,negative_prompts,init_images,mask_images,
+                          height,width,steps,scale,negative_scale,strength,
+                          latents=start_code,output_type="pil",max_embeddings_multiples=max_embeddings_multiples,
+                          img2img_noise=i2i_noises,vae_batch_size=args.vae_batch_size,
+                          return_latents=return_latents,clip_prompts=clip_prompts,
+                          clip_guide_images=guide_images,)[0]
+            print(f'result image : {type(images)}')
+
             if highres_1st and not args.highres_fix_save_1st:  # return images or latents
                 return images
 
             # save image
             highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(
-                    zip(images, prompts, negative_prompts, seeds, clip_prompts)
-            ):
+            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(zip(images, prompts, negative_prompts, seeds, clip_prompts)):
                 if highres_fix:
                     seed -= 1  # record original seed
                 metadata = PngInfo()
@@ -3041,6 +3005,8 @@ def main(args):
 
             return images
 
+        # --------------------------------------------------------------------------------------------------------------
+        # --------------------------------------------------------------------------------------------------------------
         # 画像生成のプロンプトが一周するまでのループ
         prompt_index = 0
         global_step = 0
@@ -3226,6 +3192,8 @@ def main(args):
             process_batch(batch_data, highres_fix)
             batch_data.clear()
 
+
+    images
     args.trg_token = 'akane'
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
 
@@ -3287,8 +3255,16 @@ def main(args):
             maps.append(word_map)
         heat_map = torch.stack(maps, dim=0)
         heat_map = heat_map.mean(0) # res,res
-        from utils import expand_image
+        from utils import expand_image, image_overlay_heat_map
         heat_map_img = expand_image(heat_map,512,512)
+        img = image_overlay_heat_map(img = ,
+                                     heat_map_img,
+                                     alpha=self.alpha,
+                                                        caption=caption,
+                                                        image_scale=self.heatmap_image_scale)
+
+
+        image_overlay_heat_map(heat_map_img, init_image, 0.5)
         print(f'heat_map_img : {type(heat_map_img)}')
 
         #heat_map = global_heat_map.compute_word_heat_map(attention)
