@@ -3232,8 +3232,10 @@ def main(args):
     for layer_name in layer_names :
         attn_list = atten_collection[layer_name]
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
-        maps = maps.sum(0)                   # [8*2, pix_len, sen_len]
-        maps = maps.sum(0)  # [8*2, pix_len, sen_len]
+        maps = maps.sum(0)                   # [8, pix_len, sen_len]
+        print(f' (1) layer_name : {layer_name} | maps : {maps.shape}')
+        maps = maps.sum(0)  # [pix_len, sen_len]
+
         print(f'layer_name : {layer_name} | attn_list : {len(attn_list)} | maps : {maps.shape}')
 
 
