@@ -838,10 +838,10 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(args, accelerator,
-                                                                    batch, tokenizers,
+                            text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-                            print(f'text_encoder_conds : {text_encoder_conds.shape}')
+                            trg_tpken = 'haibara'
+                            print(f'text_encoder_conds : {text_encoder_conds}')
 
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
@@ -873,8 +873,7 @@ class NetworkTrainer:
 
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
-                    def generate_text_embedding(prompt, tokenizer, text_encoder, device):
-
+                    def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
                         pad_token = 49407
                         trg_token = args.trg_token
@@ -908,10 +907,11 @@ class NetworkTrainer:
                                 if token_id == id:
                                     trg_indexs.append(trg_index)
                             trg_index += 1
-                        text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+                        text_embeddings = text_encoder(text_input.input_ids)[0]
                         return text_embeddings, trg_indexs
 
-                    #text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
+                    text_embeddings, trg_indexs = generate_text_embedding(batch["captions"],
+                                                                          tokenizer, text_encoder)
 
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
