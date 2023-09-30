@@ -3226,7 +3226,25 @@ def main(args):
             process_batch(batch_data, highres_fix)
             batch_data.clear()
 
+    args.trg_token = 'akane'
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
+
+        cls_token = 49406
+        pad_token = 49407
+        trg_token = args.trg_token
+        token_input = tokenizer([trg_token],
+                               padding="max_length",
+                               max_length=tokenizer.model_max_length,
+                               truncation=True,
+                               return_tensors="pt", )
+        token_ids = token_input.input_ids[0]
+        token_attns = token_input.attention_mask[0]
+        trg_token_id = []
+        for token_id, token_attn in zip(token_ids, token_attns):
+            if token_id != cls_token and token_id != pad_token and token_attn == 1:
+                trg_token_id.append(token_id)
+
+
         text_input = tokenizer([prompt],
                                padding="max_length",
                                max_length=tokenizer.model_max_length,
@@ -3240,8 +3258,9 @@ def main(args):
         print(f'token_ids : {token_ids}')
         attns = text_input.attention_mask[0]
         for token_id, attn in zip(token_ids, attns):
-            if token_id != cls_token and token_id != pad_token and attn == 1:
-                trg_indexs.append(trg_index)
+            for id in trg_token_id:
+                if token_id == id:
+                    trg_indexs.append(trg_index)
             trg_index += 1
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
         return text_embeddings, trg_indexs
