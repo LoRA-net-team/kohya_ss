@@ -3243,7 +3243,7 @@ def main(args):
         for token_id, token_attn in zip(token_ids, token_attns):
             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                 trg_token_id.append(token_id)
-
+        print(f'trg_token_id : {trg_token_id}')
 
         text_input = tokenizer([prompt],
                                padding="max_length",
@@ -3281,6 +3281,10 @@ def main(args):
         res = int(math.sqrt(pix_len))
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
+        maps = []
+        for trg_index in trg_indexs:
+            word_map = global_heat_map[trg_index, :, :]
+            maps.append(word_map)
         #heat_map = global_heat_map.compute_word_heat_map(attention)
 
         #print(f'{layer_name}, after permute, maps : {maps.shape}')
