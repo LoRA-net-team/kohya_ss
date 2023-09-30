@@ -97,18 +97,18 @@ class LoRAModule(torch.nn.Module):
             kernel_size = org_module.kernel_size
             stride = org_module.stride
             padding = org_module.padding
-            #self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
-            #self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
-            self.lora_down = torch.nn.Conv2d(in_dim, down_dim, kernel_size, stride, padding, bias=False)
-            self.lora_middle = torch.nn.Conv2d(down_dim, up_dim, (1, 1), (1, 1), bias=False)
-            self.lora_up = torch.nn.Conv2d(up_dim, out_dim, (1, 1), (1, 1), bias=False)
+            self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
+            self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
+            #self.lora_down = torch.nn.Conv2d(in_dim, down_dim, kernel_size, stride, padding, bias=False)
+            #self.lora_middle = torch.nn.Conv2d(down_dim, up_dim, (1, 1), (1, 1), bias=False)
+            #self.lora_up = torch.nn.Conv2d(up_dim, out_dim, (1, 1), (1, 1), bias=False)
 
         else:
-            #self.lora_down = torch.nn.Linear(in_dim, self.lora_dim, bias=False)
-            #self.lora_up = torch.nn.Linear(self.lora_dim, out_dim, bias=False)
-            self.lora_down = torch.nn.Linear(in_dim, down_dim, bias=False)
-            self.lora_middle = torch.nn.Linear(down_dim, up_dim, bias=False)
-            self.lora_up = torch.nn.Linear(up_dim, out_dim, bias=False)
+            self.lora_down = torch.nn.Linear(in_dim, self.lora_dim, bias=False)
+            self.lora_up = torch.nn.Linear(self.lora_dim, out_dim, bias=False)
+            #self.lora_down = torch.nn.Linear(in_dim, down_dim, bias=False)
+            #self.lora_middle = torch.nn.Linear(down_dim, up_dim, bias=False)
+            #self.lora_up = torch.nn.Linear(up_dim, out_dim, bias=False)
 
         if type(alpha) == torch.Tensor:
             alpha = alpha.detach().float().numpy()  # without casting, bf16 causes error
@@ -118,7 +118,7 @@ class LoRAModule(torch.nn.Module):
 
         # same as microsoft's
         torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
-        torch.nn.init.zeros_(self.lora_middle.weight)
+        #torch.nn.init.zeros_(self.lora_middle.weight)
         torch.nn.init.zeros_(self.lora_up.weight)
 
         self.multiplier = multiplier
@@ -162,7 +162,7 @@ class LoRAModule(torch.nn.Module):
             scale = self.scale * (1.0 / (1.0 - self.rank_dropout))  # redundant for readability
         else:
             scale = self.scale
-        lx = self.lora_middle(lx)
+        #lx = self.lora_middle(lx)
         lx = self.lora_up(lx)
         return org_forwarded + lx * self.multiplier * scale
 
