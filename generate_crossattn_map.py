@@ -2491,8 +2491,7 @@ def main(args):
     attention_storer = AttentionStore()
     register_attention_control(unet, attention_storer)
 
-    pipe = PipelineLike(
-        device,
+    pipe = PipelineLike(device,
         vae,
         text_encoder,
         tokenizer,
@@ -2504,8 +2503,7 @@ def main(args):
         args.clip_image_guidance_scale,
         vgg16_model,
         args.vgg16_guidance_scale,
-        args.vgg16_guidance_layer,
-    )
+        args.vgg16_guidance_layer,)
     pipe.set_control_nets(control_nets)
     print("pipeline is ready.")
 
@@ -2784,12 +2782,8 @@ def main(args):
     for gen_iter in range(args.n_iter):
         print(f"iteration {gen_iter + 1}/{args.n_iter}")
         iter_seed = random.randint(0, 0x7FFFFFFF)
-
-        # shuffle prompt list
         if args.shuffle_prompts:
             random.shuffle(prompt_list)
-
-        # バッチ処理の関数
         def process_batch(batch: List[BatchData],
                           highres_fix, highres_1st=False):
             print(f'Process Batch')
@@ -2957,10 +2951,8 @@ def main(args):
                           return_latents=return_latents,clip_prompts=clip_prompts,
                           clip_guide_images=guide_images,)[0]
             print(f'result image : {type(images)}')
-
             if highres_1st and not args.highres_fix_save_1st:  # return images or latents
                 return images
-
             # save image
             highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
@@ -2979,7 +2971,6 @@ def main(args):
                     metadata.add_text("negative-scale", str(negative_scale))
                 if clip_prompt is not None:
                     metadata.add_text("clip-prompt", clip_prompt)
-
                 if args.use_original_file_name and init_images is not None:
                     if type(init_images) is list:
                         fln = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".png"
@@ -2989,31 +2980,23 @@ def main(args):
                     fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
                 else:
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
-
                 image.save(os.path.join(args.outdir, fln), pnginfo=metadata)
 
             if not args.no_preview and not highres_1st and args.interactive:
                 try:
                     import cv2
-
                     for prompt, image in zip(prompts, images):
                         cv2.imshow(prompt[:128], np.array(image)[:, :, ::-1])  # プロンプトが長いと死ぬ
                         cv2.waitKey()
                         cv2.destroyAllWindows()
                 except ImportError:
                     print("opencv-python is not installed, cannot preview / opencv-pythonがインストールされていないためプレビューできません")
-
             return images
-
-        # --------------------------------------------------------------------------------------------------------------
-        # --------------------------------------------------------------------------------------------------------------
-        # 画像生成のプロンプトが一周するまでのループ
         prompt_index = 0
         global_step = 0
         batch_data = []
         while args.interactive or prompt_index < len(prompt_list):
             if len(prompt_list) == 0:
-                # interactive
                 valid = False
                 while not valid:
                     print("\nType prompt:")
@@ -3021,22 +3004,18 @@ def main(args):
                         raw_prompt = input()
                     except EOFError:
                         break
-
                     valid = len(raw_prompt.strip().split(" --")[0].strip()) > 0
                 if not valid:  # EOF, end app
                     break
             else:
                 raw_prompt = prompt_list[prompt_index]
-
             # sd-dynamic-prompts like variants:
             # count is 1 (not dynamic) or images_per_prompt (no enumeration) or arbitrary (enumeration)
             raw_prompts = handle_dynamic_prompt_variants(raw_prompt, args.images_per_prompt)
-
             # repeat prompt
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
                 if pi == 0 or len(raw_prompts) > 1:
-                    # parse prompt: if prompt is not changed, skip parsing
                     width = args.W
                     height = args.H
                     scale = args.scale
@@ -3164,6 +3143,7 @@ def main(args):
                     else:
                         print("Use previous image as guide image.")
                         guide_image = prev_image
+
                 # -------------------------------------------------------------------------------------------------------
                 # 3) regional network
                 if regional_network:
@@ -3173,8 +3153,7 @@ def main(args):
                     num_sub_prompts = None
                 b1 = BatchData(False,
                                BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt,guide_image),
-                               BatchDataExt(width,height,steps,scale,negative_scale,strength,
-                                            tuple(network_muls) if network_muls else None,
+                               BatchDataExt(width,height,steps,scale,negative_scale,strength,tuple(network_muls) if network_muls else None,
                                             num_sub_prompts,),)
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext:  # バッチ分割必要？
                     process_batch(batch_data, highres_fix)
@@ -3182,9 +3161,11 @@ def main(args):
                 batch_data.append(b1)
                 if len(batch_data) == args.batch_size:
                     prev_image = process_batch(batch_data, highres_fix)[0]
+
                     batch_data.clear()
                 global_step += 1
 
+                print(f' *** prev_image : {prev_image}')
             prompt_index += 1
         # -------------------------------------------------------------------------------------------------------
         # 4) regional network
@@ -3193,7 +3174,14 @@ def main(args):
             batch_data.clear()
 
 
-    images
+
+
+
+
+
+
+    # ------------------------------------------------------------------------------------------------------------------
+    #images
     args.trg_token = 'akane'
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
 
