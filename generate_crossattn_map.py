@@ -3174,7 +3174,7 @@ def main(args):
 
     # ------------------------------------------------------------------------------------------------------------------
     #images
-    args.trg_token = 'akane'
+    args.trg_token = 'eye'
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
 
         cls_token = 49406
