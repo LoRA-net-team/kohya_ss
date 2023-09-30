@@ -3240,7 +3240,7 @@ def main(args):
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map_img)
         layer_name = layer_name.split('_')[:6]
-        attn_save_dir = os.path.join(args.outdir, f'attention_{layer_name}')
+        attn_save_dir = os.path.join(args.outdir, f'attention_{layer_name}.jpg')
         img.save(attn_save_dir)
     print("atten_collection")
 
