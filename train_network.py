@@ -841,7 +841,13 @@ class NetworkTrainer:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
                             trg_tpken = 'haibara'
-                            print(f'text_encoder_conds : {text_encoder_conds}')
+                            token_input = tokenizer(batch["captions"],
+                                                    padding="max_length",
+                                                    max_length=tokenizer.model_max_length,
+                                                    truncation=True,
+                                                    return_tensors="pt", )
+
+                            print(f'token_input : {token_input}')
 
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
