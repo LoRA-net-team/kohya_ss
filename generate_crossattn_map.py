@@ -279,12 +279,71 @@ def replace_vae_attn_to_sdpa():
     else:
         diffusers.models.attention_processor.Attention.forward = forward_sdpa
 
+# ------------------------------------------------------------------------------------------------------------------------
+# attention storer
+def register_attention_control(unet, controller):
 
-# endregion
+    def ca_forward(self, layer_name):
+        def forward(hidden_states, context=None, mask=None):
+            is_cross_attention = False
+            if context is not None:
+                is_cross_attention = True
+            batch_size, sequence_length, _ = hidden_states.shape
+            query = self.to_q(hidden_states)
+            context = context if context is not None else hidden_states
+            key = self.to_k(context)
+            value = self.to_v(context)
+            dim = query.shape[-1]
+            query = self.reshape_heads_to_batch_dim(query)
+            key = self.reshape_heads_to_batch_dim(key)
+            value = self.reshape_heads_to_batch_dim(value)
+            # 1) attention score
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
+                                             query, key.transpose(-1, -2),
+                                             beta=0,
+                                             alpha=self.scale,)
+            attention_probs = attention_scores.softmax(dim=-1)
+            attention_probs = attention_probs.to(value.dtype)
+            if is_cross_attention:
+               # print(f'cross attntion layer_name: {layer_name}')
+                attn = controller.store(attention_probs, layer_name)
+            # 2) after value calculating
+            hidden_states = torch.bmm(attention_probs, value)
+            hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
+            hidden_states = self.to_out[0](hidden_states)
+            hidden_states = self.to_out[1](hidden_states)
+            return hidden_states
 
-# region 画像生成の本体：lpw_stable_diffusion.py （ASL）からコピーして修正
-# https://github.com/huggingface/diffusers/blob/main/examples/community/lpw_stable_diffusion.py
-# Pipelineだけ独立して使えないのと機能追加するのとでコピーして修正
+        return forward
+
+    def register_recr(net_, count, layer_name):
+        if net_.__class__.__name__ == 'CrossAttention':
+            net_.forward = ca_forward(net_, layer_name)
+            return count + 1
+        elif hasattr(net_, 'children'):
+            for name__, net__ in net_.named_children():
+                full_name = f'{layer_name}_{name__}'
+                count = register_recr(net__, count, full_name)
+        return count
+
+    cross_att_count = 0
+    for net in unet.named_children():
+        if "down" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "up" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "mid" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+    controller.num_att_layers = cross_att_count
+
+
+
+
+
+
+
+
+
 
 
 class PipelineLike:
@@ -2429,6 +2488,10 @@ def main(args):
             cn.unet.to(memory_format=torch.channels_last)
             cn.net.to(memory_format=torch.channels_last)
 
+    from attention_store import AttentionStore
+    attention_storer = AttentionStore()
+    register_attention_control(unet, attention_storer)
+
     pipe = PipelineLike(
         device,
         vae,
@@ -2873,14 +2936,11 @@ def main(args):
                 start_code[i] = torch.randn(noise_shape, device=device, dtype=dtype)
                 # make each noises
                 for j in range(steps * scheduler_num_noises_per_step):
-                    print(f' time step {j}')
+                    # for fifty steps
                     noises[j][i] = torch.randn(noise_shape, device=device, dtype=dtype)
-
                 if i2i_noises is not None:  # img2img noise
                     i2i_noises[i] = torch.randn(noise_shape, device=device, dtype=dtype)
-
             noise_manager.reset_sampler_noises(noises)
-
             # すべての画像が同じなら1枚だけpipeに渡すことでpipe側で処理を高速化する
             if init_images is not None and all_images_are_same:
                 init_images = init_images[0]
@@ -2896,7 +2956,6 @@ def main(args):
                 guide_images = [i.resize((width, height), resample=PIL.Image.LANCZOS) for i in guide_images]
                 if len(guide_images) == 1:
                     guide_images = guide_images[0]
-
             # generate
             if networks:
                 # 追加ネットワークの処理
@@ -2912,7 +2971,8 @@ def main(args):
                     for n in networks:
                         n.pre_calculation()
                     print("pre-calculation... done")
-
+            # ----------------------------------------------------------------------------------------------------------
+            # generate image through pipe
             images = pipe(
                 prompts,
                 negative_prompts,
