@@ -3234,13 +3234,12 @@ def main(args):
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
         maps, _ = torch.chunk(maps, chunks=2, dim=0)
-        print(f'layer_name : {layer_name} | attn_list : {len(attn_list)} | maps : {maps.shape}')
         maps = maps.sum(0)  # [pix_len, sen_len]
         pix_len, sen_len = maps.shape
         res = int(math.sqrt(pix_len))
-        print(f'before permute, maps : {maps.shape}')
-        maps = maps.permute(1, 0)
-        print(f'after permute, maps : {maps.shape}')
+        maps = maps.permute(1, 0) # [sen_len, pix_len]
+        maps = maps.reshape(sen_len, res, res)
+        print(f'{layer_name}, after permute, maps : {maps.shape}')
 
 
     print("atten_collection")
