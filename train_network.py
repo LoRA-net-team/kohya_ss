@@ -37,6 +37,60 @@ from library.custom_train_functions import (
 from setproctitle import *
 
 
+def register_attention_control(unet, controller):
+
+    def ca_forward(self, layer_name):
+        def forward(hidden_states, context=None, mask=None):
+            is_cross_attention = False
+            if context is not None:
+                is_cross_attention = True
+            batch_size, sequence_length, _ = hidden_states.shape
+            query = self.to_q(hidden_states)
+            context = context if context is not None else hidden_states
+            key = self.to_k(context)
+            value = self.to_v(context)
+            dim = query.shape[-1]
+            query = self.reshape_heads_to_batch_dim(query)
+            key = self.reshape_heads_to_batch_dim(key)
+            value = self.reshape_heads_to_batch_dim(value)
+            # 1) attention score
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
+                                             query, key.transpose(-1, -2),
+                                             beta=0,
+                                             alpha=self.scale,)
+            attention_probs = attention_scores.softmax(dim=-1)
+            attention_probs = attention_probs.to(value.dtype)
+            if is_cross_attention:
+               # print(f'cross attntion layer_name: {layer_name}')
+                attn = controller.store(attention_probs, layer_name)
+            # 2) after value calculating
+            hidden_states = torch.bmm(attention_probs, value)
+            hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
+            hidden_states = self.to_out[0](hidden_states)
+            return hidden_states
+
+        return forward
+
+    def register_recr(net_, count, layer_name):
+        if net_.__class__.__name__ == 'CrossAttention':
+            net_.forward = ca_forward(net_, layer_name)
+            return count + 1
+        elif hasattr(net_, 'children'):
+            for name__, net__ in net_.named_children():
+                full_name = f'{layer_name}_{name__}'
+                count = register_recr(net__, count, full_name)
+        return count
+
+    cross_att_count = 0
+    for net in unet.named_children():
+        if "down" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "up" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "mid" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+    controller.num_att_layers = cross_att_count
+
 def arg_as_list(s):
     import ast
     v = ast.literal_eval(s)
@@ -474,7 +528,13 @@ class NetworkTrainer:
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
         # 学習する
-        # TODO: find a way to handle total batch size when there are multiple datasets
+        # TODO: find a way to handle total batch size when there are multiple datasets.
+
+        from attention_store import AttentionStore
+        attention_storer = AttentionStore()
+        register_attention_control(unet, attention_storer)
+
+
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 
         accelerator.print("running training / 学習開始")
@@ -779,18 +839,15 @@ class NetworkTrainer:
                                 batch["captions"],
                                 accelerator.device,
                                 args.max_token_length // 75 if args.max_token_length else 1,
-                                clip_skip=args.clip_skip,
-                            )
+                                clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(
-                                args, accelerator, batch, tokenizers, text_encoders, weight_dtype
-                            )
+                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers,
+                                                                    text_encoders, weight_dtype)
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(
-                        args, noise_scheduler, latents
-                    )
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
+                                                                                                       noise_scheduler, latents)
 
                     # Predict the noise residual
                     with accelerator.autocast():
@@ -813,8 +870,23 @@ class NetworkTrainer:
                         loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
-
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
+
+                    # ------------------------------------------------------------------------------------
+                    # cross attention matching loss
+                    atten_collection = attention_storer.step_store
+                    layer_names = atten_collection.keys()
+                    for layer_name in layer_names:
+                        attn_list = atten_collection[layer_name]
+                        maps = torch.stack(attn_list, dim=0)  # [timestep, 8*2, pix_len, sen_len]
+                        maps = maps.sum(0)  # [8, pix_len, sen_len]
+                        maps = maps.sum(0)  # [pix_len, sen_len]
+                        pix_len, sen_len = maps.shape
+                        res = int(math.sqrt(pix_len))
+                        maps = maps.permute(1, 0)  # [sen_len, pix_len]
+                        global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
+                        print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
+                    attention_storer.reset()
 
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:

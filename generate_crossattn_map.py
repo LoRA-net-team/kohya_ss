@@ -2436,11 +2436,12 @@ def main(args):
     else:
         networks = []
     org_state_dict = network.state_dict()
+    """
     for layer in org_state_dict.keys():
         if 'org_weight' not in layer:
             print(f'layer : {layer}')
             network.state_dict()[layer] = weights_sd[layer]
-
+    """
     # upscalerの指定があれば取得する
     upscaler = None
     if args.highres_fix_upscaler:
