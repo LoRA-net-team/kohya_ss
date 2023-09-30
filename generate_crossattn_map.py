@@ -3257,7 +3257,7 @@ def main(args):
         token_ids = text_input.input_ids[0]
         print(f'token_ids : {token_ids}')
         attns = text_input.attention_mask[0]
-        for token_id, attn in zip(token_ids, attns):
+        for token_id, attn in zip(token_ids, attns ):
             for id in trg_token_id:
                 if token_id == id:
                     trg_indexs.append(trg_index)
