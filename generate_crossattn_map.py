@@ -3164,7 +3164,6 @@ def main(args):
 
                     batch_data.clear()
                 global_step += 1
-
                 print(f' *** prev_image : {prev_image}')
             prompt_index += 1
         # -------------------------------------------------------------------------------------------------------
@@ -3172,13 +3171,6 @@ def main(args):
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
-
-
-
-
-
-
-
 
     # ------------------------------------------------------------------------------------------------------------------
     #images
@@ -3245,16 +3237,16 @@ def main(args):
         heat_map = heat_map.mean(0) # res,res
         from utils import expand_image, image_overlay_heat_map
         heat_map_img = expand_image(heat_map,512,512)
+        img = image_overlay_heat_map(img=prev_image,
+                                     heat_map=heat_map_img)
+        print(img)
+
         """
-        img = image_overlay_heat_map(img = ,
-                                     heat_map_img,
-                                     alpha=self.alpha,
-                                                        caption=caption,
-                                                        image_scale=self.heatmap_image_scale)
+        
                                                         
 
 
-        image_overlay_heat_map(heat_map_img, init_image, 0.5)
+        
         print(f'heat_map_img : {type(heat_map_img)}')
 
         #heat_map = global_heat_map.compute_word_heat_map(attention)
