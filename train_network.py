@@ -841,8 +841,10 @@ class NetworkTrainer:
                                 args.max_token_length // 75 if args.max_token_length else 1,
                                 clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers,
+                            text_encoder_conds = self.get_text_cond(args, accelerator,
+                                                                    batch, tokenizers,
                                                                     text_encoders, weight_dtype)
+                            print(f'text_encoder_conds : {text_encoder_conds.shape}')
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
@@ -851,9 +853,8 @@ class NetworkTrainer:
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(
-                            args, accelerator, unet, noisy_latents, timesteps, text_encoder_conds, batch, weight_dtype
-                        )
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
+                                                    text_encoder_conds, batch, weight_dtype)
 
                     if args.v_parameterization:
                         # v-parameterization training
@@ -874,6 +875,46 @@ class NetworkTrainer:
 
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
+                    def generate_text_embedding(prompt, tokenizer, text_encoder, device):
+
+                        cls_token = 49406
+                        pad_token = 49407
+                        trg_token = args.trg_token
+                        token_input = tokenizer([trg_token],
+                                                padding="max_length",
+                                                max_length=tokenizer.model_max_length,
+                                                truncation=True,
+                                                return_tensors="pt", )
+                        token_ids = token_input.input_ids[0]
+                        token_attns = token_input.attention_mask[0]
+                        trg_token_id = []
+                        for token_id, token_attn in zip(token_ids, token_attns):
+                            if token_id != cls_token and token_id != pad_token and token_attn == 1:
+                                trg_token_id.append(token_id)
+                        print(f'trg_token_id : {trg_token_id}')
+
+                        text_input = tokenizer([prompt],
+                                               padding="max_length",
+                                               max_length=tokenizer.model_max_length,
+                                               truncation=True,
+                                               return_tensors="pt", )
+                        cls_token = 49406
+                        pad_token = 49407
+                        trg_indexs = []
+                        trg_index = 0
+                        token_ids = text_input.input_ids[0]
+                        print(f'token_ids : {token_ids}')
+                        attns = text_input.attention_mask[0]
+                        for token_id, attn in zip(token_ids, attns):
+                            for id in trg_token_id:
+                                if token_id == id:
+                                    trg_indexs.append(trg_index)
+                            trg_index += 1
+                        text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+                        return text_embeddings, trg_indexs
+
+                    text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
+
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
                     for layer_name in layer_names:
@@ -885,7 +926,27 @@ class NetworkTrainer:
                         res = int(math.sqrt(pix_len))
                         maps = maps.permute(1, 0)  # [sen_len, pix_len]
                         global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
+                        """
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
+                        maps = []
+                        for trg_index in trg_indexs:
+                            word_map = global_heat_map[trg_index, :, :]
+                            maps.append(word_map)
+                        heat_map = torch.stack(maps, dim=0)
+                        heat_map = heat_map.mean(0)  # res,res
+                        from utils import expand_image, image_overlay_heat_map
+                        heat_map_img = expand_image(heat_map, 512, 512)
+                        img = image_overlay_heat_map(img=prev_image,
+                                                     heat_map=heat_map_img)
+                        layer_name = layer_name.split('_')[:5]
+                        a = '_'.join(layer_name)
+                        attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
+                        img.save(attn_save_dir)
+                        """
+                    #print("atten_collection")
+                    
+
+
                     attention_storer.reset()
 
                     accelerator.backward(loss)
