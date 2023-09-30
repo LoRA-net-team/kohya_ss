@@ -3245,11 +3245,13 @@ def main(args):
         heat_map = heat_map.mean(0) # res,res
         from utils import expand_image, image_overlay_heat_map
         heat_map_img = expand_image(heat_map,512,512)
+        """
         img = image_overlay_heat_map(img = ,
                                      heat_map_img,
                                      alpha=self.alpha,
                                                         caption=caption,
                                                         image_scale=self.heatmap_image_scale)
+                                                        
 
 
         image_overlay_heat_map(heat_map_img, init_image, 0.5)
@@ -3258,6 +3260,7 @@ def main(args):
         #heat_map = global_heat_map.compute_word_heat_map(attention)
 
         #print(f'{layer_name}, after permute, maps : {maps.shape}')
+        """
 
 
     print("atten_collection")
