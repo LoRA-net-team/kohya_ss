@@ -887,7 +887,7 @@ class NetworkTrainer:
                                 trg_token_id.append(token_id)
                         print(f'trg_token_id : {trg_token_id}')
 
-                        text_input = tokenizer([prompt],
+                        text_input = tokenizer(batch['caption'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
                                                truncation=True,
@@ -897,13 +897,13 @@ class NetworkTrainer:
                         trg_indexs = []
                         trg_index = 0
                         token_ids = text_input.input_ids[0]
-                        print(f'token_ids : {token_ids}')
                         attns = text_input.attention_mask[0]
                         for token_id, attn in zip(token_ids, attns):
                             for id in trg_token_id:
                                 if token_id == id:
                                     trg_indexs.append(trg_index)
                             trg_index += 1
+                        print(f'trg_indexs : {trg_indexs}')
                         text_embeddings = text_encoder(text_input.input_ids)[0]
                         return text_embeddings, trg_indexs
 
