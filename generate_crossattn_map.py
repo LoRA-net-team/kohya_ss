@@ -3233,7 +3233,7 @@ def main(args):
         attn_list = atten_collection[layer_name]
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
-        maps = torch.chunk(maps, chunks=2, dim=0)
+        maps, _ = torch.chunk(maps, chunks=2, dim=0)
         print(f'layer_name : {layer_name} | attn_list : {len(attn_list)} | maps : {maps.shape}')
         maps = maps.sum(0)  # [pix_len, sen_len]
         pix_len, sen_len = maps.shape
