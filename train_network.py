@@ -840,16 +840,6 @@ class NetworkTrainer:
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-                            trg_tpken = 'haibara'
-                            token_input = tokenizer(batch["captions"],
-                                                    padding="max_length",
-                                                    max_length=tokenizer.model_max_length,
-                                                    truncation=True,
-                                                    return_tensors="pt", )
-
-                            print(f'token_input : {token_input}')
-
-
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
@@ -879,6 +869,7 @@ class NetworkTrainer:
 
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
+                    args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
                         pad_token = 49407
