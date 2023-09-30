@@ -280,6 +280,13 @@ def replace_vae_attn_to_sdpa():
         diffusers.models.attention_processor.Attention.forward = forward_sdpa
 
 
+# endregion
+
+# region 画像生成の本体：lpw_stable_diffusion.py （ASL）からコピーして修正
+# https://github.com/huggingface/diffusers/blob/main/examples/community/lpw_stable_diffusion.py
+# Pipelineだけ独立して使えないのと機能追加するのとでコピーして修正
+
+
 class PipelineLike:
     r"""
     Pipeline for text-to-image generation using Stable Diffusion without tokens length limit, and support parsing
@@ -2140,24 +2147,26 @@ def main(args):
         unet = loading_pipe.unet
         tokenizer = loading_pipe.tokenizer
         del loading_pipe
-
         # Diffusers U-Net to original U-Net
-        original_unet = UNet2DConditionModel(unet.config.sample_size,
-                                             unet.config.attention_head_dim,
-                                             unet.config.cross_attention_dim,
-                                             unet.config.use_linear_projection,
-                                             unet.config.upcast_attention, )
+        original_unet = UNet2DConditionModel(
+            unet.config.sample_size,
+            unet.config.attention_head_dim,
+            unet.config.cross_attention_dim,
+            unet.config.use_linear_projection,
+            unet.config.upcast_attention, )
         original_unet.load_state_dict(unet.state_dict())
         unet = original_unet
     # VAEを読み込む
     if args.vae is not None:
         vae = model_util.load_vae(args.vae, dtype)
         print("additional VAE loaded")
+
     if args.clip_guidance_scale > 0.0 or args.clip_image_guidance_scale:
         print("prepare clip model")
         clip_model = CLIPModel.from_pretrained(CLIP_MODEL_PATH, torch_dtype=dtype)
     else:
         clip_model = None
+
     if args.vgg16_guidance_scale > 0.0:
         print("prepare resnet model")
         vgg16_model = torchvision.models.vgg16(torchvision.models.VGG16_Weights.IMAGENET1K_V1)
@@ -2260,14 +2269,10 @@ def main(args):
     if scheduler_module is not None:
         scheduler_module.torch = TorchRandReplacer(noise_manager)
 
-    scheduler = scheduler_cls(
-        num_train_timesteps=SCHEDULER_TIMESTEPS,
-        beta_start=SCHEDULER_LINEAR_START,
-        beta_end=SCHEDULER_LINEAR_END,
-        beta_schedule=SCHEDLER_SCHEDULE,
-        **sched_init_args,
-    )
-
+    scheduler = scheduler_cls(num_train_timesteps=SCHEDULER_TIMESTEPS,
+                              beta_start=SCHEDULER_LINEAR_START,
+                              beta_end=SCHEDULER_LINEAR_END,
+                              beta_schedule=SCHEDLER_SCHEDULE,**sched_init_args,)
     # clip_sample=Trueにする
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
         print("set clip_sample to True")
@@ -2279,20 +2284,13 @@ def main(args):
     # custom pipelineをコピったやつを生成する
     if args.vae_slices:
         from library.slicing_vae import SlicingAutoencoderKL
-
-        sli_vae = SlicingAutoencoderKL(
-            act_fn="silu",
-            block_out_channels=(128, 256, 512, 512),
-            down_block_types=["DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D"],
-            in_channels=3,
-            latent_channels=4,
-            layers_per_block=2,
-            norm_num_groups=32,
-            out_channels=3,
-            sample_size=512,
-            up_block_types=["UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D"],
-            num_slices=args.vae_slices,
-        )
+        sli_vae = SlicingAutoencoderKL(act_fn="silu",
+                                       block_out_channels=(128, 256, 512, 512),
+                                       down_block_types=["DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D"],
+                                       in_channels=3,latent_channels=4,layers_per_block=2,
+                                       norm_num_groups=32,out_channels=3,sample_size=512,
+                                       up_block_types=["UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D"],
+                                       num_slices=args.vae_slices,)
         sli_vae.load_state_dict(vae.state_dict())  # vaeのパラメータをコピーする
         vae = sli_vae
         del sli_vae
@@ -2448,7 +2446,7 @@ def main(args):
     )
     pipe.set_control_nets(control_nets)
     print("pipeline is ready.")
-
+    """
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
 
@@ -3207,6 +3205,7 @@ def main(args):
             batch_data.clear()
 
     print("done!")
+    """
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -3219,9 +3218,14 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument("--from_file", type=str, default=None,
                         help="if specified, load prompts from this file / 指定時はプロンプトをファイルから読み込む")
     parser.add_argument("--interactive", action="store_true",
-                        help="interactive mode (generates one image) / 対話モード（生成される画像は1枚になります）")
-    parser.add_argument("--no_preview", action="store_true", help="do not show generated image in interactive mode / 対話モードで画像を表示しない")
-    parser.add_argument("--image_path", type=str, default=None, help="image to inpaint or to generate from / img2imgまたはinpaintを行う元画像")
+                        help="interactive mode (generates one image) / 対話モード（生成される画像は1枚になります）"
+                        )
+    parser.add_argument(
+        "--no_preview", action="store_true", help="do not show generated image in interactive mode / 対話モードで画像を表示しない"
+    )
+    parser.add_argument(
+        "--image_path", type=str, default=None, help="image to inpaint or to generate from / img2imgまたはinpaintを行う元画像"
+    )
     parser.add_argument("--mask_path", type=str, default=None, help="mask in inpainting / inpaint時のマスク")
     parser.add_argument("--strength", type=float, default=None, help="img2img strength / img2img時のstrength")
     parser.add_argument("--images_per_prompt", type=int, default=1,
@@ -3229,9 +3233,11 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outdir", type=str, default="outputs", help="dir to write results to / 生成画像の出力先")
     parser.add_argument("--sequential_file_name", action="store_true",
                         help="sequential output file name / 生成画像のファイル名を連番にする")
-    parser.add_argument("--use_original_file_name",
-                        action="store_true",
-                        help="prepend original file name in img2img / img2imgで元画像のファイル名を生成画像のファイル名の先頭に付ける",)
+    parser.add_argument(
+        "--use_original_file_name",
+        action="store_true",
+        help="prepend original file name in img2img / img2imgで元画像のファイル名を生成画像のファイル名の先頭に付ける",
+    )
     # parser.add_argument("--ddim_eta", type=float, default=0.0, help="ddim eta (eta=0.0 corresponds to deterministic sampling", )
     parser.add_argument("--n_iter", type=int, default=1, help="sample this often / 繰り返し回数")
     parser.add_argument("--H", type=int, default=None, help="image height, in pixel space / 生成画像高さ")
@@ -3332,8 +3338,10 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--network_mul", type=float, default=None, nargs="*",
                         help="additional network multiplier / 追加ネットワークの効果の倍率")
-    parser.add_argument("--network_args", type=str, default=None, nargs="*",
-                        help="additional argmuments for network (key=value) / ネットワークへの追加の引数")
+    parser.add_argument(
+        "--network_args", type=str, default=None, nargs="*",
+        help="additional argmuments for network (key=value) / ネットワークへの追加の引数"
+    )
     parser.add_argument("--network_show_meta", action="store_true",
                         help="show metadata of network model / ネットワークモデルのメタデータを表示する")
     parser.add_argument("--network_merge", action="store_true",

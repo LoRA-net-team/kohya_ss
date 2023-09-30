@@ -224,8 +224,7 @@ class LoRAInfModule(LoRAModule):
                 weight
                 + self.multiplier
                 * (up_weight.squeeze(3).squeeze(2) @ down_weight.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)
-                * self.scale
-            )
+                * self.scale)
         else:
             # conv2d 3x3
             conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2, 3)
@@ -900,30 +899,28 @@ class LoRANetwork(torch.nn.Module):
                                     skipped.append(lora_name)
                                 continue
                             if block_wise == None :
-                                if 'attn2_to_k' not in lora_name :
-                                    lora = module_class(lora_name,
-                                                        child_module,
-                                                        self.multiplier,
-                                                        dim,
-                                                        alpha,
-                                                        dropout=dropout,
-                                                        rank_dropout=rank_dropout,
-                                                        module_dropout=module_dropout,)
-                                    loras.append(lora)
+                                lora = module_class(lora_name,
+                                                    child_module,
+                                                    self.multiplier,
+                                                    dim,
+                                                    alpha,
+                                                    dropout=dropout,
+                                                    rank_dropout=rank_dropout,
+                                                    module_dropout=module_dropout,)
+                                loras.append(lora)
                             else :
                                 for i, block in enumerate(BLOCKS) :
                                     if block in lora_name and block_wise[i] == 1:
-                                        if 'attn2_to_k' not in lora_name:
-                                            lora = module_class(lora_name,
-                                                                child_module,
-                                                                self.multiplier,
-                                                                dim,
-                                                                alpha,
-                                                                dropout=dropout,
-                                                                rank_dropout=rank_dropout,
-                                                                module_dropout=module_dropout,)
+                                        lora = module_class(lora_name,
+                                                            child_module,
+                                                            self.multiplier,
+                                                            dim,
+                                                            alpha,
+                                                            dropout=dropout,
+                                                            rank_dropout=rank_dropout,
+                                                            module_dropout=module_dropout,)
 
-                                            loras.append(lora)
+                                        loras.append(lora)
             return loras, skipped
 
         text_encoders = text_encoder if type(text_encoder) == list else [text_encoder]
