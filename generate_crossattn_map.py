@@ -3174,7 +3174,7 @@ def main(args):
 
     # ------------------------------------------------------------------------------------------------------------------
     #images
-    args.trg_token = 'eye'
+
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
 
         cls_token = 49406
@@ -3239,22 +3239,9 @@ def main(args):
         heat_map_img = expand_image(heat_map,512,512)
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map_img)
-        img.save(f'attn_{layer_name}.png')
-
-        """
-        
-                                                        
-
-
-        
-        print(f'heat_map_img : {type(heat_map_img)}')
-
-        #heat_map = global_heat_map.compute_word_heat_map(attention)
-
-        #print(f'{layer_name}, after permute, maps : {maps.shape}')
-        """
-
-
+        layer_name = layer_name.split('_')[:6]
+        attn_save_dir = os.path.join(args.outdir, f'attention_{layer_name}')
+        img.save(attn_save_dir)
     print("atten_collection")
 
 
@@ -3525,5 +3512,6 @@ def arg_as_list(s):
 if __name__ == "__main__":
     parser = setup_parser()
     parser.add_argument("--device", default='cuda')
+    parser.add_argument("--trg_token", default='akane')
     args = parser.parse_args()
     main(args)
