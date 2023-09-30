@@ -2446,7 +2446,7 @@ def main(args):
     )
     pipe.set_control_nets(control_nets)
     print("pipeline is ready.")
-    """
+
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
 
@@ -2714,7 +2714,7 @@ def main(args):
         args.W = 512
     if args.H is None:
         args.H = 512
-
+    """
     # 画像生成のループ
     os.makedirs(args.outdir, exist_ok=True)
     max_embeddings_multiples = 1 if args.max_embeddings_multiples is None else args.max_embeddings_multiples
