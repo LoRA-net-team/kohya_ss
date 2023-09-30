@@ -3228,6 +3228,10 @@ def main(args):
 
     print("done!")
     atten_collection = attention_storer.step_store
+    layer_names = atten_collection.keys()
+    for layer_name in layer_names :
+        attn_list = atten_collection[layer_name]
+        print(f'layer_name : {layer_name} | attn_list : {len(attn_list)}')
     print("atten_collection")
 
 
