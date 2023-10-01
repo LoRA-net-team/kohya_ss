@@ -886,14 +886,11 @@ class NetworkTrainer:
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
                         print(f'trg_token_id : {trg_token_id}')
-
-                        text_input = tokenizer(batch['caption'],
+                        text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
                                                truncation=True,
                                                return_tensors="pt", )
-                        cls_token = 49406
-                        pad_token = 49407
                         trg_indexs = []
                         trg_index = 0
                         token_ids = text_input.input_ids[0]
@@ -906,10 +903,9 @@ class NetworkTrainer:
                         print(f'trg_indexs : {trg_indexs}')
                         text_embeddings = text_encoder(text_input.input_ids)[0]
                         return text_embeddings, trg_indexs
-
                     text_embeddings, trg_indexs = generate_text_embedding(batch["captions"],
                                                                           tokenizer, text_encoder)
-
+                    print(f'trg_indexs : {trg_indexs}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
                     for layer_name in layer_names:
