@@ -885,25 +885,25 @@ class NetworkTrainer:
                                                max_length=tokenizer.model_max_length,
                                                truncation=True,
                                                return_tensors="pt", )
-
-                        trg_index = 0
                         token_ids = text_input.input_ids
                         attns = text_input.attention_mask
+                        batch_ids = []
                         for token_id, attn in zip(token_ids, attns):
                             print(f'token_id : {token_id}')
                             time.sleep(30)
                             trg_indexs = []
-                            for id in trg_token_id:
-                                if token_id == id:
-                                    trg_indexs.append(trg_index)
-                                trg_index += 1
-                        text_embeddings = text_encoder(text_input.input_ids.to(text_encoder.device))[0]
-                        return text_embeddings, trg_indexs
+                            for i, id in enumerate(token_id) :
+                                if id in trg_token_id:
+                                    trg_indexs.append(i)
+                            batch_ids.append(trg_indexs)
+                        print(f'batch_ids : {batch_ids}')
+                        return batch_ids
 
 
 
-                    text_embeddings, trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-                    #print(f'trg_indexs : {trg_indexs}')
+                    trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
+                    print(f'trg_indexs : {trg_indexs}')
+                    time.sleep(50)
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
                     map_list = []
