@@ -911,14 +911,9 @@ class NetworkTrainer:
                             word_map = expand_image(word_map, 64, 64)
                             m = nn.Softmax(dim=1)
                             word_map = m(word_map)
-                            print(f'word_map : {word_map.sum()}')
-
                             maps.append(word_map)
                         heat_map = torch.stack(maps, dim=0)
                         heat_map = heat_map.mean(0)  # res,res
-
-                        heat_map_img = expand_image(heat_map, 64, 64)
-
                         print(f'{layer_name} heat_map : {heat_map.sum()}')
                         """
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
@@ -937,11 +932,7 @@ class NetworkTrainer:
                         img.save(attn_save_dir)
                         """
                     #print("atten_collection")
-
-
-
                     attention_storer.reset()
-
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
