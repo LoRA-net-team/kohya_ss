@@ -926,7 +926,7 @@ class NetworkTrainer:
                             heat_map = heat_map.mean(0)
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
-                            print(f'{layer_name} heat_map : {heat_map.sum()} : {heat_map.shape}')
+                            print(f'{layer_name} heat_map : {heat_map.shape}')
                             heat_map = _convert_heat_map_colors(heat_map)
                             heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                             heat_map_img = Image.fromarray(heat_map)
