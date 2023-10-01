@@ -921,7 +921,9 @@ class NetworkTrainer:
                             maps.append(word_map)
                         heat_map = torch.stack(maps, dim=0)
                         heat_map = heat_map.mean(0)  # res,res
-                        print(f'{layer_name} heat_map : {heat_map.shape}')
+                        from utils import expand_image, image_overlay_heat_map
+                        heat_map_img = expand_image(heat_map, 64,64)
+                        print(f'{layer_name} heat_map : {heat_map}')
                         """
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
                         
@@ -929,8 +931,8 @@ class NetworkTrainer:
                             word_map = global_heat_map[trg_index, :, :]
                             maps.append(word_map)
                         
-                        from utils import expand_image, image_overlay_heat_map
-                        heat_map_img = expand_image(heat_map, 512, 512)
+                        
+                        
                         img = image_overlay_heat_map(img=prev_image,
                                                      heat_map=heat_map_img)
                         layer_name = layer_name.split('_')[:5]
