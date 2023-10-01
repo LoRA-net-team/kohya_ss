@@ -939,6 +939,7 @@ class NetworkTrainer:
                         mask_img = np.array(mask_img)
                         mask_img = torch.from_numpy(mask_img)
                         mask_img = torch.where(mask_img == 0, 0, 1)
+                        print(f'heat_maps[i] : {heat_maps[i]}')
                         masked_attn_map = heat_maps[i] * mask_img.to(heat_maps[i].device)
                         import torch.nn.functional as F
                         attn_loss = F.mse_loss(masked_attn_map, heat_maps[i])
