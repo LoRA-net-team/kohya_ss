@@ -864,6 +864,7 @@ class NetworkTrainer:
 
                     absolute_path = batch["absolute_path"]
                     print(f'absolute_path : {absolute_path}')
+                    time.sleep(10)
 
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
