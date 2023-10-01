@@ -866,7 +866,7 @@ class NetworkTrainer:
                     parent, dir = os.path.split(absolute_path)
                     name, ext = os.path.splitext(dir)
 
-                    args.trg_token = 'haibara'
+                    args.trg_token = 'girl'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
                         pad_token = 49407
