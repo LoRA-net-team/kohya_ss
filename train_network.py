@@ -99,7 +99,10 @@ class NetworkTrainer:
     def generate_step_logs(
         self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler, keys_scaled=None, mean_norm=None, maximum_norm=None
     ):
-        logs = {"loss/current": current_loss, "loss/average": avr_loss}
+        logs = {"loss/current": current_loss,
+                "loss/average": avr_loss,
+                "loss/task_loss": task_loss.item(),
+                "loss/attn_loss": attn_loss.item(),}
 
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
@@ -1109,7 +1112,9 @@ class NetworkTrainer:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
 
                 if args.logging_dir is not None:
-                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm)
+                    logs = self.generate_step_logs(args, current_loss, avr_loss,
+                                                   lr_scheduler, keys_scaled, mean_norm, maximum_norm,
+                                                   task_loss, attn_loss)
                     accelerator.log(logs, step=global_step)
                     if is_main_process:
                         wandb.log(logs, step=global_step)
@@ -1120,8 +1125,6 @@ class NetworkTrainer:
                 logs = {"loss/epoch": loss_total / len(loss_list),
                         "loss/task_loss" : task_loss.item(),
                         "loss/attn_loss": attn_loss.item()}
-
-
                 accelerator.log(logs, step=epoch + 1)
             accelerator.wait_for_everyone()
             # 指定エポックごとにモデルを保存
