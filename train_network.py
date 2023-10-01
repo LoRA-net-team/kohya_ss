@@ -889,25 +889,22 @@ class NetworkTrainer:
                         attns = text_input.attention_mask
                         batch_ids = []
                         for token_id, attn in zip(token_ids, attns):
-                            print(f'token_id : {token_id}')
                             trg_indexs = []
                             for i, id in enumerate(token_id) :
                                 if id in trg_token_id:
                                     trg_indexs.append(i)
                             batch_ids.append(trg_indexs)
-                        print(f'batch_ids : {batch_ids}')
                         return batch_ids
 
-
-
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-                    print(f'trg_indexs : {trg_indexs}')
-                    time.sleep(50)
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
                     map_list = []
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name]
+                        print(f'attn_list : {len(attn_list)}')
+                        print(f'elem : {attn_list[0].shape}')
+                        time.sleep(30)
                         maps = torch.stack(attn_list, dim=0)  # [timestep, 8*2, pix_len, sen_len]
                         maps = maps.sum(0)  # [8, pix_len, sen_len]
                         maps = maps.sum(0)  # [pix_len, sen_len]
