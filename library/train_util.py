@@ -4386,7 +4386,7 @@ def sample_images_common(
     unet,
     prompt_replacement=None,
     controlnet=None,
-):
+    attention_storer=None,):
     """
     StableDiffusionLongPromptWeightingPipelineの改造版を使うようにしたので、clip skipおよびプロンプトの重みづけに対応した
     """
@@ -4562,6 +4562,8 @@ def sample_images_common(
                     controlnet=controlnet,
                     controlnet_image=controlnet_image,)
             image = pipeline.latents_to_image(latents)[0]
+            if attention_storer :
+                attention_storer.reset()
 
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
             num_suffix = f"e{epoch:06d}" if epoch is not None else f"{steps:06d}"
