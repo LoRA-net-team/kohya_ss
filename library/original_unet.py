@@ -1513,12 +1513,12 @@ class UNet2DConditionModel(nn.Module):
         # ControlNetの出力を追加する
         if mid_block_additional_residual is not None:
             sample += mid_block_additional_residual
-        print(f'after mid block, down_block_res_samples : {len(down_block_res_samples)}')
+        #print(f'after mid block, down_block_res_samples : {len(down_block_res_samples)}')
         # 5. up
         #print(f'right before start of upblock, len of down_block_res_samples (12) : {len(down_block_res_samples)}')
         for i, upsample_block in enumerate(self.up_blocks):
             is_final_block = i == len(self.up_blocks) - 1
-            print(f'{i} down_block_res_samples : {len(down_block_res_samples)}')
+            #print(f'{i} down_block_res_samples : {len(down_block_res_samples)}')
             res_samples = down_block_res_samples[-len(upsample_block.resnets) :]
             down_block_res_samples = down_block_res_samples[: -len(upsample_block.resnets)]  # skip connection
             if not is_final_block and forward_upsample_size:
