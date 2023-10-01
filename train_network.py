@@ -28,7 +28,7 @@ from setproctitle import *
 from utils import _convert_heat_map_colors
 from PIL import Image
 import numpy as np
-
+import torch.nn.functional as F
 
 def register_attention_control(unet, controller):
 
@@ -932,20 +932,16 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     batch_mask_dirs = batch["mask_dirs"]
-                    attn_loss_s = 0
+                    attn_loss = 0
                     for i, mask_dir in enumerate(batch_mask_dirs) :
                         mask_img = Image.open(mask_dir)
                         mask_img = mask_img.resize((512, 512))
                         mask_img = np.array(mask_img)
                         mask_img = torch.from_numpy(mask_img)
                         mask_img = torch.where(mask_img == 0, 0, 1)
-                        print(f'heat_maps[i] : {heat_maps[i]}')
                         masked_attn_map = heat_maps[i] * mask_img.to(heat_maps[i].device)
-                        import torch.nn.functional as F
-                        attn_loss = F.mse_loss(masked_attn_map, heat_maps[i])
-                        print(f'attn_loss : {attn_loss}')
-                        time.sleep(10)
 
+                        attn_loss += F.mse_loss(masked_attn_map, heat_maps[i])
                     
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
@@ -970,8 +966,8 @@ class NetworkTrainer:
                             #a = '_'.join(layer_name)
                             #attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                             #img.save(attn_save_dir)
-                    print('heat_map.shape : ', heat_map.shape)
                     #print("atten_collection")
+                    loss += attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
