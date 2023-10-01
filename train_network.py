@@ -917,7 +917,7 @@ class NetworkTrainer:
                             map_list.append(word_map)
                     heat_map = torch.stack(map_list, dim=0)
                     heat_map = heat_map.mean(0)
-                            """
+                    """
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
                             #heat_map = _convert_heat_map_colors(heat_map)
@@ -941,7 +941,7 @@ class NetworkTrainer:
                             a = '_'.join(layer_name)
                             attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                             img.save(attn_save_dir)
-                            """
+                    """
                     print('heat_map.shape : ', heat_map.shape)
                     #print("atten_collection")
                     attention_storer.reset()
