@@ -927,44 +927,44 @@ class NetworkTrainer:
                         heat_map = torch.stack(map_list, dim=0)
                         heat_map = heat_map.mean(0)
                         heat_maps.append(heat_map)
-                    print(f'len of heat maps : {len(heat_maps)}')
-                    print(f'shape of first elem : {heat_maps[0].shape}')
-                    time.sleep(100)
-                    """
-                    print(f'')
-                    # batch["mask_dirs"]
-                    mask_img = Image.open(mask_dir)
-                    mask_img = mask_img.resize((512, 512))
-                    mask_img = np.array(mask_img)
-                    print(f'mask_img : {mask_img}')
+                    attention_storer.reset()
+
+                    # ------------------------------------------------------------------------------------
+                    # cross attention map loss
+                    batch_mask_dirs = batch["mask_dirs"]
+                    for mask_dir in batch_mask_dirs :
+                        mask_img = Image.open(mask_dir)
+                        mask_img = mask_img.resize((512, 512))
+                        mask_img = np.array(mask_img)
+                        print(f'mask_dir : {mask_dir}')
+                        print(f'mask_img : {mask_img}')
+                        time.sleep(100)
                     
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
                             #heat_map = _convert_heat_map_colors(heat_map)
                             #heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                             #heat_map_img = Image.fromarray(heat_map)
-                            base_img = Image.open(absolute_path)
-                            heat_map_img = image_overlay_heat_map(base_img,
-                                                                  heat_map,)
-                            heat_map_base_dir = os.path.join(args.output_dir, name)
-                            os.makedirs(heat_map_base_dir, exist_ok=True)
-                            heat_map_dir = os.path.join(heat_map_base_dir,f'{layer_name}.jpg')
-                            try :
-                                Image.open(heat_map_dir)
-                            except :
-                                heat_map_img.save(heat_map_dir)
-                            base_img.save(os.path.join(heat_map_base_dir,f{name}.jpg'))
+                            #base_img = Image.open(absolute_path)
+                            #heat_map_img = image_overlay_heat_map(base_img,
+                            #                                      heat_map,)
+                            #heat_map_base_dir = os.path.join(args.output_dir, name)
+                            #os.makedirs(heat_map_base_dir, exist_ok=True)
+                            #heat_map_dir = os.path.join(heat_map_base_dir,f'{layer_name}.jpg')
+                            #try :
+                            #    Image.open(heat_map_dir)
+                            #except :
+                            #    heat_map_img.save(heat_map_dir)
+                            #base_img.save(os.path.join(heat_map_base_dir,f{name}.jpg'))
                             
-                            img = image_overlay_heat_map(img=prev_image,
-                                                         heat_map=heat_map_img)
-                            layer_name = layer_name.split('_')[:5]
-                            a = '_'.join(layer_name)
-                            attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
-                            img.save(attn_save_dir)
-                    """
+                            #img = image_overlay_heat_map(img=prev_image,
+                            #                             heat_map=heat_map_img)
+                            #layer_name = layer_name.split('_')[:5]
+                            #a = '_'.join(layer_name)
+                            #attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
+                            #img.save(attn_save_dir)
                     print('heat_map.shape : ', heat_map.shape)
                     #print("atten_collection")
-                    attention_storer.reset()
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
