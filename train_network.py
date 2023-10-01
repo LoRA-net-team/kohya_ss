@@ -885,7 +885,6 @@ class NetworkTrainer:
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
-                        print(f'trg_token_id : {trg_token_id}')
                         text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
@@ -900,7 +899,6 @@ class NetworkTrainer:
                                 if token_id == id:
                                     trg_indexs.append(trg_index)
                             trg_index += 1
-                        print(f'trg_indexs : {trg_indexs}')
                         text_embeddings = text_encoder(text_input.input_ids.to(text_encoder.device))[0]
                         return text_embeddings, trg_indexs
                     text_embeddings, trg_indexs = generate_text_embedding(batch["captions"],
@@ -917,14 +915,20 @@ class NetworkTrainer:
                         res = int(math.sqrt(pix_len))
                         maps = maps.permute(1, 0)  # [sen_len, pix_len]
                         global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-                        """
-                        print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
                         maps = []
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
                             maps.append(word_map)
                         heat_map = torch.stack(maps, dim=0)
                         heat_map = heat_map.mean(0)  # res,res
+                        print(f'{layer_name} heat_map : {heat_map.shape}')
+                        """
+                        print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
+                        
+                        for trg_index in trg_indexs:
+                            word_map = global_heat_map[trg_index, :, :]
+                            maps.append(word_map)
+                        
                         from utils import expand_image, image_overlay_heat_map
                         heat_map_img = expand_image(heat_map, 512, 512)
                         img = image_overlay_heat_map(img=prev_image,
