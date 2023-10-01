@@ -932,13 +932,20 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     batch_mask_dirs = batch["mask_dirs"]
-                    for mask_dir in batch_mask_dirs :
+                    for i, mask_dir in enumerate(batch_mask_dirs) :
                         mask_img = Image.open(mask_dir)
                         mask_img = mask_img.resize((512, 512))
                         mask_img = np.array(mask_img)
+                        mask_img = np.where(mask_img == 0, 0, 1)
+                        masked_attn_map = heat_maps[i] * mask_img
+                        import torch.nn.functional as F
                         print(f'mask_dir : {mask_dir}')
                         print(f'mask_img : {mask_img}')
-                        time.sleep(100)
+                        time.sleep(10)
+                        print(f'type(masked_attn_map) ; {type(masked_attn_map)}')
+                        print(f'type(heat_map) ; {type(heat_maps[i])}')
+                        attn_loss = F.mse_loss(masked_attn_map, heat_maps[i])
+
                     
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
