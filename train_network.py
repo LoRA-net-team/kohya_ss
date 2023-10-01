@@ -817,8 +817,7 @@ class NetworkTrainer:
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-                    print(f'batch["captions"] : {len(batch["captions"])}')
-
+                    
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
@@ -858,7 +857,6 @@ class NetworkTrainer:
 
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
-
                     #batch["absolute_paths"]
                     #batch["mask_dirs"]
 
@@ -897,7 +895,6 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-                    print(f'trg_indexs : {trg_indexs}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
                     map_dict = {}
@@ -974,7 +971,6 @@ class NetworkTrainer:
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
 
                     i = 0
-                    
                     standard_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if 'mid' in layer_name :
