@@ -925,7 +925,7 @@ class NetworkTrainer:
                     heat_map_img.save(f'heat_map.jpg')
 
 
-                        """
+                    """
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
                         
                         for trg_index in trg_indexs:
@@ -940,7 +940,7 @@ class NetworkTrainer:
                         a = '_'.join(layer_name)
                         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                         img.save(attn_save_dir)
-                        """
+                    """
                     #print("atten_collection")
                     attention_storer.reset()
                     accelerator.backward(loss)
