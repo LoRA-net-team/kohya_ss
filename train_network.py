@@ -936,8 +936,9 @@ class NetworkTrainer:
                         mask_img = Image.open(mask_dir)
                         mask_img = mask_img.resize((512, 512))
                         mask_img = np.array(mask_img)
-                        mask_img = np.where(mask_img == 0, 0, 1)
-                        masked_attn_map = heat_maps[i] * mask_img
+                        mask_img = torch.from_numpy(mask_img)
+                        mask_img = torch.where(mask_img == 0, 0, 1)
+                        masked_attn_map = heat_maps[i] * mask_img.to(heat_maps[i].device)
                         import torch.nn.functional as F
                         print(f'mask_dir : {mask_dir}')
                         print(f'mask_img : {mask_img}')
