@@ -890,7 +890,6 @@ class NetworkTrainer:
                         batch_ids = []
                         for token_id, attn in zip(token_ids, attns):
                             print(f'token_id : {token_id}')
-                            time.sleep(30)
                             trg_indexs = []
                             for i, id in enumerate(token_id) :
                                 if id in trg_token_id:
