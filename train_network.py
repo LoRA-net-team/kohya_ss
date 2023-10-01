@@ -916,7 +916,7 @@ class NetworkTrainer:
                         map_list = []
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
-                            word_map = expand_image(word_map, 64, 64)
+                            word_map = expand_image(word_map, 512, 512)
                             #m = nn.Softmax(dim=1)
                             #word_map = m(word_map)
                             map_list.append(word_map)
@@ -937,6 +937,8 @@ class NetworkTrainer:
                                 Image.open(heat_map_dir)
                             except :
                                 heat_map_img.save(heat_map_dir)
+                            base_img = Image.open(absolute_path)
+                            base_img.save(os.path.join(heat_map_base_dir,f'{name}.jpg'))
 
 
                         """
