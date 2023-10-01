@@ -1056,9 +1056,19 @@ class BaseDataset(torch.utils.data.Dataset):
         text_encoder_outputs1_list = []
         text_encoder_outputs2_list = []
         text_encoder_pool2_list = []
+        absolute_paths = []
+        mask_dirs = []
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
+            absolute_paths.append(absolute_path)
+
+            parent, dir = os.path.split(absolute_path)
+            name, ext = os.path.splitext(dir)
+            mask_base_dir = r'/data7/sooyeon/MyData/haibara_mask'
+            mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
+            mask_dirs.append(mask_dir)
+
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
@@ -1120,18 +1130,14 @@ class BaseDataset(torch.utils.data.Dataset):
 
                 latents = None
                 image = self.image_transforms(img)  # -1.0~1.0のtorch.Tensorになる
-
             images.append(image)
             latents_list.append(latents)
-
             target_size = (image.shape[2], image.shape[1]) if image is not None else (latents.shape[2] * 8, latents.shape[1] * 8)
-
             if not flipped:
                 crop_left_top = (crop_ltrb[0], crop_ltrb[1])
             else:
                 # crop_ltrb[2] is right, so target_size[0] - crop_ltrb[2] is left in flipped image
                 crop_left_top = (target_size[0] - crop_ltrb[2], crop_ltrb[1])
-
             original_sizes_hw.append((int(original_size[1]), int(original_size[0])))
             crop_top_lefts.append((int(crop_left_top[1]), int(crop_left_top[0])))
             target_sizes_hw.append((int(target_size[1]), int(target_size[0])))
@@ -1180,7 +1186,8 @@ class BaseDataset(torch.utils.data.Dataset):
                         input_ids2_list.append(token_caption2)
 
         example = {}
-        example["absolute_path"] = absolute_path
+        example["absolute_paths"] = absolute_paths
+        example["mask_dirs"] = mask_dirs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
 
         if len(text_encoder_outputs1_list) == 0:

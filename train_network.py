@@ -859,13 +859,8 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
 
-                    absolute_path = batch["absolute_path"]
-                    print(f'absolute_path : {len(absolute_path)}')
-                    parent, dir = os.path.split(absolute_path)
-                    name, ext = os.path.splitext(dir)
-                    mask_base_dir = r'/data7/sooyeon/MyData/haibara_mask'
-                    mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
-                    print(f'absolute_path : {absolute_path} | mask_dir : {mask_dir}')
+                    #batch["absolute_paths"]
+                    #batch["mask_dirs"]
 
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
@@ -880,14 +875,21 @@ class NetworkTrainer:
                         token_ids = token_input.input_ids[0]
                         token_attns = token_input.attention_mask[0]
                         trg_token_id = []
+
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
+
+                        caption_len = len(batch['captions'])
+                        print(f'len of batch captions : {caption_len}')
                         text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
                                                truncation=True,
                                                return_tensors="pt", )
+
+                        print(f'text_input : {text_input}')
+                        time.sleep(30)
                         trg_indexs = []
                         trg_index = 0
                         token_ids = text_input.input_ids[0]
@@ -899,8 +901,10 @@ class NetworkTrainer:
                             trg_index += 1
                         text_embeddings = text_encoder(text_input.input_ids.to(text_encoder.device))[0]
                         return text_embeddings, trg_indexs
-                    text_embeddings, trg_indexs = generate_text_embedding(batch["captions"],
-                                                                          tokenizer, text_encoder)
+
+
+
+                    text_embeddings, trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
                     #print(f'trg_indexs : {trg_indexs}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
@@ -921,11 +925,14 @@ class NetworkTrainer:
                     heat_map = torch.stack(map_list, dim=0)
                     heat_map = heat_map.mean(0)
 
+                    """
+                    print(f'')
+                    # batch["mask_dirs"]
                     mask_img = Image.open(mask_dir)
                     mask_img = mask_img.resize((512, 512))
                     mask_img = np.array(mask_img)
                     print(f'mask_img : {mask_img}')
-                    """
+                    
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
                             #heat_map = _convert_heat_map_colors(heat_map)
