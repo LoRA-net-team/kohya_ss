@@ -915,6 +915,15 @@ class NetworkTrainer:
                         heat_map = torch.stack(maps, dim=0)
                         heat_map = heat_map.mean(0)  # res,res
                         print(f'{layer_name} heat_map : {heat_map.sum()}')
+                        from utils import _convert_heat_map_colors
+                        from PIL import Image
+                        import numpy as np
+                        heat_map = _convert_heat_map_colors(heat_map)
+                        heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                        heat_map_img = Image.fromarray(heat_map)
+                        heat_map_img.save(f'{layer_name}_heat_map.jpg')
+                        
+
                         """
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
                         
