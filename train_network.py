@@ -909,12 +909,12 @@ class NetworkTrainer:
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
                             word_map = expand_image(word_map, 64, 64)
-                            m = nn.Softmax(dim=1)
-                            word_map = m(word_map)
+                            #m = nn.Softmax(dim=1)
+                            #word_map = m(word_map)
                             maps.append(word_map)
                         heat_map = torch.stack(maps, dim=0)
                         heat_map = heat_map.mean(0)  # res,res
-                        print(f'{layer_name} heat_map : {heat_map.sum()}')
+                        print(f'{layer_name} heat_map : {heat_map.sum()} : {heat_map.shape}')
                         from utils import _convert_heat_map_colors
                         from PIL import Image
                         import numpy as np
@@ -922,7 +922,7 @@ class NetworkTrainer:
                         heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                         heat_map_img = Image.fromarray(heat_map)
                         heat_map_img.save(f'{layer_name}_heat_map.jpg')
-                        
+
 
                         """
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
