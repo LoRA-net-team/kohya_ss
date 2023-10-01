@@ -906,7 +906,7 @@ class NetworkTrainer:
                         attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
                         batch_attn_map = torch.chunk(attn_map, args.train_batch_size, dim=0)
                         for i, map in enumerate(batch_attn_map) :
-                            maps = torch.stack(map, dim=0)  # [timestep, 8*2, pix_len, sen_len]
+                            maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             maps = maps.sum(0)  # [pix_len, sen_len]
                             pix_len, sen_len = maps.shape
