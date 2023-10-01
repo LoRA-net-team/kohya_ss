@@ -863,8 +863,8 @@ class NetworkTrainer:
                     # cross attention matching loss
 
                     absolute_path = batch["absolute_path"]
-                    print(f'absolute_path : {absolute_path}')
-                    time.sleep(10)
+                    parent, dir = os.path.split(absolute_path)
+                    name, ext = os.path.splitext(dir)
 
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
@@ -930,7 +930,12 @@ class NetworkTrainer:
                             heat_map = _convert_heat_map_colors(heat_map)
                             heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                             heat_map_img = Image.fromarray(heat_map)
-                            heat_map_img.save(f'{layer_name}.jpg')
+                            heat_map_dir = os.path.join(save_base_dir,f'{name}_{layer_name}.jpg')
+                            try :
+                                from PIL import Image
+                                Image.open(heat_map_dir)
+                            except :
+                                heat_map_img.save(heat_map_dir)
 
 
                         """
