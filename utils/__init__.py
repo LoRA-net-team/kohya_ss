@@ -29,7 +29,7 @@ def _convert_heat_map_colors(heat_map : torch.Tensor):
     def get_color(value):
         return np.array(cm.turbo(value / 255)[0:3])
 
-    color_map = np.array([ get_color(i) * 255 for i in range(256) ])
+    color_map = np.array([get_color(i) * 255 for i in range(256) ])
     color_map = torch.tensor(color_map, device=heat_map.device)
 
     heat_map = (heat_map * 255).long()

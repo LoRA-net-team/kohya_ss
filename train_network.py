@@ -25,6 +25,9 @@ import library.custom_train_functions as custom_train_functions
 from library.custom_train_functions import (apply_snr_weight,get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
                                             scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
 from setproctitle import *
+from utils import _convert_heat_map_colors
+from PIL import Image
+import numpy as np
 
 
 def register_attention_control(unet, controller):
@@ -207,23 +210,15 @@ class NetworkTrainer:
                         args.train_data_dir, args.reg_data_dir)}]}
                 else:
                     print("Training with captions.")
-                    user_config = {
-                        "datasets": [{"subsets": [
-                                    {"image_dir": args.train_data_dir,
-                                        "metadata_file": args.in_json,
-                                    }]}]}
-
+                    user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,"metadata_file": args.in_json,}]}]}
             blueprint = blueprint_generator.generate(user_config, args, tokenizer=tokenizer)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
-            # use arbitrary dataset class
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
-
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
         collater = train_util.collater_class(current_epoch, current_step, ds_for_collater)
-
         if args.debug_dataset:
             train_util.debug_dataset(train_dataset_group)
             return
@@ -302,7 +297,7 @@ class NetworkTrainer:
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders,
                                                   train_dataset_group, weight_dtype)
 
-        """
+
         if is_main_process:
             for name, module in unet.named_modules():
                 print(f'{name}: {module.__class__.__name__}')
@@ -346,7 +341,7 @@ class NetworkTrainer:
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
 
-        """
+        
         if is_main_process:
             unet_loras = network.unet_loras
             for unet_lora in unet_loras :
@@ -356,7 +351,7 @@ class NetworkTrainer:
                 lora_down = unet_lora.lora_down
                 print(f'{lora_name}: lora_up : {lora_up.weight}')
 
-        """
+        
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -906,7 +901,6 @@ class NetworkTrainer:
                         res = int(math.sqrt(pix_len))
                         maps = maps.permute(1, 0)  # [sen_len, pix_len]
                         global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
                             word_map = expand_image(word_map, 64, 64)
@@ -914,18 +908,22 @@ class NetworkTrainer:
                             #word_map = m(word_map)
                             map_list.append(word_map)
                     heat_map = torch.stack(map_list, dim=0)
-                    heat_map = heat_map.mean(0)  # res,res
+
+                    # ---------------------------------------------------------------------------------------------
+                    # make all component between 0~1, # res,res
+                    heat_map = heat_map.mean(0)
+
+                    # ---------------------------------------------------------------------------------------------
+                    # matching correspondence color to the value
                     print(f'{layer_name} heat_map : {heat_map.sum()} : {heat_map.shape}')
-                    from utils import _convert_heat_map_colors
-                    from PIL import Image
-                    import numpy as np
                     heat_map = _convert_heat_map_colors(heat_map)
+
                     heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                     heat_map_img = Image.fromarray(heat_map)
                     heat_map_img.save(f'heat_map.jpg')
 
 
-                    """
+                    
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
                         
                         for trg_index in trg_indexs:
@@ -940,7 +938,7 @@ class NetworkTrainer:
                         a = '_'.join(layer_name)
                         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                         img.save(attn_save_dir)
-                    """
+                    
                     #print("atten_collection")
                     attention_storer.reset()
                     accelerator.backward(loss)
@@ -949,17 +947,17 @@ class NetworkTrainer:
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
 
                     i = 0
-                    """
+                    
                     standard_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if 'mid' in layer_name :
                             net_name  = layer_name.split('lora_unet_mid_block_attentions_0_')[1]
                             standard_dict[net_name] = param_dict['params'][0].data.norm(2)
-                    """
+                    
                     wandb_logs = {}
                     grad_norm_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
-                        """
+                        
                         if args.algorithm_test :
                             for key in standard_dict.keys() :
                                 spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
@@ -1030,7 +1028,7 @@ class NetworkTrainer:
                                         else:
                                             scaling_factor = 1
                                         param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                        """
+                        
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
                             try:
@@ -1149,7 +1147,7 @@ class NetworkTrainer:
             loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
             with open(loss_save_dir, 'wb') as fw:
                 pickle.dump(loss_dict, fw)
-
+    """
 
 
 def setup_parser() -> argparse.ArgumentParser:
