@@ -29,7 +29,6 @@ def gcd(a, b):
         if a % i == 0 and b % i == 0:
             return i
 
-
 """
 BLOCKS = ["text_model",
           "unet_down_blocks_0_attentions_0","unet_down_blocks_0_attentions_1","unet_down_blocks_0_resnets",
@@ -55,17 +54,13 @@ class LoRAModule(torch.nn.Module):
     replaces forward method of the original Linear, instead of replacing the original Linear module.
     """
 
-    def __init__(
-        self,
-        lora_name,
-        org_module: torch.nn.Module,
-        multiplier=1.0,
-        lora_dim=4,
-        alpha=1,
-        dropout=None,
-        rank_dropout=None,
-        module_dropout=None,
-    ):
+    def __init__(self,lora_name,
+                 org_module: torch.nn.Module,
+                 multiplier=1.0,
+                 lora_dim=4,
+                 alpha=1,
+                 dropout=None,
+                 rank_dropout=None,module_dropout=None,):
         """if alpha == 0 or None, alpha is rank (no scaling)."""
         super().__init__()
         self.lora_name = lora_name
@@ -97,8 +92,19 @@ class LoRAModule(torch.nn.Module):
             kernel_size = org_module.kernel_size
             stride = org_module.stride
             padding = org_module.padding
-            self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
-            self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
+
+            #self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
+            #self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
+
+            filt_cnt_3x3 = int(out_dim * 0.167)
+            filt_cnt_5x5 = int(out_dim * 0.333)
+            filt_cnt_7x7 = int(out_dim * 0.5)
+            self.lora_down   = torch.nn.Conv2d(in_dim, filt_cnt_3x3, kernel_size, stride, padding, bias=False)
+            self.lora_middle = torch.nn.Conv2d(in_dim, filt_cnt_5x5, kernel_size, stride, padding, bias=False)
+            self.lora_up     = torch.nn.Conv2d(in_dim, filt_cnt_7x7, kernel_size, stride, padding, bias=False)
+
+
+
             #self.lora_down = torch.nn.Conv2d(in_dim, down_dim, kernel_size, stride, padding, bias=False)
             #self.lora_middle = torch.nn.Conv2d(down_dim, up_dim, (1, 1), (1, 1), bias=False)
             #self.lora_up = torch.nn.Conv2d(up_dim, out_dim, (1, 1), (1, 1), bias=False)
@@ -120,6 +126,8 @@ class LoRAModule(torch.nn.Module):
         torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
         #torch.nn.init.zeros_(self.lora_middle.weight)
         torch.nn.init.zeros_(self.lora_up.weight)
+        if self.lora_middle :
+            torch.nn.init.zeros_(self.lora_middle.weight)
 
         self.multiplier = multiplier
         self.org_module = org_module  # remove in applying
@@ -162,8 +170,12 @@ class LoRAModule(torch.nn.Module):
             scale = self.scale * (1.0 / (1.0 - self.rank_dropout))  # redundant for readability
         else:
             scale = self.scale
-        #lx = self.lora_middle(lx)
         lx = self.lora_up(lx)
+        if self.lora_middle :
+            lx_1 = self.lora_down(x)
+            lx_2 = self.lora_middle(x)
+            lx_3 = self.lora_up(x)
+            lx = torch.cat([lx_1, lx_2, lx_3], axis=1)
         return org_forwarded + lx * self.multiplier * scale
 
 
@@ -787,6 +799,10 @@ class LoRANetwork(torch.nn.Module):
     NUM_OF_BLOCKS = 12  # フルモデル相当でのup,downの層の数
     UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
     UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
+    # "ResnetBlock2D" : kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+    # "Downsample2D" : kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)
+    # "Upsample2D" : kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+
     TEXT_ENCODER_TARGET_REPLACE_MODULE = ["CLIPAttention", "CLIPMLP"]
     LORA_PREFIX_UNET = "lora_unet"
     LORA_PREFIX_TEXT_ENCODER = "lora_te"

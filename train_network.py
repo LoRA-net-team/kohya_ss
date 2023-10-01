@@ -303,6 +303,7 @@ class NetworkTrainer:
         if is_main_process:
             for name, module in unet.named_modules():
                 if module.__class__.__name__ in UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 :
+
                     print(f'{name} : {module}')
 
         """
