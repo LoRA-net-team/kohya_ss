@@ -896,7 +896,7 @@ class NetworkTrainer:
                     print(f'trg_indexs : {trg_indexs}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
-                    maps = []
+                    map_list = []
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name]
                         maps = torch.stack(attn_list, dim=0)  # [timestep, 8*2, pix_len, sen_len]
@@ -912,8 +912,8 @@ class NetworkTrainer:
                             word_map = expand_image(word_map, 64, 64)
                             #m = nn.Softmax(dim=1)
                             #word_map = m(word_map)
-                            maps.append(word_map)
-                    heat_map = torch.stack(maps, dim=0)
+                            map_list.append(word_map)
+                    heat_map = torch.stack(map_list, dim=0)
                     heat_map = heat_map.mean(0)  # res,res
                     print(f'{layer_name} heat_map : {heat_map.sum()} : {heat_map.shape}')
                     from utils import _convert_heat_map_colors
