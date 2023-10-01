@@ -860,6 +860,9 @@ class NetworkTrainer:
                     absolute_path = batch["absolute_path"]
                     parent, dir = os.path.split(absolute_path)
                     name, ext = os.path.splitext(dir)
+                    mask_base_dir = r'/data7/sooyeon/MyData/haibara_mask'
+                    mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
+                    print(mask_dir)
 
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
