@@ -901,7 +901,7 @@ class NetworkTrainer:
                                     trg_indexs.append(trg_index)
                             trg_index += 1
                         print(f'trg_indexs : {trg_indexs}')
-                        text_embeddings = text_encoder(text_input.input_ids)[0]
+                        text_embeddings = text_encoder(text_input.input_ids.to(text_encoder.device))[0]
                         return text_embeddings, trg_indexs
                     text_embeddings, trg_indexs = generate_text_embedding(batch["captions"],
                                                                           tokenizer, text_encoder)
