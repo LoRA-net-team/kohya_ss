@@ -964,12 +964,14 @@ class NetworkTrainer:
                             #attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                             #img.save(attn_save_dir)
                     #print("atten_collection")
+
+                    task_loss = loss
+                    attn_loss = attn_loss
                     loss += attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-
                     i = 0
                     standard_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
@@ -980,7 +982,7 @@ class NetworkTrainer:
                     wandb_logs = {}
                     grad_norm_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
-                        
+                        """
                         if args.algorithm_test :
                             for key in standard_dict.keys() :
                                 spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
@@ -1051,7 +1053,7 @@ class NetworkTrainer:
                                         else:
                                             scaling_factor = 1
                                         param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                        
+                        """
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
                             try:
@@ -1115,7 +1117,11 @@ class NetworkTrainer:
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
-                logs = {"loss/epoch": loss_total / len(loss_list)}
+                logs = {"loss/epoch": loss_total / len(loss_list),
+                        "loss/task_loss" : task_loss.item(),
+                        "loss/attn_loss": attn_loss.item()}
+
+
                 accelerator.log(logs, step=epoch + 1)
             accelerator.wait_for_everyone()
             # 指定エポックごとにモデルを保存
