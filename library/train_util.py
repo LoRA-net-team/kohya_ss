@@ -1037,7 +1037,7 @@ class BaseDataset(torch.utils.data.Dataset):
         return self._length
 
     def __getitem__(self, index):
-        print(f' Get Item Here')
+
         bucket = self.bucket_manager.buckets[self.buckets_indices[index].bucket_index]
         bucket_batch_size = self.buckets_indices[index].bucket_batch_size
         image_index = self.buckets_indices[index].batch_index * bucket_batch_size
@@ -1058,7 +1058,7 @@ class BaseDataset(torch.utils.data.Dataset):
         text_encoder_pool2_list = []
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
-            print(f'image_info : {image_info}')
+            absolute_path = image_info.absolute_path
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
@@ -1180,6 +1180,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         input_ids2_list.append(token_caption2)
 
         example = {}
+        example["absolute_path"] = absolute_path
         example["loss_weights"] = torch.FloatTensor(loss_weights)
 
         if len(text_encoder_outputs1_list) == 0:
