@@ -817,7 +817,8 @@ class NetworkTrainer:
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-                    print(f'batch["captions"] : {batch["captions"]}')
+                    print(f'batch["captions"] : {len(batch["captions"])}')
+                    time.sleep(10)
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
