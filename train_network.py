@@ -929,6 +929,7 @@ class NetworkTrainer:
                         heat_maps.append(heat_map)
                     print(f'len of heat maps : {len(heat_maps)}')
                     print(f'shape of first elem : {heat_maps[0].shape}')
+                    time.sleep(100)
                     """
                     print(f'')
                     # batch["mask_dirs"]
