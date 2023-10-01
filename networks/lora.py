@@ -787,13 +787,10 @@ class LoRANetwork(torch.nn.Module):
     NUM_OF_BLOCKS = 12  # フルモデル相当でのup,downの層の数
     UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
     UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
-    #UNET_TARGET_REPLACE_MODULE = ["ResnetBlock2D"]
     TEXT_ENCODER_TARGET_REPLACE_MODULE = ["CLIPAttention", "CLIPMLP"]
     LORA_PREFIX_UNET = "lora_unet"
     LORA_PREFIX_TEXT_ENCODER = "lora_te"
-    # SDXL: must starts with LORA_PREFIX_TEXT_ENCODER
-    LORA_PREFIX_TEXT_ENCODER1 = "lora_te1"
-    LORA_PREFIX_TEXT_ENCODER2 = "lora_te2"
+
     def __init__(
         self,
         text_encoder: Union[List[CLIPTextModel], CLIPTextModel],
@@ -850,15 +847,10 @@ class LoRANetwork(torch.nn.Module):
                 print(f"apply LoRA to Conv2d with kernel size (3,3). dim (rank): {self.conv_lora_dim}, alpha: {self.conv_alpha}")
 
         # create module instances
-        def create_modules(
-            is_unet: bool,
-            text_encoder_idx: Optional[int],  # None, 1, 2
-            root_module: torch.nn.Module,
-            target_replace_modules: List[torch.nn.Module],
-        ) -> List[LoRAModule]:
-            prefix = (self.LORA_PREFIX_UNET
-                if is_unet
-                else (self.LORA_PREFIX_TEXT_ENCODER if text_encoder_idx is None
+        def create_modules(is_unet: bool,text_encoder_idx: Optional[int],  # None, 1, 2
+                           root_module: torch.nn.Module,
+                           target_replace_modules: List[torch.nn.Module],) -> List[LoRAModule]:
+            prefix = (self.LORA_PREFIX_UNET if is_unet else (self.LORA_PREFIX_TEXT_ENCODER if text_encoder_idx is None
                     else (self.LORA_PREFIX_TEXT_ENCODER1 if text_encoder_idx == 1 else self.LORA_PREFIX_TEXT_ENCODER2)))
             loras = []
             skipped = []

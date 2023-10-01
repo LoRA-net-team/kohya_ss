@@ -297,10 +297,14 @@ class NetworkTrainer:
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders,
                                                   train_dataset_group, weight_dtype)
 
+        UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
+        UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
 
         if is_main_process:
             for name, module in unet.named_modules():
-                print(f'{name}: {module.__class__.__name__}')
+                if module.__class__.__name__ in UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 :
+                    print(f'{name} : {module}')
+
         """
         # prepare network
         net_kwargs = {}
