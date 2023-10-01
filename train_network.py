@@ -297,16 +297,17 @@ class NetworkTrainer:
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders,
                                                   train_dataset_group, weight_dtype)
 
+        """
         UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
         UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
 
         if is_main_process:
             for name, module in unet.named_modules():
                 if module.__class__.__name__ in UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 :
-
                     print(f'{name} : {module}')
-
         """
+
+
         # prepare network
         net_kwargs = {}
         if args.network_args is not None:
@@ -859,6 +860,7 @@ class NetworkTrainer:
 
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
+                    """
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
@@ -943,7 +945,7 @@ class NetworkTrainer:
                         a = '_'.join(layer_name)
                         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                         img.save(attn_save_dir)
-                    
+                    """
                     #print("atten_collection")
                     attention_storer.reset()
                     accelerator.backward(loss)
@@ -1152,7 +1154,6 @@ class NetworkTrainer:
             loss_save_dir = os.path.join(record_save_dir, "loss.pickle")
             with open(loss_save_dir, 'wb') as fw:
                 pickle.dump(loss_dict, fw)
-    """
 
 
 def setup_parser() -> argparse.ArgumentParser:
