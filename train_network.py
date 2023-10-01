@@ -96,9 +96,9 @@ class NetworkTrainer:
         self.is_sdxl = False
 
     # TODO 他のスクリプトと共通化する
-    def generate_step_logs(
-        self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler, keys_scaled=None, mean_norm=None, maximum_norm=None,
-            task_loss=None, attn_loss=None,):
+    def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss,
+                           lr_scheduler, keys_scaled=None, mean_norm=None, maximum_norm=None,
+                           task_loss=None, attn_loss=None,):
         logs = {"loss/current": current_loss,
                 "loss/average": avr_loss,
                 "loss/task_loss": task_loss.item(),
