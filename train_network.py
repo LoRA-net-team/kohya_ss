@@ -818,7 +818,7 @@ class NetworkTrainer:
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
                     print(f'batch["captions"] : {len(batch["captions"])}')
-                    time.sleep(10)
+
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
@@ -860,6 +860,7 @@ class NetworkTrainer:
                     # cross attention matching loss
 
                     absolute_path = batch["absolute_path"]
+                    print(f'absolute_path : {len(absolute_path)}')
                     parent, dir = os.path.split(absolute_path)
                     name, ext = os.path.splitext(dir)
                     mask_base_dir = r'/data7/sooyeon/MyData/haibara_mask'
