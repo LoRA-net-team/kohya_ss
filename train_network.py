@@ -918,6 +918,7 @@ class NetworkTrainer:
                         maps = []
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
+                            from utils import expand_image, image_overlay_heat_map
                             word_map = expand_image(heat_map, 64, 64)
                             from torch import nn
                             m = nn.Softmax(dim=1)
