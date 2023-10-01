@@ -927,7 +927,10 @@ class NetworkTrainer:
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
                             print(f'{layer_name} heat_map : {heat_map.shape}')
-                            heat_map = _convert_heat_map_colors(heat_map)
+                            #heat_map = _convert_heat_map_colors(heat_map)
+
+
+
                             #heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                             #heat_map_img = Image.fromarray(heat_map)
                             base_img = Image.open(absolute_path)
