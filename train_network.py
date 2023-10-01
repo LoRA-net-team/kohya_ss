@@ -901,9 +901,10 @@ class NetworkTrainer:
                     layer_names = atten_collection.keys()
                     map_list = []
                     for layer_name in layer_names:
-                        attn_list = atten_collection[layer_name]
-                        print(f'attn_list : {len(attn_list)}')
-                        print(f'elem : {attn_list[0].shape}')
+                        attn_list = atten_collection[layer_name] # just one map element
+                        attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
+                        batch_attn_map = torch.chunk(attn_map, args.batch_size, dim=0)
+                        print(f'batch_attn_map : {batch_attn_map.shape}')
                         time.sleep(30)
                         maps = torch.stack(attn_list, dim=0)  # [timestep, 8*2, pix_len, sen_len]
                         maps = maps.sum(0)  # [8, pix_len, sen_len]
