@@ -934,7 +934,6 @@ class NetworkTrainer:
                             os.makedirs(heat_map_base_dir, exist_ok=True)
                             heat_map_dir = os.path.join(heat_map_base_dir,f'{layer_name}.jpg')
                             try :
-                                from PIL import Image
                                 Image.open(heat_map_dir)
                             except :
                                 heat_map_img.save(heat_map_dir)
