@@ -862,6 +862,9 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
 
+                    absolute_path = batch["absolute_path"]
+                    print(f'absolute_path : {absolute_path}')
+
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
@@ -899,7 +902,7 @@ class NetworkTrainer:
                     print(f'trg_indexs : {trg_indexs}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
-                    map_list = []
+
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name]
                         maps = torch.stack(attn_list, dim=0)  # [timestep, 8*2, pix_len, sen_len]
@@ -909,6 +912,7 @@ class NetworkTrainer:
                         res = int(math.sqrt(pix_len))
                         maps = maps.permute(1, 0)  # [sen_len, pix_len]
                         global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
+                        map_list = []
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
                             word_map = expand_image(word_map, 64, 64)
@@ -926,9 +930,7 @@ class NetworkTrainer:
                             heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                             heat_map_img = Image.fromarray(heat_map)
                             heat_map_img.save(f'{layer_name}.jpg')
-                        for trg_index in trg_indexs:
-                            word_map = global_heat_map[trg_index, :, :]
-                            maps.append(word_map)
+
 
                         """
                         img = image_overlay_heat_map(img=prev_image,
