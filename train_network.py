@@ -817,6 +817,7 @@ class NetworkTrainer:
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
+                    print(f'batch["captions"] : {batch["captions"]}')
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
@@ -917,6 +918,11 @@ class NetworkTrainer:
                             map_list.append(word_map)
                     heat_map = torch.stack(map_list, dim=0)
                     heat_map = heat_map.mean(0)
+
+                    mask_img = Image.open(mask_dir)
+                    mask_img = mask_img.resize((512, 512))
+                    mask_img = np.array(mask_img)
+                    print(f'mask_img : {mask_img}')
                     """
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
