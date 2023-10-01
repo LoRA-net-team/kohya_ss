@@ -897,29 +897,38 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
+                    print(f'trg_indexs : {trg_indexs}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
-                    map_list = []
+                    map_dict = {}
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
                         attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
                         batch_attn_map = torch.chunk(attn_map, args.train_batch_size, dim=0)
-                        print(f'batch_attn_map : {batch_attn_map.shape}')
-                        time.sleep(30)
-                        maps = torch.stack(attn_list, dim=0)  # [timestep, 8*2, pix_len, sen_len]
-                        maps = maps.sum(0)  # [8, pix_len, sen_len]
-                        maps = maps.sum(0)  # [pix_len, sen_len]
-                        pix_len, sen_len = maps.shape
-                        res = int(math.sqrt(pix_len))
-                        maps = maps.permute(1, 0)  # [sen_len, pix_len]
-                        global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-                        for trg_index in trg_indexs:
-                            word_map = global_heat_map[trg_index, :, :]
-                            word_map = expand_image(word_map, 512, 512)
-                            map_list.append(word_map)
-                    heat_map = torch.stack(map_list, dim=0)
-                    heat_map = heat_map.mean(0)
-
+                        for i, map in enumerate(batch_attn_map) :
+                            maps = torch.stack(map, dim=0)  # [timestep, 8*2, pix_len, sen_len]
+                            maps = maps.sum(0)  # [8, pix_len, sen_len]
+                            maps = maps.sum(0)  # [pix_len, sen_len]
+                            pix_len, sen_len = maps.shape
+                            res = int(math.sqrt(pix_len))
+                            maps = maps.permute(1, 0)  # [sen_len, pix_len]
+                            global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
+                            for trg_index in trg_indexs[i]:
+                                word_map = global_heat_map[trg_index, :, :]
+                                word_map = expand_image(word_map, 512, 512)
+                                try :
+                                    map_dict[i].append(word_map)
+                                except :
+                                    map_dict[i] = []
+                                    map_dict[i].append(word_map)
+                    heat_maps = []
+                    for batch_index in map_dict.keys() :
+                        map_list = map_dict[batch_index]
+                        heat_map = torch.stack(map_list, dim=0)
+                        heat_map = heat_map.mean(0)
+                        heat_maps.append(heat_map)
+                    print(f'len of heat maps : {len(heat_maps)}')
+                    print(f'shape of first elem : {heat_maps[0].shape}')
                     """
                     print(f'')
                     # batch["mask_dirs"]
