@@ -880,25 +880,23 @@ class NetworkTrainer:
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
 
-                        caption_len = len(batch['captions'])
-                        print(f'len of batch captions : {caption_len}')
                         text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
                                                truncation=True,
                                                return_tensors="pt", )
 
-                        print(f'text_input : {text_input}')
-                        time.sleep(30)
-                        trg_indexs = []
                         trg_index = 0
-                        token_ids = text_input.input_ids[0]
-                        attns = text_input.attention_mask[0]
+                        token_ids = text_input.input_ids
+                        attns = text_input.attention_mask
                         for token_id, attn in zip(token_ids, attns):
+                            print(f'token_id : {token_id}')
+                            time.sleep(30)
+                            trg_indexs = []
                             for id in trg_token_id:
                                 if token_id == id:
                                     trg_indexs.append(trg_index)
-                            trg_index += 1
+                                trg_index += 1
                         text_embeddings = text_encoder(text_input.input_ids.to(text_encoder.device))[0]
                         return text_embeddings, trg_indexs
 
