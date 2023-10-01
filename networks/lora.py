@@ -93,28 +93,19 @@ class LoRAModule(torch.nn.Module):
             stride = org_module.stride
             padding = org_module.padding
 
-            #self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
-            #self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
-
+            self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
+            self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
+            """
             filt_cnt_3x3 = int(out_dim * 0.167)
             filt_cnt_5x5 = int(out_dim * 0.333)
             filt_cnt_7x7 = int(out_dim * 0.5)
             self.lora_down   = torch.nn.Conv2d(in_dim, filt_cnt_3x3, kernel_size, stride, padding, bias=False)
             self.lora_middle = torch.nn.Conv2d(in_dim, filt_cnt_5x5, kernel_size, stride, padding, bias=False)
             self.lora_up     = torch.nn.Conv2d(in_dim, filt_cnt_7x7, kernel_size, stride, padding, bias=False)
-
-
-
-            #self.lora_down = torch.nn.Conv2d(in_dim, down_dim, kernel_size, stride, padding, bias=False)
-            #self.lora_middle = torch.nn.Conv2d(down_dim, up_dim, (1, 1), (1, 1), bias=False)
-            #self.lora_up = torch.nn.Conv2d(up_dim, out_dim, (1, 1), (1, 1), bias=False)
-
+            """
         else:
             self.lora_down = torch.nn.Linear(in_dim, self.lora_dim, bias=False)
             self.lora_up = torch.nn.Linear(self.lora_dim, out_dim, bias=False)
-            #self.lora_down = torch.nn.Linear(in_dim, down_dim, bias=False)
-            #self.lora_middle = torch.nn.Linear(down_dim, up_dim, bias=False)
-            #self.lora_up = torch.nn.Linear(up_dim, out_dim, bias=False)
 
         if type(alpha) == torch.Tensor:
             alpha = alpha.detach().float().numpy()  # without casting, bf16 causes error
@@ -126,8 +117,8 @@ class LoRAModule(torch.nn.Module):
         torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
         #torch.nn.init.zeros_(self.lora_middle.weight)
         torch.nn.init.zeros_(self.lora_up.weight)
-        if self.lora_middle :
-            torch.nn.init.zeros_(self.lora_middle.weight)
+        #if self.lora_middle :
+        #    torch.nn.init.zeros_(self.lora_middle.weight)
 
         self.multiplier = multiplier
         self.org_module = org_module  # remove in applying
@@ -171,11 +162,13 @@ class LoRAModule(torch.nn.Module):
         else:
             scale = self.scale
         lx = self.lora_up(lx)
+        """
         if self.lora_middle :
             lx_1 = self.lora_down(x)
             lx_2 = self.lora_middle(x)
             lx_3 = self.lora_up(x)
             lx = torch.cat([lx_1, lx_2, lx_3], axis=1)
+        """
         return org_forwarded + lx * self.multiplier * scale
 
 

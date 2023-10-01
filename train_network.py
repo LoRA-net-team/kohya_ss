@@ -206,12 +206,13 @@ class NetworkTrainer:
             else:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
-                    user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(
-                        args.train_data_dir, args.reg_data_dir)}]}
+                    user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir, args.reg_data_dir)}]}
                 else:
                     print("Training with captions.")
                     user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,"metadata_file": args.in_json,}]}]}
-            blueprint = blueprint_generator.generate(user_config, args, tokenizer=tokenizer)
+            blueprint = blueprint_generator.generate(user_config,
+                                                     args,
+                                                     tokenizer=tokenizer)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
@@ -860,7 +861,7 @@ class NetworkTrainer:
 
                     # ------------------------------------------------------------------------------------
                     # cross attention matching loss
-                    """
+
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
@@ -914,38 +915,29 @@ class NetworkTrainer:
                             #m = nn.Softmax(dim=1)
                             #word_map = m(word_map)
                             map_list.append(word_map)
-                    heat_map = torch.stack(map_list, dim=0)
-
-                    # ---------------------------------------------------------------------------------------------
-                    # make all component between 0~1, # res,res
-                    heat_map = heat_map.mean(0)
-
-                    # ---------------------------------------------------------------------------------------------
-                    # matching correspondence color to the value
-                    print(f'{layer_name} heat_map : {heat_map.sum()} : {heat_map.shape}')
-                    heat_map = _convert_heat_map_colors(heat_map)
-
-                    heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                    heat_map_img = Image.fromarray(heat_map)
-                    heat_map_img.save(f'heat_map.jpg')
-
-
-                    
-                        print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
-                        
+                            heat_map = torch.stack(map_list, dim=0)
+                            # ---------------------------------------------------------------------------------------------
+                            # make all component between 0~1, # res,res
+                            heat_map = heat_map.mean(0)
+                            # ---------------------------------------------------------------------------------------------
+                            # matching correspondence color to the value
+                            print(f'{layer_name} heat_map : {heat_map.sum()} : {heat_map.shape}')
+                            heat_map = _convert_heat_map_colors(heat_map)
+                            heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                            heat_map_img = Image.fromarray(heat_map)
+                            heat_map_img.save(f'{layer_name}.jpg')
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
                             maps.append(word_map)
-                        
-                        
-                        
+
+                        """
                         img = image_overlay_heat_map(img=prev_image,
                                                      heat_map=heat_map_img)
                         layer_name = layer_name.split('_')[:5]
                         a = '_'.join(layer_name)
                         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                         img.save(attn_save_dir)
-                    """
+                        """
                     #print("atten_collection")
                     attention_storer.reset()
                     accelerator.backward(loss)

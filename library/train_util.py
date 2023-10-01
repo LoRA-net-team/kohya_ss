@@ -1037,13 +1037,12 @@ class BaseDataset(torch.utils.data.Dataset):
         return self._length
 
     def __getitem__(self, index):
+        print(f' Get Item Here')
         bucket = self.bucket_manager.buckets[self.buckets_indices[index].bucket_index]
         bucket_batch_size = self.buckets_indices[index].bucket_batch_size
         image_index = self.buckets_indices[index].batch_index * bucket_batch_size
-
         if self.caching_mode is not None:  # return batch for latents/text encoder outputs caching
             return self.get_item_for_caching(bucket, bucket_batch_size, image_index)
-
         loss_weights = []
         captions = []
         input_ids_list = []
@@ -1057,14 +1056,11 @@ class BaseDataset(torch.utils.data.Dataset):
         text_encoder_outputs1_list = []
         text_encoder_outputs2_list = []
         text_encoder_pool2_list = []
-
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
-
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
-
             # image/latentsを処理する
             if image_info.latents is not None:  # cache_latents=Trueの場合
                 original_size = image_info.latents_original_size
@@ -1073,7 +1069,6 @@ class BaseDataset(torch.utils.data.Dataset):
                     latents = image_info.latents
                 else:
                     latents = image_info.latents_flipped
-
                 image = None
             elif image_info.latents_npz is not None:  # FineTuningDatasetまたはcache_latents_to_disk=Trueの場合
                 latents, original_size, crop_ltrb, flipped_latents = load_latents_from_disk(image_info.latents_npz)
@@ -1081,7 +1076,6 @@ class BaseDataset(torch.utils.data.Dataset):
                     latents = flipped_latents
                     del flipped_latents
                 latents = torch.FloatTensor(latents)
-
                 image = None
             else:
                 # 画像を読み込み、必要ならcropする
@@ -1218,15 +1212,12 @@ class BaseDataset(torch.utils.data.Dataset):
         else:
             images = None
         example["images"] = images
-
         example["latents"] = torch.stack(latents_list) if latents_list[0] is not None else None
         example["captions"] = captions
-
         example["original_sizes_hw"] = torch.stack([torch.LongTensor(x) for x in original_sizes_hw])
         example["crop_top_lefts"] = torch.stack([torch.LongTensor(x) for x in crop_top_lefts])
         example["target_sizes_hw"] = torch.stack([torch.LongTensor(x) for x in target_sizes_hw])
         example["flippeds"] = flippeds
-
         if self.debug_dataset:
             example["image_keys"] = bucket[image_index : image_index + self.batch_size]
         return example
@@ -1449,7 +1440,6 @@ class DreamBoothDataset(BaseDataset):
         if num_reg_images == 0:
             print("no regularization images / 正則化画像が見つかりませんでした")
         else:
-            # num_repeatsを計算する：どうせ大した数ではないのでループで処理する
             n = 0
             first_loop = True
             while n < num_train_images:
@@ -1463,7 +1453,6 @@ class DreamBoothDataset(BaseDataset):
                     if n >= num_train_images:
                         break
                 first_loop = False
-
         self.num_reg_images = num_reg_images
 
 
@@ -1959,15 +1948,12 @@ def save_latents_to_disk(npz_path, latents_tensor, original_size, crop_ltrb, fli
 def debug_dataset(train_dataset, show_input_ids=False):
     print(f"Total dataset length (steps) / データセットの長さ（ステップ数）: {len(train_dataset)}")
     print("`S` for next step, `E` for next epoch no. , Escape for exit. / Sキーで次のステップ、Eキーで次のエポック、Escキーで中断、終了します")
-
     epoch = 1
     while True:
         print(f"\nepoch: {epoch}")
-
         steps = (epoch - 1) * len(train_dataset) + 1
         indices = list(range(len(train_dataset)))
         random.shuffle(indices)
-
         k = 0
         for i, idx in enumerate(indices):
             train_dataset.set_current_epoch(epoch)
