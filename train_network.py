@@ -348,7 +348,7 @@ class NetworkTrainer:
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
 
-        
+        """
         if is_main_process:
             unet_loras = network.unet_loras
             for unet_lora in unet_loras :
@@ -357,7 +357,7 @@ class NetworkTrainer:
                 lora_up = unet_lora.lora_up
                 lora_down = unet_lora.lora_down
                 print(f'{lora_name}: lora_up : {lora_up.weight}')
-
+        """
         
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
