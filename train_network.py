@@ -932,6 +932,7 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     batch_mask_dirs = batch["mask_dirs"]
+                    attn_loss_s = 0
                     for i, mask_dir in enumerate(batch_mask_dirs) :
                         mask_img = Image.open(mask_dir)
                         mask_img = mask_img.resize((512, 512))
@@ -940,12 +941,9 @@ class NetworkTrainer:
                         mask_img = torch.where(mask_img == 0, 0, 1)
                         masked_attn_map = heat_maps[i] * mask_img.to(heat_maps[i].device)
                         import torch.nn.functional as F
-                        print(f'mask_dir : {mask_dir}')
-                        print(f'mask_img : {mask_img}')
-                        time.sleep(10)
-                        print(f'type(masked_attn_map) ; {type(masked_attn_map)}')
-                        print(f'type(heat_map) ; {type(heat_maps[i])}')
                         attn_loss = F.mse_loss(masked_attn_map, heat_maps[i])
+                        print(f'attn_loss : {attn_loss}')
+                        time.sleep(10)
 
                     
                             # ---------------------------------------------------------------------------------------------
