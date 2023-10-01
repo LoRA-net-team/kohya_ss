@@ -895,7 +895,6 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
                     map_dict = {}
@@ -903,7 +902,6 @@ class NetworkTrainer:
                         attn_list = atten_collection[layer_name] # just one map element
                         attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
                         batch_attn_map = torch.chunk(attn_map, len(trg_indexs), dim=0)
-                        print(f'len of batch_attn_map : {len(batch_attn_map)}')
                         for i, map in enumerate(batch_attn_map) :
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
