@@ -9,31 +9,21 @@ import time
 import json
 from multiprocessing import Value
 import toml
-
+from utils import expand_image, image_overlay_heat_map
+from torch import nn
 from tqdm import tqdm
 import torch
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
 from library import model_util
-
 import library.train_util as train_util
-from library.train_util import (
-    DreamBoothDataset,
-)
+from library.train_util import (DreamBoothDataset,)
 import library.config_util as config_util
-from library.config_util import (
-    ConfigSanitizer,
-    BlueprintGenerator,
-)
+from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
 import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (
-    apply_snr_weight,
-    get_weighted_text_embeddings,
-    prepare_scheduler_for_custom_training,
-    scale_v_prediction_loss_like_noise_prediction,
-    add_v_prediction_like_loss,
-)
+from library.custom_train_functions import (apply_snr_weight,get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
+                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
 from setproctitle import *
 
 
@@ -918,9 +908,7 @@ class NetworkTrainer:
                         maps = []
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
-                            from utils import expand_image, image_overlay_heat_map
-                            word_map = expand_image(heat_map, 64, 64)
-                            from torch import nn
+                            word_map = expand_image(word_map, 64, 64)
                             m = nn.Softmax(dim=1)
                             word_map = m(word_map)
                             print(f'word_map : {word_map.sum()}')
@@ -928,7 +916,7 @@ class NetworkTrainer:
                             maps.append(word_map)
                         heat_map = torch.stack(maps, dim=0)
                         heat_map = heat_map.mean(0)  # res,res
-                        from utils import expand_image, image_overlay_heat_map
+
                         heat_map_img = expand_image(heat_map, 64, 64)
 
                         print(f'{layer_name} heat_map : {heat_map.sum()}')
