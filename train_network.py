@@ -817,7 +817,7 @@ class NetworkTrainer:
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-                    
+
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
@@ -895,6 +895,7 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
+                    print(f'len of trg_indexs : {len(trg_indexs)}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
                     map_dict = {}
@@ -902,6 +903,7 @@ class NetworkTrainer:
                         attn_list = atten_collection[layer_name] # just one map element
                         attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
                         batch_attn_map = torch.chunk(attn_map, args.train_batch_size, dim=0)
+                        print(f'len of batch_attn_map : {len(batch_attn_map)}')
                         for i, map in enumerate(batch_attn_map) :
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
