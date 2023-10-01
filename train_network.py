@@ -895,7 +895,7 @@ class NetworkTrainer:
                         return text_embeddings, trg_indexs
                     text_embeddings, trg_indexs = generate_text_embedding(batch["captions"],
                                                                           tokenizer, text_encoder)
-                    print(f'trg_indexs : {trg_indexs}')
+                    #print(f'trg_indexs : {trg_indexs}')
                     atten_collection = attention_storer.step_store
                     layer_names = atten_collection.keys()
 
@@ -921,7 +921,6 @@ class NetworkTrainer:
                             heat_map = heat_map.mean(0)
                             # ---------------------------------------------------------------------------------------------
                             # matching correspondence color to the value
-                            print(f'{layer_name} heat_map : {heat_map.shape}')
                             #heat_map = _convert_heat_map_colors(heat_map)
 
 

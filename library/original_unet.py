@@ -1547,23 +1547,22 @@ class UNet2DConditionModel(nn.Module):
         #print(f'right before start of upblock, len of down_block_res_samples (12) : {len(down_block_res_samples)}')
         for i, upsample_block in enumerate(self.up_blocks):
             is_final_block = i == len(self.up_blocks) - 1
+            print(f'{i} down_block_res_samples : {len(down_block_res_samples)}')
             res_samples = down_block_res_samples[-len(upsample_block.resnets) :]
             down_block_res_samples = down_block_res_samples[: -len(upsample_block.resnets)]  # skip connection
-            # if we have not reached the final block and need to forward the upsample size, we do it here
-            # 前述のように最後のブロック以外ではupsample_sizeを伝える
             if not is_final_block and forward_upsample_size:
                 upsample_size = down_block_res_samples[-1].shape[2:]
             if upsample_block.has_cross_attention:
-                sample = upsample_block(hidden_states=sample,temb=emb,
+                sample = upsample_block(hidden_states=sample,
+                                        temb=emb,
                                         res_hidden_states_tuple=res_samples,
                                         encoder_hidden_states=encoder_hidden_states, # text information
                                         upsample_size=upsample_size,)                #
             else:
-                #print(f'in UpBlock2D, len of res_samples: {len(res_samples)}')
-                sample = upsample_block(hidden_states=sample, temb=emb,
+                sample = upsample_block(hidden_states=sample,
+                                        temb=emb,
                                         res_hidden_states_tuple=res_samples,
                                         upsample_size=upsample_size)
-
         # 6. post-process
         sample = self.conv_norm_out(sample)
         sample = self.conv_act(sample)
