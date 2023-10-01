@@ -918,11 +918,17 @@ class NetworkTrainer:
                         maps = []
                         for trg_index in trg_indexs:
                             word_map = global_heat_map[trg_index, :, :]
+                            from torch import nn
+                            m = nn.Softmax(dim=1)
+                            word_map = m(word_map)
+                            print(f'word_map : {word_map.sum()}')
+
                             maps.append(word_map)
                         heat_map = torch.stack(maps, dim=0)
                         heat_map = heat_map.mean(0)  # res,res
                         from utils import expand_image, image_overlay_heat_map
-                        heat_map_img = expand_image(heat_map, 64,64)
+                        heat_map_img = expand_image(heat_map, 64, 64)
+
                         print(f'{layer_name} heat_map : {heat_map.sum()}')
                         """
                         print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
