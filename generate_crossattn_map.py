@@ -321,16 +321,13 @@ def register_attention_control(unet, controller):
             # ----------------------------------------------------------------------------------------------------------------
             latent_hw = 64*64
             factor = int(math.sqrt(latent_hw // attention_probs.shape[1]))
-            print(f'factor : {factor}, layer_name : {layer_name}')
-
-
+            #print(f'factor : {factor}, layer_name : {layer_name}')
             if is_cross_attention:
                 if factor != 8:
                     maps = _unravel_attn(attention_probs)
                     for head_idx, heatmap in enumerate(maps):
-                        print(f'heatmap : {heatmap.shape}')
-               # print(f'cross attntion layer_name: {layer_name}')
-                attn = controller.store(attention_probs, layer_name)
+                        # shape of heatmap = [sen len, h, w]
+                        attn = controller.store(heatmap, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -3236,7 +3233,8 @@ def main(args):
     layer_names = atten_collection.keys()
     total_heat_map = []
     for layer_name in layer_names :
-        attn_list = atten_collection[layer_name]
+        attn_list = atten_collection[layer_name] # already shape of [77, H, W]
+        """
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
         maps, _ = torch.chunk(maps, chunks=2, dim=0)
@@ -3245,6 +3243,8 @@ def main(args):
         res = int(math.sqrt(pix_len))
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
+        """
+        global_heat_map = attn_list[0]
         maps = []
         for trg_index in trg_indexs:
             word_map = global_heat_map[trg_index, :, :]
