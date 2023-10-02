@@ -16,13 +16,12 @@ class AttentionStore :
             self.step_store[layer_name] = []
             self.step_store[layer_name].append(attn)
         else :
-            print(f'continue storing attn map')
             self.step_store[layer_name].append(attn)
             #self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
 
     def reset(self):
-        self.step_store = self.get_empty_store()
+        self.step_store = {}
         self.attention_store = {}
 
     # update heat map cache
