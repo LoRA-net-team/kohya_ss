@@ -279,6 +279,20 @@ def replace_vae_attn_to_sdpa():
 # attention storer
 def register_attention_control(unet, controller):
 
+    def _unravel_attn(self, x):
+        h = w = int(math.sqrt(x.size(1)))
+        maps = []
+        x = x.permute(2, 0, 1)
+        with auto_autocast(dtype=torch.float32):
+            for map_ in x:
+                map_ = map_.view(map_.size(0), h, w)
+                map_ = map_[map_.size(0) // 2:]  # Filter out unconditional
+                maps.append(map_)
+        maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
+        return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, tokens, height, width)
+
+
+
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, mask=None):
             is_cross_attention = False
