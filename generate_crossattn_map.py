@@ -282,16 +282,20 @@ def register_attention_control(unet, controller):
         h = w = int(math.sqrt(x.size(1)))
         maps = []
         x = x.permute(2, 0, 1) # sen_len, batch, pix_len
-        print(f'x : {x.shape}')
+        # x = [sen_len, batch, pix_len]
         with auto_autocast(dtype=torch.float32):
             for map_ in x:
                 """ evey sentence token """
-                print(f'map_ (evey sentence token) : {map_.shape}')
+                # map_ = [16, pix_len]
                 map_ = map_.view(map_.size(0), h, w)
-                print(f'map_ : {map_.shape}')
+                # map_ = [16, h, w]
                 map_ = map_[map_.size(0) // 2:]  # Filter out unconditional
+                # map_ = [8, h, w]
                 maps.append(map_)
         maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
+        # maps = [77, 8, h, w]
+
+        # maps = [8, 77, h, w]
         return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, tokens, height, width)
 
 
@@ -325,7 +329,11 @@ def register_attention_control(unet, controller):
             if is_cross_attention:
                 print(f'attention_probs.shape (batch, pix_len, sen_len) : {attention_probs.shape}')
                 print(f'factor : {factor}, layer_name : {layer_name}')
+
+                # -----------------------------------------------------------------------------------------------------
+                # [8, 77, h, w]
                 maps = _unravel_attn(attention_probs)
+
                 for head_idx, heatmap in enumerate(maps):
                     # shape of heatmap = [sen len, h, w]
                     attn = controller.store(heatmap, layer_name)
@@ -3208,7 +3216,7 @@ def main(args):
     layer_names = atten_collection.keys()
     total_heat_map = []
     for layer_name in layer_names :
-        attn_list = atten_collection[layer_name] # already shape of [77, H, W]
+        attn_list = atten_collection[layer_name] # number is head, each shape = [77, H, W]
         """
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
@@ -3219,8 +3227,9 @@ def main(args):
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
-        global_heat_map = attn_list[0]
-        global_heat_map = global_heat_map.unsqueeze(1)
+        global_heat_map = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
+        print(f'global_heat_map.shape (8, 77, h, w): {global_heat_map.shape}')
+        #global_heat_map = global_heat_map.unsqueeze(1)
         from torch.nn import functional as F
 
         global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
