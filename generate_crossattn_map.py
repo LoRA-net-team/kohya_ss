@@ -3235,13 +3235,11 @@ def main(args):
         """
         maps = []
         for trg_index in trg_indexs :
-            print(f'trg_index : {trg_index}')
             word_map = attn_maps[trg_index, :, :]
             word_map = expand_image(word_map, 512, 512)
-            print(f'after expanding, word_map (512,512): {word_map.shape}')
             maps.append(word_map)
+            total_heat_map.append(word_map)
         heat_map = torch.stack(maps, dim=0) # [num,512,512]
-        print(f'heat_map : {heat_map.shape}')
         heat_map = heat_map.mean(0).squeeze(0)
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map)
@@ -3253,23 +3251,11 @@ def main(args):
     print("atten_collection")
     print("total attention map")
     total_heat_map = torch.stack(total_heat_map, dim=0)
-    total_heat_map = total_heat_map.mean(0)[:, 0]
-    print(f'total_heat_map : {total_heat_map.shape}')
-    maps = []
-    for trg_index in trg_indexs:
-        word_map = total_heat_map[trg_index, :,  :]
-        maps.append(word_map)
-    total_heat_map = torch.stack(maps, dim=0)
-    total_heat_map = total_heat_map.mean(0)
-    total_heat_map = total_heat_map.squeeze(0) # res,res
-
-    total_heat_map = total_heat_map.squeeze(0)  # res,re
-    print(f'total_heat_map.shape = {total_heat_map.shape}')
-
-    total_het_img = image_overlay_heat_map(img=prev_image,
+    total_heat_map = total_heat_map.mean(0).squeeze(0)
+    total_heat_img = image_overlay_heat_map(img=prev_image,
                                            heat_map=total_heat_map)
     attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
-    total_het_img.save(attn_save_dir)
+    total_heat_img.save(attn_save_dir)
 
 
 def setup_parser() -> argparse.ArgumentParser:
