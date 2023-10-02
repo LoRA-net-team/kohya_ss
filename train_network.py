@@ -916,7 +916,7 @@ class NetworkTrainer:
                         attn_list = atten_collection[layer_name] # just one map element
                         if len(attn_list) != 1:
                             print(f'error : {layer_name} attn_list is not 1')
-                        time.sleep(50)
+                        
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
