@@ -3207,8 +3207,8 @@ def main(args):
     layer_names = atten_collection.keys()
     total_heat_map = []
     for layer_name in layer_names :
-        maps = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
-        print(f'attn  : {type(maps)} | shape : {maps.shape}')
+        attn_maps = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
+        print(f'attn  : {type(attn_maps)} | shape : {attn_maps.shape}')
         # element of attn_list = [8, pix_len, 77]
         # -------------------------------------------------------------------------------------------------------
         # [8, pix_len, sen_len]
@@ -3235,8 +3235,7 @@ def main(args):
         maps = []
         for trg_index in trg_indexs :
             print(f'trg_index : {trg_index}')
-            
-            word_map = maps[trg_index, :, :]
+            word_map = attn_maps[trg_index, :, :]
             word_map = expand_image(word_map, 512, 512)
             print(f'after expanding, word_map : {word_map.shape}')
             maps.append(word_map)
