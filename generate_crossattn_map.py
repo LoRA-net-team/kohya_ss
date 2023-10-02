@@ -3221,12 +3221,12 @@ def main(args):
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
         global_heat_map = attn_list[0]
-        print(f'global_heat_map : {global_heat_map.shape}')
         global_heat_map = global_heat_map.unsqueeze(1)
-        print(f'global_heat_map (after unsqueeze) : {global_heat_map.shape}')
+        total_heat_map.append(F.interpolate(global_heat_map, size=(512,512), mode='bicubic').clamp_(min=0))
         from torch.nn import functional as F
-        global_heat_map_ = F.interpolate(global_heat_map, size=(512,512), mode='bicubic').clamp_(min=0)
-        print(f'{layer_name} global_heat_map : {global_heat_map.shape} | after interpolate : {global_heat_map_.shape}')
+        global_heat_map = F.interpolate(global_heat_map,
+                                         size=(512,512),
+                                         mode='bicubic').clamp_(min=0)
 
         maps = []
         for trg_index in trg_indexs:
@@ -3236,7 +3236,7 @@ def main(args):
         heat_map = heat_map.mean(0) # res,res
         from utils import expand_image, image_overlay_heat_map
         heat_map_img = expand_image(heat_map,512,512)
-        total_heat_map.append(heat_map_img)
+        #total_heat_map.append(heat_map_img)
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map_img)
         layer_name = layer_name.split('_')[:5]
@@ -3248,7 +3248,14 @@ def main(args):
     print("atten_collection")
     print("total attention map")
     total_heat_map = torch.stack(total_heat_map, dim=0)
-    total_heat_map = total_heat_map.mean(0)  # res,res
+    total_heat_map = total_heat_map.mean(0)[:, 0]
+    print(f'total_heat_map : {total_heat_map.shape}')
+    maps = []
+    for trg_index in trg_indexs:
+        word_map = total_heat_map[trg_index, :, :]
+        maps.append(word_map)
+    total_heat_map = torch.stack(maps, dim=0)
+    total_heat_map = total_heat_map.mean(0)
     print(f'total_heat_map : {total_heat_map.shape}')
     total_het_img = image_overlay_heat_map(img=prev_image,
                                  heat_map=total_heat_map)
