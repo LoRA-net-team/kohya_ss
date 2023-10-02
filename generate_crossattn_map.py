@@ -333,7 +333,6 @@ def register_attention_control(unet, controller):
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
-
         return forward
 
     def register_recr(net_, count, layer_name):
@@ -355,13 +354,6 @@ def register_attention_control(unet, controller):
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
-
-
-
-
-
-
-
 
 
 
@@ -1855,18 +1847,10 @@ def get_unweighted_text_embeddings(
     return text_embeddings
 
 
-def get_weighted_text_embeddings(
-        pipe: PipelineLike,
-        prompt: Union[str, List[str]],
-        uncond_prompt: Optional[Union[str, List[str]]] = None,
-        max_embeddings_multiples: Optional[int] = 1,
-        no_boseos_middle: Optional[bool] = False,
-        skip_parsing: Optional[bool] = False,
-        skip_weighting: Optional[bool] = False,
-        clip_skip=None,
-        layer=None,
-        **kwargs,
-):
+def get_weighted_text_embeddings(pipe: PipelineLike,prompt: Union[str, List[str]],
+                                 uncond_prompt: Optional[Union[str, List[str]]] = None,max_embeddings_multiples: Optional[int] = 1,
+                                 no_boseos_middle: Optional[bool] = False,skip_parsing: Optional[bool] = False,
+                                 skip_weighting: Optional[bool] = False,clip_skip=None,layer=None,**kwargs,):
     r"""
     Prompts can be assigned with local weights using brackets. For example,
     prompt 'A (very beautiful) masterpiece' highlights the words 'very beautiful',
@@ -3245,6 +3229,7 @@ def main(args):
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
         global_heat_map = attn_list[0]
+        print(f'{layer_name} global_heat_map : {global_heat_map.shape}')
         maps = []
         for trg_index in trg_indexs:
             word_map = global_heat_map[trg_index, :, :]
