@@ -1122,6 +1122,8 @@ class NetworkTrainer:
                     progress_bar.update(1)
                     global_step += 1
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
+                    attention_storer.reset()
+                    attention_storer.step_store = {}
                     
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
@@ -1185,6 +1187,8 @@ class NetworkTrainer:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
 
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
+            attention_storer.reset()
+            attention_storer.step_store = {}
 
 
             # end of epoch
