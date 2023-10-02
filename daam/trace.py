@@ -275,6 +275,7 @@ class UNetCrossAttentionHooker(ObjectHooker):
 
         #self.module.set_processor(self)
         print(self)
+        print(f'self.module : {self.module.__class__.__name__}')
         self.module = self
 
     @property
