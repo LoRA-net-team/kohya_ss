@@ -914,9 +914,8 @@ class NetworkTrainer:
                     map_dict = {}
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
-                        if len(attn_list) != 1:
-                            print(f'error : {layer_name} attn_list is not 1')
-                        
+                        #if len(attn_list) != 1:
+                        #    print(f'error : {layer_name} attn_list is not 1')
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
@@ -930,11 +929,11 @@ class NetworkTrainer:
                             map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             # when maps len is 5 ...
-                            if maps.dim() != 4 :
+                            #if maps.dim() != 4 :
                                 # attns shape = [2,32,4096,227]
                                 # map = [1, 32, 4096, 227]
-                                print(f'wrong time, len(trg_indexs) : {len(trg_indexs)}')
-                                time.sleep(500)
+                                #print(f'wrong time, len(trg_indexs) : {len(trg_indexs)}')
+                                #time.sleep(500)
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
@@ -959,8 +958,6 @@ class NetworkTrainer:
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
-                            print(f'{batch_index}-{layer_name} heat_map : {heat_map.shape}')
-
                             mask_dir = batch_mask_dirs[batch_index]
                             mask_img = Image.open(mask_dir)
                             mask_img = mask_img.resize((512, 512))
