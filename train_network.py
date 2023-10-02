@@ -90,8 +90,8 @@ def register_attention_control(unet, controller):
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
-                print(f'storing map, {layer_name}')
                 attn = controller.store(attention_probs, layer_name)
+                print(f'storing attn map, layer_name: {layer_name}')
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -201,6 +201,9 @@ class NetworkTrainer:
         return encoder_hidden_states
 
     def call_unet(self, args, accelerator, unet, noisy_latents, timesteps, text_conds, batch, weight_dtype):
+        print(f' when unet, noisy_latents : {noisy_latents.shape}')
+        print(f' when unet, text_conds : {text_conds.shape}')
+        time.sleep(10)
         noise_pred = unet(noisy_latents, timesteps, text_conds).sample
         return noise_pred
 
@@ -834,11 +837,8 @@ class NetworkTrainer:
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-
             metadata["ss_epoch"] = str(epoch + 1)
-
             network.on_epoch_start(text_encoder, unet)
-
             for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
@@ -854,7 +854,6 @@ class NetworkTrainer:
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
                     with torch.set_grad_enabled(train_text_encoder):
-                        # Get the text embedding for conditioning
                         if args.weighted_captions:
                             text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder, batch["captions"],accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
@@ -862,18 +861,12 @@ class NetworkTrainer:
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-                    # Sample noise, sample a random timestep for each image, and add noise to the latents,
-                    # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
-                                                                                                       noise_scheduler, latents)
-
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler, latents)
                     # Predict the noise residual
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
-
                     if args.v_parameterization:
-                        # v-parameterization training
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
@@ -893,7 +886,6 @@ class NetworkTrainer:
                     # cross attention matching loss
                     #batch["absolute_paths"]
                     #batch["mask_dirs"]
-
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
@@ -935,12 +927,18 @@ class NetworkTrainer:
                     map_dict = {}
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
-                        # because just one timestep, only one length
-                        if len(attn_list) != 1:
-                            print(f'layer_name : {layer_name}')
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
+                        print(f'attns : {attns.shape}')
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
+                        print(f'batch_attn_map : {attns.shape}')
+                        batch_attn_map = batch_attn_map.squeeze(0)
+                        # 8*batch, pix_len, sen_len
+
+
+
+
+
                         for batch_i, map in enumerate(batch_attn_map) :
                             trg_index_list = trg_indexs[batch_i]
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
@@ -959,7 +957,6 @@ class NetworkTrainer:
                                     map_dict[batch_i] = {}
                                     map_dict[batch_i][layer_name] = []
                                     map_dict[batch_i][layer_name].append(word_map)
-                    attention_storer.reset()
 
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
