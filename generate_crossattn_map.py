@@ -3148,10 +3148,10 @@ def main(args):
                 # generating image
                 # -------------------------------------------------------------------------------------------------------
                 if len(batch_data) == args.batch_size:
-                    with trace(pipe) as tc:
-                        prev_image = process_batch(batch_data,
-                                                   highres_fix)[0]
-                        batch_data.clear()
+                    #with trace(pipe) as tc:
+                    prev_image = process_batch(batch_data,
+                                               highres_fix)[0]
+                    batch_data.clear()
                 global_step += 1
                 print(f' ***** prev_image : {prev_image}')
 
