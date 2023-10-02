@@ -287,6 +287,8 @@ def register_attention_control(unet, controller):
         h = w = int(math.sqrt(x.size(1)))
         maps = []
         x = x.permute(2, 0, 1)
+
+        from utils import auto_autocast
         with auto_autocast(dtype=torch.float32):
             for map_ in x:
                 map_ = map_.view(map_.size(0), h, w)
