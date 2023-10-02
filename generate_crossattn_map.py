@@ -13,7 +13,6 @@ import math
 import os
 import random
 import re
-
 import diffusers
 import numpy as np
 import torch
@@ -315,7 +314,14 @@ def register_attention_control(unet, controller):
             # ----------------------------------------------------------------------------------------------------------------
             latent_hw = 64*64
             factor = int(math.sqrt(latent_hw // attention_probs.shape[1]))
-            #print(f'factor : {factor}, layer_name : {layer_name}' )
+            print(f'attention_probs.shape (batch, pix_len, sen_len) : {attention_probs.shape}')
+            # pix_len = 64*64 : factor = 1
+            # pix_len = 32*32 : factor = 2*2
+            # pix_len = 16*16 : factor = 4*4
+            # pix_len = 8*8 : factor = 8*8
+
+            # factor = int()
+            print(f'factor : {factor}, layer_name : {layer_name}' )
             if is_cross_attention:
                 if factor != 8:
                     maps = _unravel_attn(attention_probs)
@@ -1565,7 +1571,6 @@ class PipelineLike:
             noise_pred = noise_pred_original - torch.sqrt(beta_prod_t) * grads
         return noise_pred, latents
 
-
 class MakeCutouts(torch.nn.Module):
     def __init__(self, cut_size, cut_power=1.0):
         super().__init__()
@@ -1586,12 +1591,10 @@ class MakeCutouts(torch.nn.Module):
             cutouts.append(torch.nn.functional.adaptive_avg_pool2d(cutout, self.cut_size))
         return torch.cat(cutouts)
 
-
 def spherical_dist_loss(x, y):
     x = torch.nn.functional.normalize(x, dim=-1)
     y = torch.nn.functional.normalize(y, dim=-1)
     return (x - y).norm(dim=-1).div(2).arcsin().pow(2).mul(2)
-
 
 re_attention = re.compile(
     r"""
@@ -1609,9 +1612,7 @@ re_attention = re.compile(
 [^\\()\[\]:]+|
 :
 """,
-    re.X,
-)
-
+    re.X,)
 
 def parse_prompt_attention(text):
     """
@@ -1701,7 +1702,6 @@ def parse_prompt_attention(text):
 
     return res
 
-
 def get_prompts_with_weights(pipe: PipelineLike, prompt: List[str], max_length: int, layer=None):
     r"""
     Tokenize a list of prompts and return its tokens with weights of each token.
@@ -1752,7 +1752,6 @@ def get_prompts_with_weights(pipe: PipelineLike, prompt: List[str], max_length: 
         print("warning: Prompt was truncated. Try to shorten the prompt or increase max_embeddings_multiples")
     return tokens, weights
 
-
 def pad_tokens_and_weights(tokens, weights, max_length, bos, eos, pad, no_boseos_middle=True, chunk_length=77):
     r"""
     Pad the tokens (with starting and ending tokens) and weights (with 1.0) to max_length.
@@ -1776,7 +1775,6 @@ def pad_tokens_and_weights(tokens, weights, max_length, bos, eos, pad, no_boseos
             weights[i] = w[:]
 
     return tokens, weights
-
 
 def get_unweighted_text_embeddings(
         pipe: PipelineLike,
@@ -3224,9 +3222,7 @@ def main(args):
         global_heat_map = global_heat_map.unsqueeze(1)
         from torch.nn import functional as F
 
-        global_heat_map = F.interpolate(global_heat_map,
-                                         size=(512,512),
-                                         mode='bicubic').clamp_(min=0)
+        global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
         total_heat_map.append(global_heat_map)
         maps = []
         for trg_index in trg_indexs:
@@ -3235,11 +3231,11 @@ def main(args):
         heat_map = torch.stack(maps, dim=0)
         heat_map = heat_map.mean(0).squeeze(0)
         from utils import expand_image, image_overlay_heat_map
-        img = image_overlay_heat_map(img=prev_image,heat_map=heat_map)
+        img = image_overlay_heat_map(img=prev_image,
+                                     heat_map=heat_map)
         layer_name = layer_name.split('_')[:5]
         a = '_'.join(layer_name)
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
-        print(f'attn_save_dir : {attn_save_dir}')
         img.save(attn_save_dir)
 
     print("atten_collection")
