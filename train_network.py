@@ -29,7 +29,43 @@ from utils import _convert_heat_map_colors
 from PIL import Image
 import numpy as np
 import torch.nn.functional as F
+from utils import auto_autocast
 
+"""
+def get_attention_scores(self, query, key, attention_mask=None):
+        dtype = query.dtype
+        if self.upcast_attention:
+            query = query.float()
+            key = key.float()
+
+        if attention_mask is None:
+            baddbmm_input = torch.empty(
+                query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device
+            )
+            beta = 0
+        else:
+            baddbmm_input = attention_mask
+            beta = 1
+
+        attention_scores = torch.baddbmm(
+            baddbmm_input,
+            query,
+            key.transpose(-1, -2),
+            beta=beta,
+            alpha=self.scale,
+        )
+        del baddbmm_input
+
+        if self.upcast_softmax:
+            attention_scores = attention_scores.float()
+
+        attention_probs = attention_scores.softmax(dim=-1)
+        del attention_scores
+
+        attention_probs = attention_probs.to(dtype)
+
+        return attention_probs
+"""
 def register_attention_control(unet, controller):
 
     def ca_forward(self, layer_name):
@@ -46,22 +82,20 @@ def register_attention_control(unet, controller):
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
-            # 1) attention score
+            # ----------------------------------------------------------------------------------------------------------------
+            # 1) attention score : get_attention_scores
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                                             query, key.transpose(-1, -2),
-                                             beta=0,
-                                             alpha=self.scale,)
+                                             query, key.transpose(-1, -2),beta=0,alpha=self.scale,)
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+            # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
-               # print(f'cross attntion layer_name: {layer_name}')
-                attn = controller.store(attention_probs, layer_name)
+               attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
-
         return forward
 
     def register_recr(net_, count, layer_name):
@@ -714,9 +748,7 @@ class NetworkTrainer:
                     "ss_dataset_dirs": json.dumps(dataset_dirs_info),
                     "ss_reg_dataset_dirs": json.dumps(reg_dataset_dirs_info),
                     "ss_tag_frequency": json.dumps(dataset.tag_frequency),
-                    "ss_bucket_info": json.dumps(dataset.bucket_info),
-                }
-            )
+                    "ss_bucket_info": json.dumps(dataset.bucket_info),})
 
         # add extra args
         if args.network_args:
@@ -904,6 +936,8 @@ class NetworkTrainer:
                     map_dict = {}
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
+                        # because just one timestep, only one length
+                        print(f'len of attn_list : {len(attn_list)}')
                         attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
                         batch_attn_map = torch.chunk(attn_map, len(trg_indexs), dim=0)
                         for batch_i, map in enumerate(batch_attn_map) :
