@@ -3164,8 +3164,7 @@ def main(args):
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
-    print(f'Finish of Generating Image')
-    """
+
     # ------------------------------------------------------------------------------------------------------------------
     #images
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
@@ -3236,7 +3235,7 @@ def main(args):
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
     print("atten_collection")
-    """
+
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
