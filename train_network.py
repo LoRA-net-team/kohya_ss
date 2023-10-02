@@ -29,7 +29,43 @@ from utils import _convert_heat_map_colors
 from PIL import Image
 import numpy as np
 import torch.nn.functional as F
+from utils import auto_autocast
 
+"""
+def get_attention_scores(self, query, key, attention_mask=None):
+        dtype = query.dtype
+        if self.upcast_attention:
+            query = query.float()
+            key = key.float()
+
+        if attention_mask is None:
+            baddbmm_input = torch.empty(
+                query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device
+            )
+            beta = 0
+        else:
+            baddbmm_input = attention_mask
+            beta = 1
+
+        attention_scores = torch.baddbmm(
+            baddbmm_input,
+            query,
+            key.transpose(-1, -2),
+            beta=beta,
+            alpha=self.scale,
+        )
+        del baddbmm_input
+
+        if self.upcast_softmax:
+            attention_scores = attention_scores.float()
+
+        attention_probs = attention_scores.softmax(dim=-1)
+        del attention_scores
+
+        attention_probs = attention_probs.to(dtype)
+
+        return attention_probs
+"""
 def register_attention_control(unet, controller):
 
     def ca_forward(self, layer_name):
@@ -46,22 +82,20 @@ def register_attention_control(unet, controller):
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
-            # 1) attention score
+            # ----------------------------------------------------------------------------------------------------------------
+            # 1) attention score : get_attention_scores
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                                             query, key.transpose(-1, -2),
-                                             beta=0,
-                                             alpha=self.scale,)
+                                             query, key.transpose(-1, -2),beta=0,alpha=self.scale,)
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+            # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
-               # print(f'cross attntion layer_name: {layer_name}')
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
-
         return forward
 
     def register_recr(net_, count, layer_name):
@@ -387,13 +421,10 @@ class NetworkTrainer:
             network.set_block_lr_weight(up_lr_weight   = args.up_lr_weight, # 0 ~ 11
                                         mid_lr_weight  = args.mid_lr_weight,
                                         down_lr_weight = args.down_lr_weight)
-
-        # 後方互換性を確保するよ
         try:
             trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
                                                                 unet_lr=args.unet_lr,
                                                                 default_lr=args.learning_rate)
-
         except TypeError:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
@@ -405,28 +436,16 @@ class NetworkTrainer:
                 param_dict = {"lr": lr, "params": param}
                 all_params.append(param_dict)
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
-
-        # dataloaderを準備する
-        # DataLoaderのプロセス数：0はメインプロセスになる
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-
-        train_dataloader = torch.utils.data.DataLoader(
-            train_dataset_group,
-            batch_size=1,
-            shuffle=True,
-            collate_fn=collater,
-            num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers,
-        )
-
+        train_dataloader = torch.utils.data.DataLoader(train_dataset_group,batch_size=1,
+                                                       shuffle=True,collate_fn=collater,num_workers=n_workers,
+                                                       persistent_workers=args.persistent_data_loader_workers,)
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
             args.max_train_steps = args.max_train_epochs * math.ceil(
-                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps
-            )
+                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
             accelerator.print(
                 f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
-
         # データセット側にも学習ステップを送信
         train_dataset_group.set_max_train_steps(args.max_train_steps)
 
@@ -714,9 +733,7 @@ class NetworkTrainer:
                     "ss_dataset_dirs": json.dumps(dataset_dirs_info),
                     "ss_reg_dataset_dirs": json.dumps(reg_dataset_dirs_info),
                     "ss_tag_frequency": json.dumps(dataset.tag_frequency),
-                    "ss_bucket_info": json.dumps(dataset.bucket_info),
-                }
-            )
+                    "ss_bucket_info": json.dumps(dataset.bucket_info),})
 
         # add extra args
         if args.network_args:
@@ -801,11 +818,8 @@ class NetworkTrainer:
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-
             metadata["ss_epoch"] = str(epoch + 1)
-
             network.on_epoch_start(text_encoder, unet)
-
             for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
@@ -820,29 +834,27 @@ class NetworkTrainer:
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-
                     with torch.set_grad_enabled(train_text_encoder):
-                        # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder,
-                                                                              batch["captions"],accelerator.device,
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder, batch["captions"],accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip,)
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-                    # Sample noise, sample a random timestep for each image, and add noise to the latents,
-                    # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
-                                                                                                       noise_scheduler, latents)
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler, latents)
+                    # batch number of timesteps
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
+                        noise_pred = self.call_unet(args, accelerator,
+                                                    unet,
+                                                    noisy_latents,timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
-
+                        atten_collection = attention_storer.step_store
+                        attention_storer.reset()
+                        attention_storer.step_store = {}
                     if args.v_parameterization:
-                        # v-parameterization training
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
@@ -862,7 +874,6 @@ class NetworkTrainer:
                     # cross attention matching loss
                     #batch["absolute_paths"]
                     #batch["mask_dirs"]
-
                     args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
@@ -876,11 +887,9 @@ class NetworkTrainer:
                         token_ids = token_input.input_ids[0]
                         token_attns = token_input.attention_mask[0]
                         trg_token_id = []
-
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
-
                         text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
@@ -898,19 +907,27 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-                    atten_collection = attention_storer.step_store
-                    layer_names = atten_collection.keys()
 
+                    layer_names = atten_collection.keys()
                     map_dict = {}
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
-                        attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
-                        batch_attn_map = torch.chunk(attn_map, len(trg_indexs), dim=0)
+                        if len(attn_list) != 1:
+                            print(f'error : {layer_name} attn_list is not 1')
+                        attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
+                        attns = attns.squeeze(0)
+                        batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
                         for batch_i, map in enumerate(batch_attn_map) :
+                            # ------------------------------------------------------------------------------------------------
+                            # 1) trg indexs
                             trg_index_list = trg_indexs[batch_i]
+                            # ------------------------------------------------------------------------------------------------
+                            # 2) map
+                            # map is torch
+                            map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
-                            maps = maps.sum(0)  # [pix_len, sen_len]
+                            maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
@@ -924,8 +941,6 @@ class NetworkTrainer:
                                     map_dict[batch_i] = {}
                                     map_dict[batch_i][layer_name] = []
                                     map_dict[batch_i][layer_name].append(word_map)
-                    attention_storer.reset()
-
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
@@ -944,9 +959,6 @@ class NetworkTrainer:
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             attn_loss += a_loss
-                        #heat_maps.append(heat_map)
-
-
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     """ 
@@ -1098,6 +1110,8 @@ class NetworkTrainer:
                     progress_bar.update(1)
                     global_step += 1
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
+                    attention_storer.reset()
+                    attention_storer.step_store = {}
                     
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
@@ -1161,6 +1175,8 @@ class NetworkTrainer:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
 
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
+            attention_storer.reset()
+            attention_storer.step_store = {}
 
 
             # end of epoch
