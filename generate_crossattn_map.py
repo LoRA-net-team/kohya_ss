@@ -3230,8 +3230,8 @@ def main(args):
             maps.append(word_map)
             # how to scale ?
             #if 'mid' not in layer_name :
-            normalized_map = word_map / (word_map.sum(0, keepdim=True) + 1e-6)  # drop out [SOS] and [PAD] for proper probabilities
-
+            normalized_map = word_map / (word_map.max())  # drop out [SOS] and [PAD] for proper probabilities
+            print(f'normalized_map : {normalized_map}')
             total_heat_map.append(normalized_map)
         heat_map = torch.stack(maps, dim=0) # [num,512,512]
         heat_map = heat_map.mean(0).squeeze(0)
