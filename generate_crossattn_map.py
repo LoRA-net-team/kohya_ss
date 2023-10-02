@@ -3232,15 +3232,15 @@ def main(args):
         # element of attn_list = [8, pix_len, 77]
         # -------------------------------------------------------------------------------------------------------
         # [8, pix_len, sen_len]
-        maps = maps.sum(0)                   # [8, pix_len, sen_len]
+        #maps = maps.sum(0)                   # [8, pix_len, sen_len]
         #maps, _ = torch.chunk(maps, chunks=2, dim=0)
         # -------------------------------------------------------------------------------------------------------
         # [pix_len, sen_len]
-        maps = maps.sum(0)  # [pix_len, sen_len]
-        pix_len, sen_len = maps.shape
-        res = int(math.sqrt(pix_len))
-        maps = maps.permute(1, 0) # [sen_len, pix_len]
-        global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
+        #maps = maps.sum(0)  # [pix_len, sen_len]
+        #pix_len, sen_len = maps.shape
+        #res = int(math.sqrt(pix_len))
+        #maps = maps.permute(1, 0) # [sen_len, pix_len]
+        #global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
         all_merges = []
         for heat_map in attn_list :
@@ -3254,7 +3254,7 @@ def main(args):
         """
         maps = []
         for trg_index in trg_indexs:
-            word_map = global_heat_map[trg_index, :, :]
+            word_map = maps[trg_index, :, :]
             word_map = expand_image(word_map, 512, 512)
             print(f'after expanding, word_map : {word_map.shape}')
             maps.append(word_map)
