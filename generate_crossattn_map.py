@@ -3190,17 +3190,25 @@ def main(args):
     total_heat_map = []
     for layer_name in layer_names :
         attn_list = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
-        print(f'attn_list : {len(attn_list)}')
-    """
-        maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
+        print(f'attn_list (50) : {len(attn_list)}')
+        # element of attn_list = [8, pix_len, 77]
+
+        # -------------------------------------------------------------------------------------------------------
+        # [timestep, 8, pix_len, sen_len]
+        maps = torch.stack(attn_list, dim=0)
+
+        # -------------------------------------------------------------------------------------------------------
+        # [8, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
-        maps, _ = torch.chunk(maps, chunks=2, dim=0)
+        #maps, _ = torch.chunk(maps, chunks=2, dim=0)
+        # -------------------------------------------------------------------------------------------------------
+        # [pix_len, sen_len]
         maps = maps.sum(0)  # [pix_len, sen_len]
         pix_len, sen_len = maps.shape
         res = int(math.sqrt(pix_len))
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
-        
+        """
         all_merges = []
         for heat_map in attn_list :
             heat_map = heat_map.unsqueeze(1)
@@ -3210,9 +3218,12 @@ def main(args):
         global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
         global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
         total_heat_map.append(global_heat_map)
+        """
         maps = []
         for trg_index in trg_indexs:
             word_map = global_heat_map[trg_index, :, :]
+            word_map = expand_image(word_map, 512, 512)
+            print(f'after expanding, word_map : {word_map.shape}')
             maps.append(word_map)
         heat_map = torch.stack(maps, dim=0) # [num,512,512]
         print(f'heat_map : {heat_map.shape}')
@@ -3245,7 +3256,7 @@ def main(args):
                                            heat_map=total_heat_map)
     attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
     total_het_img.save(attn_save_dir)
-    """
+
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
