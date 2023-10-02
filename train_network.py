@@ -852,7 +852,8 @@ class NetworkTrainer:
                                                     unet,
                                                     noisy_latents,timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
-                        time.sleep(100)
+                        time.sleep(10)
+                        print(f'---------------------------------------------------------------------------------------')
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()
                     if args.v_parameterization:
