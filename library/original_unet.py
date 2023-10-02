@@ -1471,8 +1471,6 @@ class UNet2DConditionModel(nn.Module):
         down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
     ) -> Union[Dict, Tuple]:
-        print('Unet Forward ****************************************************************************************')
-
         default_overall_up_factor = 2**self.num_upsamplers
         forward_upsample_size = False
         upsample_size = None
@@ -1488,7 +1486,6 @@ class UNet2DConditionModel(nn.Module):
         t_emb = t_emb.to(dtype=self.dtype)
 
         emb = self.time_embedding(t_emb)
-        print(f'time emb : {emb.shape}')
 
         # ------------------------------------------------------------------------------------------
         # 2. pre-process : sample(4,4,64,64)
