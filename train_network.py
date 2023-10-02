@@ -917,15 +917,19 @@ class NetworkTrainer:
                                 word_map = global_heat_map[trg_index, :, :]
                                 word_map = expand_image(word_map, 512, 512)
                                 try :
-                                    map_dict[i].append(word_map)
+                                    map_dict[i][layer_name].append(word_map)
                                 except :
-                                    map_dict[i] = []
-                                    map_dict[i].append(word_map)
+                                    map_dict[i] = {}
+                                    map_dict[i][layer_name] = []
+                                    map_dict[i][layer_name].append(word_map)
                     heat_maps = []
                     for batch_index in map_dict.keys() :
-                        map_list = map_dict[batch_index]
-                        heat_map = torch.stack(map_list, dim=0)
-                        heat_map = heat_map.mean(0)
+                        map_dict = map_dict[batch_index]
+                        for layer_name in map_dict.keys() :
+                            map_list = map_dict[layer_name]
+                            heat_map = torch.stack(map_list, dim=0)
+                            heat_map = heat_map.mean(0)
+                            print(f'{batch_index} {layer_name} : heat_map.shape = {heat_map.shape}')
                         heat_maps.append(heat_map)
                     attention_storer.reset()
 
