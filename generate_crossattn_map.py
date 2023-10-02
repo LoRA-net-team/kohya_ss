@@ -3255,7 +3255,8 @@ def main(args):
         word_map = total_heat_map[trg_index, :,  :]
         maps.append(word_map)
     total_heat_map = torch.stack(maps, dim=0)
-    total_heat_map = total_heat_map.mean(0).squeeze(0) # res,res
+    total_heat_map = total_heat_map.mean(0)
+    total_heat_map = total_heat_map.squeeze(0) # res,res
     print(f'total_heat_map : {total_heat_map.shape}')
     total_het_img = image_overlay_heat_map(img=prev_image,
                                  heat_map=total_heat_map)
