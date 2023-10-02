@@ -50,6 +50,7 @@ from library.original_unet import UNet2DConditionModel
 from library.original_unet import FlashAttentionFunction
 
 from XTI_hijack import unet_forward_XTI, downblock_forward_XTI, upblock_forward_XTI
+from utils import auto_autocast
 
 # scheduler:
 SCHEDULER_LINEAR_START = 0.00085
@@ -280,11 +281,14 @@ def register_attention_control(unet, controller):
     def _unravel_attn(x):
         h = w = int(math.sqrt(x.size(1)))
         maps = []
-        x = x.permute(2, 0, 1)
-        from utils import auto_autocast
+        x = x.permute(2, 0, 1) # sen_len, batch, pix_len
+        print(f'x : {x.shape}')
         with auto_autocast(dtype=torch.float32):
             for map_ in x:
+                """ evey sentence token """
+                print(f'map_ (evey sentence token) : {map_.shape}')
                 map_ = map_.view(map_.size(0), h, w)
+                print(f'map_ : {map_.shape}')
                 map_ = map_[map_.size(0) // 2:]  # Filter out unconditional
                 maps.append(map_)
         maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
@@ -314,20 +318,17 @@ def register_attention_control(unet, controller):
             # ----------------------------------------------------------------------------------------------------------------
             latent_hw = 64*64
             factor = int(math.sqrt(latent_hw // attention_probs.shape[1]))
-            print(f'attention_probs.shape (batch, pix_len, sen_len) : {attention_probs.shape}')
-            # pix_len = 64*64 : factor = 1
-            # pix_len = 32*32 : factor = 2*2
-            # pix_len = 16*16 : factor = 4*4
-            # pix_len = 8*8 : factor = 8*8
-
-            # factor = int()
-            print(f'factor : {factor}, layer_name : {layer_name}' )
+            # pix_len = 64*64 = 4096 : factor = 1
+            # pix_len = 32*32 = 1024 : factor = 2*2
+            # pix_len = 16*16 = 256 : factor = 4*4
+            # pix_len = 8*8 = 64 : factor = 8*8
             if is_cross_attention:
-                if factor != 8:
-                    maps = _unravel_attn(attention_probs)
-                    for head_idx, heatmap in enumerate(maps):
-                        # shape of heatmap = [sen len, h, w]
-                        attn = controller.store(heatmap, layer_name)
+                print(f'attention_probs.shape (batch, pix_len, sen_len) : {attention_probs.shape}')
+                print(f'factor : {factor}, layer_name : {layer_name}')
+                maps = _unravel_attn(attention_probs)
+                for head_idx, heatmap in enumerate(maps):
+                    # shape of heatmap = [sen len, h, w]
+                    attn = controller.store(heatmap, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
