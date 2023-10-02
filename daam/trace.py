@@ -25,7 +25,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
             data_dir: str = None
     ):
         self.all_heat_maps = RawHeatMapCollection()
-        h = (pipeline.unet.config.sample_size * pipeline.vae_scale_factor)
+        h = 512#(pipeline.unet.config.sample_size * pipeline.vae_scale_factor)
         self.latent_hw = 4096 if h == 512 else 9216  # 64x64 or 96x96 depending on if it's 2.0-v or 2.0
         locate_middle = load_heads or save_heads
         self.locator = UNetCrossAttentionLocator(restrict={0} if low_memory else None, locate_middle_block=locate_middle)
