@@ -945,7 +945,8 @@ class NetworkTrainer:
                             # when maps len is 5 ...
                             if maps.dim() != 4 :
                                 print(f'maybe wrong...')
-                                print(f'map shape (batch, pix_len, sen_len) : {map.shape}')
+                                print(f'attns shape : {attns.shpe}')
+                                print(f'map shape (1, batch, pix_len, sen_len) : {map.shape}')
                                 print(f'{layer_name} ')
                                 time.sleep(50)
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
