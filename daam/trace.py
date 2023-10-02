@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Type, Any, Dict, Tuple, Union
 import math
 from diffusers import StableDiffusionPipeline
-from diffusers.models.attention_processor import Attention
+#from diffusers.models.attention_processor import Attention
 import numpy as np
 import PIL.Image as Image
 import torch
@@ -152,10 +152,10 @@ class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
         self.monkey_patch('_encode_prompt', self._hooked_encode_prompt)
 
 
-class UNetCrossAttentionHooker(ObjectHooker[Attention]):
+class UNetCrossAttentionHooker(ObjectHooker):
     def __init__(
             self,
-            module: Attention,
+            module,
             parent_trace: 'trace',
             context_size: int = 77,
             layer_idx: int = 0,
@@ -217,7 +217,7 @@ class UNetCrossAttentionHooker(ObjectHooker[Attention]):
 
     def __call__(
             self,
-            attn: Attention,
+            attn,
             hidden_states,
             encoder_hidden_states=None,
             attention_mask=None,
