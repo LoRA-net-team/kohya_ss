@@ -3221,7 +3221,9 @@ def main(args):
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
         global_heat_map = attn_list[0]
-
+        print(f'global_heat_map : {global_heat_map.shape}')
+        global_heat_map = global_heat_map.unsqueeze(1)
+        print(f'global_heat_map (after unsqueeze) : {global_heat_map.shape}')
         from torch.nn import functional as F
         global_heat_map_ = F.interpolate(global_heat_map, size=(512,512), mode='bicubic').clamp_(min=0)
         print(f'{layer_name} global_heat_map : {global_heat_map.shape} | after interpolate : {global_heat_map_.shape}')
