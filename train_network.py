@@ -906,7 +906,9 @@ class NetworkTrainer:
                         attn_list = atten_collection[layer_name] # just one map element
                         attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
                         batch_attn_map = torch.chunk(attn_map, len(trg_indexs), dim=0)
-                        for i, map in enumerate(batch_attn_map) :
+                        for batch_i, map in enumerate(batch_attn_map) :
+                            trg_index_list = trg_indexs[batch_i]
+                            print(f'trg_index_list : {trg_index_list}')
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             maps = maps.sum(0)  # [pix_len, sen_len]
@@ -914,16 +916,17 @@ class NetworkTrainer:
                             res = int(math.sqrt(pix_len))
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
                             global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-                            for trg_index in trg_indexs[i]:
+                            for trg_index in trg_index_list :
                                 word_map = global_heat_map[trg_index, :, :]
                                 word_map = expand_image(word_map, 512, 512)
                                 try :
-                                    map_dict[i][layer_name].append(word_map)
+                                    map_dict[batch_i][layer_name].append(word_map)
                                 except :
-                                    map_dict[i] = {}
-                                    map_dict[i][layer_name] = []
-                                    map_dict[i][layer_name].append(word_map)
+                                    map_dict[batch_i] = {}
+                                    map_dict[batch_i][layer_name] = []
+                                    map_dict[batch_i][layer_name].append(word_map)
                     attention_storer.reset()
+                    print(f'map_dict : {map_dict}')
 
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
