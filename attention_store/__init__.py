@@ -12,9 +12,10 @@ class AttentionStore :
         return {}
 
     def store(self, attn, layer_name):
-        #if layer_name not in self.step_store.keys() :
-        #    self.step_store[layer_name] = []
-        self.step_store[layer_name] = self.step_store[layer_name] + attn
+        if layer_name not in self.step_store.keys() :
+            self.step_store[layer_name] = attn
+        else :
+            self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
 
     def reset(self):
