@@ -843,10 +843,13 @@ class NetworkTrainer:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler, latents)
-                    print(f'timesteps : {timesteps}')
+                    # batch number of timesteps
+
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents,timesteps,
+                        noise_pred = self.call_unet(args, accelerator,
+                                                    unet,
+                                                    noisy_latents,timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()

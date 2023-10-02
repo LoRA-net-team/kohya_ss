@@ -1471,32 +1471,36 @@ class UNet2DConditionModel(nn.Module):
         down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
     ) -> Union[Dict, Tuple]:
+
         default_overall_up_factor = 2**self.num_upsamplers
         forward_upsample_size = False
         upsample_size = None
-
         if any(s % default_overall_up_factor != 0 for s in sample.shape[-2:]):
             # logger.info("Forward upsample size to force interpolation output size.")
             forward_upsample_size = True
 
-        # 1. time
+        # ------------------------------------------------------------------------------------------
+        # 1. batch number of time steps
         timesteps = timestep
         timesteps = self.handle_unusual_timesteps(sample, timesteps)  # 変な時だけ処理
-
         t_emb = self.time_proj(timesteps)
         t_emb = t_emb.to(dtype=self.dtype)
-        emb = self.time_embedding(t_emb)
 
-        # 2. pre-process
+        emb = self.time_embedding(t_emb)
+        print(f'time emb : {emb.shape}')
+
+        # ------------------------------------------------------------------------------------------
+        # 2. pre-process : sample(4,4,64,64)
         sample = self.conv_in(sample)
 
+        # ------------------------------------------------------------------------------------------
         # 3. down
+        # encoder_hidden_states = [4,277,768]
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
             if downsample_block.has_cross_attention:
-                sample, res_samples = downsample_block(hidden_states=sample,
-                    temb=emb,
-                    encoder_hidden_states=encoder_hidden_states,)
+                sample, res_samples = downsample_block(hidden_states=sample,temb=emb,
+                                                       encoder_hidden_states=encoder_hidden_states,)
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
             down_block_res_samples += res_samples
@@ -1506,6 +1510,7 @@ class UNet2DConditionModel(nn.Module):
             for i in range(len(down_block_res_samples)):
                 down_block_res_samples[i] += down_block_additional_residuals[i]
             down_block_res_samples = tuple(down_block_res_samples)
+        #
         # 4. mid
         sample = self.mid_block(sample,
                                 emb,
