@@ -3221,8 +3221,12 @@ def main(args):
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
-        global_heat_map = torch.stack(attn_list, dim=0) # [400, 77, H, W]
-        global_heat_map = global_heat_map.sum (0) # 77, h ,w
+        all_merges = []
+        for heat_map in attn_list :
+            heat_map = heat_map.unsqueeze(1)
+            all_merges.append(F.interpolate(heat_map, size=(64,64), mode='bicubic').clamp_(min=0))
+        global_heat_map = torch.stack(all_merges, dim=0) # global_heat_map = [400, 77, 1, 64, 64]
+        global_heat_map = global_heat_map.mean(0)[:, 0]  # global_heat_map = [77, 64, 64]
         global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
         global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
         total_heat_map.append(global_heat_map)
