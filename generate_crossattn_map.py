@@ -3226,7 +3226,9 @@ def main(args):
         maps = []
         for trg_index in trg_indexs :
             word_map = attn_maps[trg_index, :, :]
-            word_map = expand_image(word_map, 512, 512)
+            #word_map = expand_image(word_map, 512, 512)
+            word_map = word_map.squeeze(0)
+            word_map = F.interpolate(word_map, size=(512, 512), mode='bicubic').clamp_(min=0)
             maps.append(word_map)
             # how to scale ?
             #if 'mid' not in layer_name :
@@ -3244,10 +3246,9 @@ def main(args):
 
     print("atten_collection")
     print("total attention map")
-    print(f'len(total_heat_map) : {len(total_heat_map)}')
-    print(f'total_heat_map first element : {total_heat_map[0].shape}')
-    total_heat_map = torch.stack(total_heat_map, dim=0)
-    print(f'total_heat_map : {total_heat_map.shape}')
+    print(f'len(total_heat_map) : {len(total_heat_map)}') # 32
+    print(f'total_heat_map first element : {total_heat_map[0].shape}') # 512,512
+    total_heat_map = torch.stack(total_heat_map, dim=0) # 32, 512, 512
     total_heat_map = total_heat_map.mean(0).squeeze(0)
     total_heat_img = image_overlay_heat_map(img=prev_image,
                                            heat_map=total_heat_map)
