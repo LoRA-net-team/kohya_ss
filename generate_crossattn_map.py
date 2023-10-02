@@ -3210,6 +3210,7 @@ def main(args):
     print("done!")
     atten_collection = attention_storer.step_store
     layer_names = atten_collection.keys()
+    total_heat_map = []
     for layer_name in layer_names :
         attn_list = atten_collection[layer_name]
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
@@ -3228,6 +3229,7 @@ def main(args):
         heat_map = heat_map.mean(0) # res,res
         from utils import expand_image, image_overlay_heat_map
         heat_map_img = expand_image(heat_map,512,512)
+        total_heat_map.append(heat_map_img)
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map_img)
         layer_name = layer_name.split('_')[:5]
@@ -3235,6 +3237,12 @@ def main(args):
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
     print("atten_collection")
+    print("total attention map")
+    total_heat_map = torch.stack(total_heat_map, dim=0)
+    total_het_img = image_overlay_heat_map(img=prev_image,
+                                 heat_map=total_heat_map)
+    attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
+    total_het_img.save(attn_save_dir)
 
 
 def setup_parser() -> argparse.ArgumentParser:
