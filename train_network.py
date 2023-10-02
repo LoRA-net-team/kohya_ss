@@ -908,7 +908,6 @@ class NetworkTrainer:
                         batch_attn_map = torch.chunk(attn_map, len(trg_indexs), dim=0)
                         for batch_i, map in enumerate(batch_attn_map) :
                             trg_index_list = trg_indexs[batch_i]
-                            print(f'trg_index_list : {trg_index_list}')
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             maps = maps.sum(0)  # [pix_len, sen_len]
@@ -945,7 +944,6 @@ class NetworkTrainer:
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             attn_loss += a_loss
-                            print(f'{batch_index} {layer_name} : a_loss = {a_loss}')
                         #heat_maps.append(heat_map)
 
 
