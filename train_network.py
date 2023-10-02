@@ -939,11 +939,15 @@ class NetworkTrainer:
                             # ------------------------------------------------------------------------------------------------
                             # 2) map
                             # map is torch
-                            print(f'map shape (batch, pix_len, sen_len) : {map.shape}')
+
 
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             # when maps len is 5 ...
-                            print(f'maps shape (1, batch, pix_len, sen_len) : {maps.shape}')
+                            if maps.dim() != 4 :
+                                print(f'maybe wrong...')
+                                print(f'map shape (batch, pix_len, sen_len) : {map.shape}')
+                                print(f'{layer_name} ')
+                                time.sleep(50)
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
