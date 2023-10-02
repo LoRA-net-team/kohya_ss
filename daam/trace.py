@@ -148,7 +148,7 @@ class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
         return ret
 
     def _hook_impl(self):
-        self.monkey_patch('run_safety_checker', self._hooked_run_safety_checker)
+        #self.monkey_patch('run_safety_checker', self._hooked_run_safety_checker)
         self.monkey_patch('_encode_prompt', self._hooked_encode_prompt)
 
 
