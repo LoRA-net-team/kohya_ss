@@ -3252,7 +3252,7 @@ def main(args):
     print("atten_collection")
     print("total attention map")
     total_heat_map = torch.stack(total_heat_map, dim=0)
-    total_heat_map = total_heat_map.mean(0).squeeze(0)
+    total_heat_map = total_heat_map.sum(0).squeeze(0)
     total_heat_img = image_overlay_heat_map(img=prev_image,
                                            heat_map=total_heat_map)
     attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
