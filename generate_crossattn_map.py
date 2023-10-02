@@ -3228,6 +3228,7 @@ def main(args):
             word_map = attn_maps[trg_index, :, :]
             #word_map = expand_image(word_map, 512, 512)
             word_map = word_map.squeeze(0)
+            word_map = word_map.unsqueeze(1)
             word_map = F.interpolate(word_map, size=(512, 512), mode='bicubic').clamp_(min=0)
             maps.append(word_map)
             # how to scale ?
