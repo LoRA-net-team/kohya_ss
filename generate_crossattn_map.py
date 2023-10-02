@@ -279,25 +279,6 @@ def replace_vae_attn_to_sdpa():
 # attention storer
 def register_attention_control(unet, controller):
 
-    # attentino_probs = [batch, pix_len, sen_len]
-    def _unravel_attn(x):
-        h = w = int(math.sqrt(x.size(1)))
-        maps = []
-        x = x.permute(2, 0, 1) # sen_len, batch, pix_len
-        with auto_autocast(dtype=torch.float32):
-            for map_ in x :
-                """ evey sentence token """
-                # map_ = [16, pix_len]
-                map_ = map_.view(map_.size(0), h, w)
-                #map_ = map_[map_.size(0) // 2:]  # Filter out unconditional # map_ = [8, h, w]
-                map_, _ = torch.chunk(map_, 2, dim=0)  # map_ = [4, h, w]
-                maps.append(map_)
-        maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
-        # maps = [77, 8, h, w]
-        # maps = [8, 77, h, w]
-        return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, tokens, height, width)
-
-
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, mask=None):
             is_cross_attention = False
@@ -327,11 +308,8 @@ def register_attention_control(unet, controller):
             # pix_len = 8*8 = 64 : factor = 8*8
             if is_cross_attention:
                 # attentino_probs = [batch, pix_len, sen_len]
-                # [8, 77, h, w]
-                maps = _unravel_attn(attention_probs)
-                for head_idx, heatmap in enumerate(maps):
-                    # shape of heatmap = [sen len=77, h, w]
-                    attn = controller.store(heatmap, layer_name)
+                cond_attn, _ = torch.chunk(attention_probs, 2, dim=0)
+                attn = controller.store(cond_attn, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -3212,7 +3190,8 @@ def main(args):
     total_heat_map = []
     for layer_name in layer_names :
         attn_list = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
-        """
+        print(f'attn_list : {len(attn_list)}')
+    """
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
         maps, _ = torch.chunk(maps, chunks=2, dim=0)
@@ -3221,7 +3200,7 @@ def main(args):
         res = int(math.sqrt(pix_len))
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
-        """
+        
         all_merges = []
         for heat_map in attn_list :
             heat_map = heat_map.unsqueeze(1)
@@ -3266,7 +3245,7 @@ def main(args):
                                            heat_map=total_heat_map)
     attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
     total_het_img.save(attn_save_dir)
-
+    """
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
