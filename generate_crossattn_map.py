@@ -78,11 +78,6 @@ VGG16_INPUT_RESIZE_DIV = 4
 NUM_CUTOUTS = 4
 USE_CUTOUTS = False
 
-# region モジュール入れ替え部
-"""
-高速化のためのモジュール入れ替え
-"""
-
 
 def replace_unet_modules(unet: diffusers.models.unet_2d_condition.UNet2DConditionModel, mem_eff_attn, xformers, sdpa):
     if mem_eff_attn:
@@ -287,7 +282,6 @@ def register_attention_control(unet, controller):
         h = w = int(math.sqrt(x.size(1)))
         maps = []
         x = x.permute(2, 0, 1)
-
         from utils import auto_autocast
         with auto_autocast(dtype=torch.float32):
             for map_ in x:
@@ -354,8 +348,6 @@ def register_attention_control(unet, controller):
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
-
-
 
 
 class PipelineLike:
