@@ -3203,26 +3203,6 @@ def main(args):
     print(f'prompt: {prompt} | trg_indexs : {trg_indexs}')
 
     print("done!")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     atten_collection = attention_storer.step_store
     layer_names = atten_collection.keys()
     total_heat_map = []
@@ -3253,7 +3233,9 @@ def main(args):
         total_heat_map.append(global_heat_map)
         """
         maps = []
-        for trg_index in trg_indexs:
+        for trg_index in trg_indexs :
+            print(f'trg_index : {trg_index}')
+            
             word_map = maps[trg_index, :, :]
             word_map = expand_image(word_map, 512, 512)
             print(f'after expanding, word_map : {word_map.shape}')
