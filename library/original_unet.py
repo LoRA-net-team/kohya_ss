@@ -1471,6 +1471,7 @@ class UNet2DConditionModel(nn.Module):
         down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
     ) -> Union[Dict, Tuple]:
+        print('Unet Forward ****************************************************************************************')
 
         default_overall_up_factor = 2**self.num_upsamplers
         forward_upsample_size = False
