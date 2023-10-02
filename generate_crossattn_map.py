@@ -3233,11 +3233,8 @@ def main(args):
             word_map = global_heat_map[trg_index, :, :]
             maps.append(word_map)
         heat_map = torch.stack(maps, dim=0)
-        heat_map = heat_map.mean(0) # res,res
+        heat_map = heat_map.mean(0).squeeze(0)
         from utils import expand_image, image_overlay_heat_map
-        print(f'heat_map : {heat_map.shape}')
-        #heat_map_img = expand_image(heat_map,512,512)
-        #total_heat_map.append(heat_map_img)
         img = image_overlay_heat_map(img=prev_image,heat_map=heat_map)
         layer_name = layer_name.split('_')[:5]
         a = '_'.join(layer_name)
