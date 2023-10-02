@@ -3233,7 +3233,7 @@ def main(args):
             normalized_map = (word_map - word_map.min()) / (word_map.max() - word_map.min() + 1e-8)
 
 
-            print(f'normalized_map : {normalized_map.mean()}')
+            print(f'normalized_map : {normalized_map.mean()} | max : {normalized_map.max()} | min : {normalized_map.min()}')
             total_heat_map.append(normalized_map)
         heat_map = torch.stack(maps, dim=0) # [num,512,512]
         heat_map = heat_map.mean(0).squeeze(0)
