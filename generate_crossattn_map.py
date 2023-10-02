@@ -3235,7 +3235,9 @@ def main(args):
         layer_name = layer_name.split('_')[:5]
         a = '_'.join(layer_name)
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
+        print(f'attn_save_dir : {attn_save_dir}')
         img.save(attn_save_dir)
+
     print("atten_collection")
     print("total attention map")
     total_heat_map = torch.stack(total_heat_map, dim=0)
