@@ -843,9 +843,10 @@ class NetworkTrainer:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler, latents)
+                    print(f'timesteps : {timesteps}')
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents,timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()
@@ -909,6 +910,7 @@ class NetworkTrainer:
                         attn_list = atten_collection[layer_name] # just one map element
                         if len(attn_list) != 1:
                             print(f'error : {layer_name} attn_list is not 1')
+                        time.sleep(50)
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
