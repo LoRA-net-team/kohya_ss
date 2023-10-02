@@ -922,11 +922,12 @@ class NetworkTrainer:
                                     map_dict[i] = {}
                                     map_dict[i][layer_name] = []
                                     map_dict[i][layer_name].append(word_map)
+
                     heat_maps = []
                     for batch_index in map_dict.keys() :
-                        map_dict = map_dict[batch_index]
-                        for layer_name in map_dict.keys() :
-                            map_list = map_dict[layer_name]
+                        layer_dict = map_dict[batch_index]
+                        for layer_name in layer_dict.keys() :
+                            map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
                             print(f'{batch_index} {layer_name} : heat_map.shape = {heat_map.shape}')
