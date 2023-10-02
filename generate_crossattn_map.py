@@ -3252,7 +3252,7 @@ def main(args):
     print(f'total_heat_map : {total_heat_map.shape}')
     maps = []
     for trg_index in trg_indexs:
-        word_map = total_heat_map[trg_index, :, :]
+        word_map = total_heat_map[trg_index, :,  :]
         maps.append(word_map)
     total_heat_map = torch.stack(maps, dim=0)
     total_heat_map = total_heat_map.mean(0)
