@@ -12,11 +12,23 @@ class AttentionStore :
         return {}
 
     def store(self, attn, layer_name):
-        if layer_name not in self.step_store.keys() :
-            self.step_store[layer_name] = []
-        self.step_store[layer_name].append(attn)
+        #if layer_name not in self.step_store.keys() :
+        #    self.step_store[layer_name] = []
+        self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
 
     def reset(self):
         self.step_store = self.get_empty_store()
         self.attention_store = {}
+
+    # update heat map cache
+    """
+    def update(self,
+               factor: int,
+               layer_idx: int,
+               head_idx: int,
+               heatmap: torch.Tensor):
+        with auto_autocast(dtype=torch.float32):
+            key = (factor, layer_idx, head_idx)
+            self.ids_to_heatmaps[key] = self.ids_to_heatmaps[key] + heatmap
+    """

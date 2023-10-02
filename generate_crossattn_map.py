@@ -308,8 +308,12 @@ def register_attention_control(unet, controller):
             # pix_len = 8*8 = 64 : factor = 8*8
             if is_cross_attention:
                 # attentino_probs = [batch, pix_len, sen_len]
-                cond_attn, _ = torch.chunk(attention_probs, 2, dim=0)
-                attn = controller.store(cond_attn, layer_name)
+                #cond_attn, _ = torch.chunk(attention_probs, 2, dim=0)
+                #attn = controller.store(cond_attn, layer_name)
+                maps = self._unravel_attn(attention_probs)
+                for head_idx, heatmap in enumerate(maps):
+                    controller.store(heatmap, layer_name)
+
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -3185,6 +3189,26 @@ def main(args):
     print(f'prompt: {prompt} | trg_indexs : {trg_indexs}')
 
     print("done!")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     atten_collection = attention_storer.step_store
     layer_names = atten_collection.keys()
     total_heat_map = []
