@@ -272,10 +272,10 @@ class UNetCrossAttentionHooker(ObjectHooker):
         return hidden_states
 
     def _hook_impl(self):
-        
+
         #self.module.set_processor(self)
-        print(f'self')
-        self.module.forward(self)
+        print(self)
+        self.module = self
 
     @property
     def num_heat_maps(self):
