@@ -856,6 +856,7 @@ class NetworkTrainer:
                         print(f'---------------------------------------------------------------------------------------')
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()
+                        attention_storer.step_store = {}
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
@@ -929,7 +930,7 @@ class NetworkTrainer:
                             map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             # when maps len is 5 ...
-                            #if maps.dim() != 4 :
+                            #   if maps.dim() != 4 :
                                 # attns shape = [2,32,4096,227]
                                 # map = [1, 32, 4096, 227]
                                 #print(f'wrong time, len(trg_indexs) : {len(trg_indexs)}')
