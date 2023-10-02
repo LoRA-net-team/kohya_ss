@@ -72,6 +72,7 @@ def register_attention_control(unet, controller):
         def forward(hidden_states, context=None, mask=None):
             is_cross_attention = False
             if context is not None:
+                print(f'text shape : {context.shape}')
                 is_cross_attention = True
             batch_size, sequence_length, _ = hidden_states.shape
             query = self.to_q(hidden_states)
@@ -935,9 +936,10 @@ class NetworkTrainer:
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
                         # because just one timestep, only one length
-                        print(f'len of attn_list : {len(attn_list)}')
-                        attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
-                        batch_attn_map = torch.chunk(attn_map, len(trg_indexs), dim=0)
+                        attns = torch.stack(attn_list, dim=0)
+                        print(f'attns : {attns.shape}')
+
+                        batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
                         for batch_i, map in enumerate(batch_attn_map) :
                             trg_index_list = trg_indexs[batch_i]
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
