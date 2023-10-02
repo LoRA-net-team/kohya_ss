@@ -902,7 +902,7 @@ class NetworkTrainer:
                     layer_names = atten_collection.keys()
                     map_dict = {}
                     for layer_name in layer_names:
-                        print(f'from collection, layer_name: {layer_name}')
+
                         attn_list = atten_collection[layer_name] # just one map element
                         attn_map = attn_list[0]                  # [Batch*8, pix_len, sen_len]
                         batch_attn_map = torch.chunk(attn_map, len(trg_indexs), dim=0)
@@ -922,8 +922,10 @@ class NetworkTrainer:
                                 except :
                                     map_dict[i] = {}
                                     map_dict[i][layer_name] = []
+                                    print(f'from collection, layer_name: {layer_name}')
                                     map_dict[i][layer_name].append(word_map)
                     attention_storer.reset()
+
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
