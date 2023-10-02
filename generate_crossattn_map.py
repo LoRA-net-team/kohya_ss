@@ -3253,7 +3253,10 @@ def main(args):
 
     print("atten_collection")
     print("total attention map")
+    print(f'len(total_heat_map) : {len(total_heat_map)}')
+    print(f'total_heat_map first element : {total_heat_map[0].shape}')
     total_heat_map = torch.stack(total_heat_map, dim=0)
+    print(f'total_heat_map : {total_heat_map.shape}')
     total_heat_map = total_heat_map.mean(0).squeeze(0)
     total_heat_img = image_overlay_heat_map(img=prev_image,
                                            heat_map=total_heat_map)
