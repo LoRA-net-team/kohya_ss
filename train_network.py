@@ -852,12 +852,10 @@ class NetworkTrainer:
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder,
-                                                                              batch["captions"],accelerator.device,
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder, batch["captions"],accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip,)
                         else:
@@ -931,8 +929,8 @@ class NetworkTrainer:
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
                     atten_collection = attention_storer.step_store
+                    attention_storer.reset()
                     layer_names = atten_collection.keys()
-
                     map_dict = {}
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
