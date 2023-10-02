@@ -1271,8 +1271,7 @@ class PipelineLike:
             return_dict=return_dict,
             callback=callback,
             callback_steps=callback_steps,
-            **kwargs,
-        )
+            **kwargs,)
 
     def inpaint(
             self,
@@ -2366,7 +2365,6 @@ def main(args):
         networks = []
         network_default_muls = []
         network_pre_calc = args.network_pre_calc
-
         for i, network_module in enumerate(args.network_module):
             imported_module = importlib.import_module(network_module)
             network_mul = 1.0 if args.network_mul is None or len(args.network_mul) <= i else args.network_mul[i]
@@ -2374,7 +2372,6 @@ def main(args):
             net_kwargs = {}
             if args.network_args and i < len(args.network_args):
                 network_args = args.network_args[i]
-                # TODO escape special chars
                 network_args = network_args.split(";")
                 for net_arg in network_args:
                     key, value = net_arg.split("=")
@@ -2492,19 +2489,10 @@ def main(args):
     attention_storer = AttentionStore()
     register_attention_control(unet, attention_storer)
 
-    pipe = PipelineLike(device,
-        vae,
-        text_encoder,
-        tokenizer,
-        unet,
-        scheduler,
-        args.clip_skip,
-        clip_model,
-        args.clip_guidance_scale,
-        args.clip_image_guidance_scale,
-        vgg16_model,
-        args.vgg16_guidance_scale,
-        args.vgg16_guidance_layer,)
+    pipe = PipelineLike(device,vae,text_encoder,tokenizer,unet,
+                        scheduler,args.clip_skip,clip_model, args.clip_guidance_scale,
+                        args.clip_image_guidance_scale,vgg16_model,args.vgg16_guidance_scale,
+                        args.vgg16_guidance_layer,)
     pipe.set_control_nets(control_nets)
     print("pipeline is ready.")
 
@@ -2785,8 +2773,8 @@ def main(args):
         iter_seed = random.randint(0, 0x7FFFFFFF)
         if args.shuffle_prompts:
             random.shuffle(prompt_list)
-        def process_batch(batch: List[BatchData],
-                          highres_fix, highres_1st=False):
+
+        def process_batch(batch: List[BatchData],highres_fix, highres_1st=False):
             print(f'Process Batch')
             batch_size = len(batch)
             # highres_fixの処理
@@ -2993,6 +2981,7 @@ def main(args):
                 except ImportError:
                     print("opencv-python is not installed, cannot preview / opencv-pythonがインストールされていないためプレビューできません")
             return images
+
         prompt_index = 0
         global_step = 0
         batch_data = []
@@ -3010,9 +2999,9 @@ def main(args):
                     break
             else:
                 raw_prompt = prompt_list[prompt_index]
-            # sd-dynamic-prompts like variants:
-            # count is 1 (not dynamic) or images_per_prompt (no enumeration) or arbitrary (enumeration)
+
             raw_prompts = handle_dynamic_prompt_variants(raw_prompt, args.images_per_prompt)
+
             # repeat prompt
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
@@ -3095,7 +3084,6 @@ def main(args):
                 # -------------------------------------------------------------------------------------------------------
                 # prepare seed
                 if seeds is not None:  # given in prompt
-                    # 数が足りないなら前のをそのまま使う
                     if len(seeds) > 0:
                         seed = seeds.pop(0)
                 else:
@@ -3160,24 +3148,27 @@ def main(args):
                     process_batch(batch_data, highres_fix)
                     batch_data.clear()
                 batch_data.append(b1)
+                # -------------------------------------------------------------------------------------------------------
+                # generating image
+                # -------------------------------------------------------------------------------------------------------
                 if len(batch_data) == args.batch_size:
-                    prev_image = process_batch(batch_data, highres_fix)[0]
-
+                    prev_image = process_batch(batch_data,
+                                               highres_fix)[0]
                     batch_data.clear()
                 global_step += 1
                 print(f' *** prev_image : {prev_image}')
+
             prompt_index += 1
         # -------------------------------------------------------------------------------------------------------
         # 4) regional network
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
-
+    print(f'Finish of Generating Image')
+    """
     # ------------------------------------------------------------------------------------------------------------------
     #images
-
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
-
         cls_token = 49406
         pad_token = 49407
         trg_token = args.trg_token
@@ -3245,7 +3236,7 @@ def main(args):
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
     print("atten_collection")
-
+    """
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
@@ -3504,12 +3495,10 @@ def setup_parser() -> argparse.ArgumentParser:
 
     return parser
 
-
 def arg_as_list(s):
     import ast
     v = ast.literal_eval(s)
     return v
-
 
 if __name__ == "__main__":
     parser = setup_parser()
@@ -3517,3 +3506,4 @@ if __name__ == "__main__":
     parser.add_argument("--trg_token", default='akane')
     args = parser.parse_args()
     main(args)
+
