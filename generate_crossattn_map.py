@@ -334,6 +334,7 @@ def register_attention_control(unet, controller):
                 # [8, 77, h, w]
                 maps = _unravel_attn(attention_probs)
 
+
                 for head_idx, heatmap in enumerate(maps):
                     # shape of heatmap = [sen len, h, w]
                     attn = controller.store(heatmap, layer_name)
@@ -3227,10 +3228,9 @@ def main(args):
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
-        print(f'len of attn_list : {len(attn_list)}')
-        print(f' element shape : {attn_list[0].shape}')
         global_heat_map = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
-        print(f'global_heat_map.shape (8, 77, h, w): {global_heat_map.shape}')
+        global_heat_map = global_heat_map.mean(0)
+        print(f'global_heat_map.shape (400, 77, h, w): {global_heat_map.shape}')
         #global_heat_map = global_heat_map.unsqueeze(1)
         from torch.nn import functional as F
 
