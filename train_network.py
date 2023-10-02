@@ -90,6 +90,7 @@ def register_attention_control(unet, controller):
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
+                print(f'storing attention_probs of {layer_name}')
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
@@ -851,6 +852,7 @@ class NetworkTrainer:
                                                     unet,
                                                     noisy_latents,timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
+                        time.sleep(100)
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()
                     if args.v_parameterization:
