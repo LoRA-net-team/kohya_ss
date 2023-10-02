@@ -318,7 +318,6 @@ def register_attention_control(unet, controller):
                 maps = _unravel_attn(attention_probs)
                 for head_idx, heatmap in enumerate(maps):
                     controller.store(heatmap, layer_name)
-
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
