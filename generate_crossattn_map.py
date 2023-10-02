@@ -328,7 +328,7 @@ def register_attention_control(unet, controller):
                 if factor != 8:
                     maps = _unravel_attn(attention_probs)
                     for head_idx, heatmap in enumerate(maps):
-                        print(f'heatmap : {heatmap}')
+                        print(f'heatmap : {heatmap.shape}')
                # print(f'cross attntion layer_name: {layer_name}')
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
