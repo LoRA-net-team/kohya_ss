@@ -289,7 +289,8 @@ def register_attention_control(unet, controller):
                 """ evey sentence token """
                 # map_ = [16, pix_len]
                 map_ = map_.view(map_.size(0), h, w)
-                map_ = map_[map_.size(0) // 2:]  # Filter out unconditional # map_ = [8, h, w]
+                #map_ = map_[map_.size(0) // 2:]  # Filter out unconditional # map_ = [8, h, w]
+                map_, _ = torch.chunk(map_, 2, dim=0)  # map_ = [4, h, w]
                 maps.append(map_)
         maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
         # maps = [77, 8, h, w]
@@ -301,7 +302,6 @@ def register_attention_control(unet, controller):
         def forward(hidden_states, context=None, mask=None):
             is_cross_attention = False
             if context is not None:
-                print(f'context : {context.shape}' )
                 is_cross_attention = True
             batch_size, sequence_length, _ = hidden_states.shape
             query = self.to_q(hidden_states)
