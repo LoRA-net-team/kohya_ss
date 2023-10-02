@@ -3228,11 +3228,11 @@ def main(args):
             word_map = attn_maps[trg_index, :, :]
             word_map = expand_image(word_map, 512, 512)
             maps.append(word_map)
-            mean_value = word_map.mean()
-            # how to scale ?
-            #if 'mid' not in layer_name :
 
-            normalized_map = torch.nn.functional.normalize(word_map)
+            ####################################################################################################
+            normalized_map = (word_map - word_map.min()) / (word_map.max() - word_map.min() + 1e-8)
+
+
             print(f'normalized_map : {normalized_map.mean()}')
             total_heat_map.append(normalized_map)
         heat_map = torch.stack(maps, dim=0) # [num,512,512]
