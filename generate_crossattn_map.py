@@ -3225,11 +3225,15 @@ def main(args):
         """
         maps = []
         for trg_index in trg_indexs :
-            word_map = attn_maps[trg_index, :, :]
+            attn_maps_ = attn_maps.unsqueeze(1)
+            attn_maps_ = F.interpolate(attn_maps_, size=(512, 512), mode='bicubic').clamp_(min=0)
+            print(f'attn_maps_ : {attn_maps_.shape}')
+            word_map = attn_maps_[trg_index, :, :]
             #word_map = expand_image(word_map, 512, 512)
             word_map = word_map.squeeze(0)
-            word_map = word_map.unsqueeze(1)
-            word_map = F.interpolate(word_map, size=(512, 512), mode='bicubic').clamp_(min=0)
+
+
+
             maps.append(word_map)
             # how to scale ?
             #if 'mid' not in layer_name :
