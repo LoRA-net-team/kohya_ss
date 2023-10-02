@@ -3203,6 +3203,7 @@ def main(args):
     print(f'prompt: {prompt} | trg_indexs : {trg_indexs}')
 
     print("done!")
+    from utils import expand_image, image_overlay_heat_map
     atten_collection = attention_storer.step_store
     layer_names = atten_collection.keys()
     total_heat_map = []
@@ -3237,12 +3238,11 @@ def main(args):
             print(f'trg_index : {trg_index}')
             word_map = attn_maps[trg_index, :, :]
             word_map = expand_image(word_map, 512, 512)
-            print(f'after expanding, word_map : {word_map.shape}')
+            print(f'after expanding, word_map (512,512): {word_map.shape}')
             maps.append(word_map)
         heat_map = torch.stack(maps, dim=0) # [num,512,512]
         print(f'heat_map : {heat_map.shape}')
         heat_map = heat_map.mean(0).squeeze(0)
-        from utils import expand_image, image_overlay_heat_map
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map)
         layer_name = layer_name.split('_')[:5]
