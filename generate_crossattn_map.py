@@ -52,7 +52,7 @@ from library.original_unet import FlashAttentionFunction
 
 from XTI_hijack import unet_forward_XTI, downblock_forward_XTI, upblock_forward_XTI
 from utils import auto_autocast
-
+from daam import trace, set_seed
 # scheduler:
 SCHEDULER_LINEAR_START = 0.00085
 SCHEDULER_LINEAR_END = 0.0120
@@ -2490,7 +2490,7 @@ def main(args):
                         args.vgg16_guidance_layer,)
     pipe.set_control_nets(control_nets)
     print("pipeline is ready.")
-
+    """
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
 
@@ -2609,7 +2609,7 @@ def main(args):
             for token_ids, embeds in token_ids_embeds_XTI:
                 for token_id, embed in zip(token_ids, embeds):
                     token_embeds[token_id] = embed
-
+    """
     # promptを取得する
     if args.from_file is not None:
         print(f"reading prompts from {args.from_file}")
@@ -2733,7 +2733,6 @@ def main(args):
         guide_images = []
         for p in args.guide_image_path:
             guide_images.extend(load_images(p))
-
         print(f"loaded {len(guide_images)} guide images for guidance")
         if len(guide_images) == 0:
             print(
@@ -2928,54 +2927,56 @@ def main(args):
 
             # ----------------------------------------------------------------------------------------------------------
             # generate image through pipe
-            images = pipe(prompts,negative_prompts,init_images,mask_images,
-                          height,width,steps,scale,negative_scale,strength,
-                          latents=start_code,output_type="pil",max_embeddings_multiples=max_embeddings_multiples,
-                          img2img_noise=i2i_noises,vae_batch_size=args.vae_batch_size,
-                          return_latents=return_latents,clip_prompts=clip_prompts,
-                          clip_guide_images=guide_images,)[0]
-            print(f'result image : {type(images)}')
-            if highres_1st and not args.highres_fix_save_1st:  # return images or latents
-                return images
-            # save image
-            highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
-            ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(zip(images, prompts, negative_prompts, seeds, clip_prompts)):
-                if highres_fix:
-                    seed -= 1  # record original seed
-                metadata = PngInfo()
-                metadata.add_text("prompt", prompt)
-                metadata.add_text("seed", str(seed))
-                metadata.add_text("sampler", args.sampler)
-                metadata.add_text("steps", str(steps))
-                metadata.add_text("scale", str(scale))
-                if negative_prompt is not None:
-                    metadata.add_text("negative-prompt", negative_prompt)
-                if negative_scale is not None:
-                    metadata.add_text("negative-scale", str(negative_scale))
-                if clip_prompt is not None:
-                    metadata.add_text("clip-prompt", clip_prompt)
-                if args.use_original_file_name and init_images is not None:
-                    if type(init_images) is list:
-                        fln = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".png"
-                    else:
-                        fln = os.path.splitext(os.path.basename(init_images.filename))[0] + ".png"
-                elif args.sequential_file_name:
-                    fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
-                else:
-                    fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
-                image.save(os.path.join(args.outdir, fln), pnginfo=metadata)
 
-            if not args.no_preview and not highres_1st and args.interactive:
-                try:
-                    import cv2
-                    for prompt, image in zip(prompts, images):
-                        cv2.imshow(prompt[:128], np.array(image)[:, :, ::-1])  # プロンプトが長いと死ぬ
-                        cv2.waitKey()
-                        cv2.destroyAllWindows()
-                except ImportError:
-                    print("opencv-python is not installed, cannot preview / opencv-pythonがインストールされていないためプレビューできません")
-            return images
+            with trace(pipe) as tc:
+                images = pipe(prompts,negative_prompts,init_images,mask_images,
+                              height,width,steps,scale,negative_scale,strength,
+                              latents=start_code,output_type="pil",max_embeddings_multiples=max_embeddings_multiples,
+                              img2img_noise=i2i_noises,vae_batch_size=args.vae_batch_size,
+                              return_latents=return_latents,clip_prompts=clip_prompts,
+                              clip_guide_images=guide_images,)[0]
+                print(f'result image : {type(images)}')
+                if highres_1st and not args.highres_fix_save_1st:  # return images or latents
+                    return images
+                # save image
+                highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
+                ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+                for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(zip(images, prompts, negative_prompts, seeds, clip_prompts)):
+                    if highres_fix:
+                        seed -= 1  # record original seed
+                    metadata = PngInfo()
+                    metadata.add_text("prompt", prompt)
+                    metadata.add_text("seed", str(seed))
+                    metadata.add_text("sampler", args.sampler)
+                    metadata.add_text("steps", str(steps))
+                    metadata.add_text("scale", str(scale))
+                    if negative_prompt is not None:
+                        metadata.add_text("negative-prompt", negative_prompt)
+                    if negative_scale is not None:
+                        metadata.add_text("negative-scale", str(negative_scale))
+                    if clip_prompt is not None:
+                        metadata.add_text("clip-prompt", clip_prompt)
+                    if args.use_original_file_name and init_images is not None:
+                        if type(init_images) is list:
+                            fln = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".png"
+                        else:
+                            fln = os.path.splitext(os.path.basename(init_images.filename))[0] + ".png"
+                    elif args.sequential_file_name:
+                        fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
+                    else:
+                        fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
+                    image.save(os.path.join(args.outdir, fln), pnginfo=metadata)
+
+                if not args.no_preview and not highres_1st and args.interactive:
+                    try:
+                        import cv2
+                        for prompt, image in zip(prompts, images):
+                            cv2.imshow(prompt[:128], np.array(image)[:, :, ::-1])  # プロンプトが長いと死ぬ
+                            cv2.waitKey()
+                            cv2.destroyAllWindows()
+                    except ImportError:
+                        print("opencv-python is not installed, cannot preview / opencv-pythonがインストールされていないためプレビューできません")
+                return images
 
         prompt_index = 0
         global_step = 0
@@ -3147,11 +3148,12 @@ def main(args):
                 # generating image
                 # -------------------------------------------------------------------------------------------------------
                 if len(batch_data) == args.batch_size:
-                    prev_image = process_batch(batch_data,
-                                               highres_fix)[0]
-                    batch_data.clear()
+                    with trace(pipe) as tc:
+                        prev_image = process_batch(batch_data,
+                                                   highres_fix)[0]
+                        batch_data.clear()
                 global_step += 1
-                print(f' *** prev_image : {prev_image}')
+                print(f' ***** prev_image : {prev_image}')
 
             prompt_index += 1
         # -------------------------------------------------------------------------------------------------------
@@ -3159,7 +3161,7 @@ def main(args):
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
-
+    """
     # ------------------------------------------------------------------------------------------------------------------
     #images
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
@@ -3222,7 +3224,7 @@ def main(args):
         #res = int(math.sqrt(pix_len))
         #maps = maps.permute(1, 0) # [sen_len, pix_len]
         #global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
-        """
+        
         all_merges = []
         for heat_map in attn_list :
             heat_map = heat_map.unsqueeze(1)
@@ -3232,7 +3234,7 @@ def main(args):
         global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
         global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
         total_heat_map.append(global_heat_map)
-        """
+        
         maps = []
         for trg_index in trg_indexs :
             word_map = attn_maps[trg_index, :, :]
@@ -3262,7 +3264,7 @@ def main(args):
                                            heat_map=total_heat_map)
     attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
     total_heat_img.save(attn_save_dir)
-
+    """
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()

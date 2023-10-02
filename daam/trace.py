@@ -104,7 +104,6 @@ class DiffusionHeatMapHooker(AggregateHooker):
                     print(f'heat_map : {heat_map.shape}')
                     # heat_map = [sen_len, H, W]
                     heat_map = heat_map.unsqueeze(1)
-
                     all_merges.append(F.interpolate(heat_map, size=(x, x), mode='bicubic').clamp_(min=0))
             try:
                 maps = torch.stack(all_merges, dim=0)
@@ -113,7 +112,6 @@ class DiffusionHeatMapHooker(AggregateHooker):
                     raise RuntimeError('No heat maps found for the given parameters.')
                 else:
                     raise RuntimeError('No heat maps found. Did you forget to call `with trace(...)` during generation?')
-            print(f'maps : {maps.shape}')
             maps = maps.mean(0)[:, 0]
             print(f'maps : {maps.shape}')
             maps = maps[:len(self.pipe.tokenizer.tokenize(prompt)) + 2]  # 1 for SOS and 1 for padding
@@ -125,6 +123,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
 
 
 class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
+
     def __init__(self, pipeline: StableDiffusionPipeline, parent_trace: 'trace'):
         super().__init__(pipeline)
         self.heat_maps = parent_trace.all_heat_maps
@@ -134,7 +133,6 @@ class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
         image, has_nsfw = hk_self.monkey_super('run_safety_checker', image, *args, **kwargs)
         pil_image = self.numpy_to_pil(image)
         hk_self.parent_trace.last_image = pil_image[0]
-
         return image, has_nsfw
 
     def _hooked_encode_prompt(hk_self, _: StableDiffusionPipeline, prompt: Union[str, List[str]], *args, **kwargs):
@@ -144,11 +142,9 @@ class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
             last_prompt = prompt[0]
         else:
             last_prompt = prompt
-
         hk_self.heat_maps.clear()
         hk_self.parent_trace.last_prompt = last_prompt
         ret = hk_self.monkey_super('_encode_prompt', prompt, *args, **kwargs)
-
         return ret
 
     def _hook_impl(self):
