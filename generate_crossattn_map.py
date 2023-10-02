@@ -301,7 +301,7 @@ def register_attention_control(unet, controller):
         def forward(hidden_states, context=None, mask=None):
             is_cross_attention = False
             if context is not None:
-                print(f'context : {context.shape}')
+                print(f'context : {context.shape}' )
                 is_cross_attention = True
             batch_size, sequence_length, _ = hidden_states.shape
             query = self.to_q(hidden_states)
