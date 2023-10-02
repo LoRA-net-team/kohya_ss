@@ -283,6 +283,19 @@ def replace_vae_attn_to_sdpa():
 # attention storer
 def register_attention_control(unet, controller):
 
+    def _unravel_attn(x):
+        h = w = int(math.sqrt(x.size(1)))
+        maps = []
+        x = x.permute(2, 0, 1)
+        with auto_autocast(dtype=torch.float32):
+            for map_ in x:
+                map_ = map_.view(map_.size(0), h, w)
+                map_ = map_[map_.size(0) // 2:]  # Filter out unconditional
+                maps.append(map_)
+        maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
+        return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, tokens, height, width)
+
+
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, mask=None):
             is_cross_attention = False
@@ -297,14 +310,23 @@ def register_attention_control(unet, controller):
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
-            # 1) attention score
+            # ----------------------------------------------------------------------------------------------------------------
+            # 1) attention score : get_attention_scores
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                                             query, key.transpose(-1, -2),
-                                             beta=0,
-                                             alpha=self.scale,)
+                                             query, key.transpose(-1, -2),beta=0,alpha=self.scale,)
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+            # ----------------------------------------------------------------------------------------------------------------
+            latent_hw = 64*64
+            factor = int(math.sqrt(latent_hw // attention_probs.shape[1]))
+            print(f'factor : {factor}, layer_name : {layer_name}')
+
+
             if is_cross_attention:
+                if factor != 8:
+                    maps = _unravel_attn(attention_probs)
+                    for head_idx, heatmap in enumerate(maps):
+                        print(f'heatmap : {heatmap}')
                # print(f'cross attntion layer_name: {layer_name}')
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
