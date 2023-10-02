@@ -16,6 +16,7 @@ class AttentionStore :
             self.step_store[layer_name] = []
             self.step_store[layer_name].append(attn)
         else :
+            print(f'more than one time ... ')
             self.step_store[layer_name].append(attn)
             #self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn

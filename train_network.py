@@ -938,14 +938,14 @@ class NetworkTrainer:
 
                             # ------------------------------------------------------------------------------------------------
                             # 2) map
-                            print(f'(0) map : {type(map)}')
+                            # map is torch
+                            print(f'map shape (batch, pix_len, sen_len) : {map.shape}')
+
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
-                            print(f'(1) maps.shape : {maps.shape}')
+                            # when maps len is 5 ...
+                            print(f'maps shape (1, batch, pix_len, sen_len) : {maps.shape}')
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
-                            print(f'(2) maps.shape : {maps.shape}')
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
-                            print(f'(3) maps.shape : {maps.shape}')
-                            time.sleep(3)
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
@@ -968,6 +968,8 @@ class NetworkTrainer:
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
+                            print(f'{batch_index}-{layer_name} heat_map : {heat_map.shape}')
+
                             mask_dir = batch_mask_dirs[batch_index]
                             mask_img = Image.open(mask_dir)
                             mask_img = mask_img.resize((512, 512))
