@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Type, Any, Dict, Tuple, Union
 import math
 from diffusers import StableDiffusionPipeline
-from diffusers.models.attention_processor import Attention
+#from diffusers.models.attention_processor import Attention
 import numpy as np
 import PIL.Image as Image
 import torch
@@ -25,7 +25,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
             data_dir: str = None
     ):
         self.all_heat_maps = RawHeatMapCollection()
-        h = (pipeline.unet.config.sample_size * pipeline.vae_scale_factor)
+        h = 512#(pipeline.unet.config.sample_size * pipeline.vae_scale_factor)
         self.latent_hw = 4096 if h == 512 else 9216  # 64x64 or 96x96 depending on if it's 2.0-v or 2.0
         locate_middle = load_heads or save_heads
         self.locator = UNetCrossAttentionLocator(restrict={0} if low_memory else None, locate_middle_block=locate_middle)
@@ -148,14 +148,15 @@ class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
         return ret
 
     def _hook_impl(self):
-        self.monkey_patch('run_safety_checker', self._hooked_run_safety_checker)
+        #self.monkey_patch('run_safety_checker', self._hooked_run_safety_checker)
         self.monkey_patch('_encode_prompt', self._hooked_encode_prompt)
 
 
-class UNetCrossAttentionHooker(ObjectHooker[Attention]):
+class UNetCrossAttentionHooker(ObjectHooker):
+
     def __init__(
             self,
-            module: Attention,
+            module,
             parent_trace: 'trace',
             context_size: int = 77,
             layer_idx: int = 0,
@@ -217,7 +218,7 @@ class UNetCrossAttentionHooker(ObjectHooker[Attention]):
 
     def __call__(
             self,
-            attn: Attention,
+            attn,
             hidden_states,
             encoder_hidden_states=None,
             attention_mask=None,
@@ -271,7 +272,11 @@ class UNetCrossAttentionHooker(ObjectHooker[Attention]):
         return hidden_states
 
     def _hook_impl(self):
-        self.module.set_processor(self)
+
+        #self.module.set_processor(self)
+        print(self)
+        print(f'self.module : {self.module.__class__.__name__}')
+        self.module = self
 
     @property
     def num_heat_maps(self):
