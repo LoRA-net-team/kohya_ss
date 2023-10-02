@@ -930,7 +930,6 @@ class NetworkTrainer:
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
-
                         for batch_i, map in enumerate(batch_attn_map) :
                             # ------------------------------------------------------------------------------------------------
                             # 1) trg indexs
@@ -940,8 +939,12 @@ class NetworkTrainer:
                             # ------------------------------------------------------------------------------------------------
                             # 2) map
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
+                            print(f'(1) maps.shape : {maps.shape}')
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
+                            print(f'(2) maps.shape : {maps.shape}')
                             maps = maps.sum(0)  # [pix_len, sen_len]
+                            print(f'(3) maps.shape : {maps.shape}')
+
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
