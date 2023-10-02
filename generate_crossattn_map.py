@@ -3222,12 +3222,12 @@ def main(args):
         """
         global_heat_map = attn_list[0]
         global_heat_map = global_heat_map.unsqueeze(1)
-        total_heat_map.append(F.interpolate(global_heat_map, size=(512,512), mode='bicubic').clamp_(min=0))
         from torch.nn import functional as F
+
         global_heat_map = F.interpolate(global_heat_map,
                                          size=(512,512),
                                          mode='bicubic').clamp_(min=0)
-
+        total_heat_map.append(global_heat_map)
         maps = []
         for trg_index in trg_indexs:
             word_map = global_heat_map[trg_index, :, :]
