@@ -866,6 +866,8 @@ class NetworkTrainer:
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
+                        atten_collection = attention_storer.step_store
+                        attention_storer.reset()
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
@@ -921,26 +923,25 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-                    atten_collection = attention_storer.step_store
-                    attention_storer.reset()
+
                     layer_names = atten_collection.keys()
                     map_dict = {}
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
+                        if len(attn_list) != 1:
+                            print(f'error : {layer_name} attn_list is not 1')
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
-                        print(f'attns : {attns.shape}')
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
-                        print(f'batch_attn_map : {attns.shape}')
-                        batch_attn_map = batch_attn_map.squeeze(0)
-                        # 8*batch, pix_len, sen_len
-
-
-
-
 
                         for batch_i, map in enumerate(batch_attn_map) :
+                            # ------------------------------------------------------------------------------------------------
+                            # 1) trg indexs
                             trg_index_list = trg_indexs[batch_i]
+
+
+                            # ------------------------------------------------------------------------------------------------
+                            # 2) map
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             maps = maps.sum(0)  # [pix_len, sen_len]
@@ -957,7 +958,6 @@ class NetworkTrainer:
                                     map_dict[batch_i] = {}
                                     map_dict[batch_i][layer_name] = []
                                     map_dict[batch_i][layer_name].append(word_map)
-
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
