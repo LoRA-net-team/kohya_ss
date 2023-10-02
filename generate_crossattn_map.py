@@ -321,7 +321,7 @@ def register_attention_control(unet, controller):
             # ----------------------------------------------------------------------------------------------------------------
             latent_hw = 64*64
             factor = int(math.sqrt(latent_hw // attention_probs.shape[1]))
-            #print(f'factor : {factor}, layer_name : {layer_name}')
+            #print(f'factor : {factor}, layer_name : {layer_name}' )
             if is_cross_attention:
                 if factor != 8:
                     maps = _unravel_attn(attention_probs)
