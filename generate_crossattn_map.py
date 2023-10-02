@@ -3257,9 +3257,12 @@ def main(args):
     total_heat_map = torch.stack(maps, dim=0)
     total_heat_map = total_heat_map.mean(0)
     total_heat_map = total_heat_map.squeeze(0) # res,res
-    print(f'total_heat_map : {total_heat_map.shape}')
+
+    total_heat_map = total_heat_map.squeeze(0)  # res,re
+    print(f'total_heat_map.shape = {total_heat_map.shape}')
+
     total_het_img = image_overlay_heat_map(img=prev_image,
-                                 heat_map=total_heat_map)
+                                           heat_map=total_heat_map)
     attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
     total_het_img.save(attn_save_dir)
 
