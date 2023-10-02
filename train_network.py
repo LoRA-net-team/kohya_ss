@@ -936,9 +936,10 @@ class NetworkTrainer:
                     for layer_name in layer_names:
                         attn_list = atten_collection[layer_name] # just one map element
                         # because just one timestep, only one length
-                        attns = torch.stack(attn_list, dim=0)
-                        print(f'attns : {attns.shape}')
-
+                        if len(attn_list) != 1:
+                            print(f'layer_name : {layer_name}')
+                        attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
+                        attns = attns.squeeze(0)
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
                         for batch_i, map in enumerate(batch_attn_map) :
                             trg_index_list = trg_indexs[batch_i]
