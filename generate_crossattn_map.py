@@ -3227,14 +3227,9 @@ def main(args):
     layer_names = atten_collection.keys()
     total_heat_map = []
     for layer_name in layer_names :
-        attn_list = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
-        print(f'attn_list (50) : {len(attn_list)}')
+        maps = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
+        print(f'attn  : {type(maps)} | shape : {maps.shape}')
         # element of attn_list = [8, pix_len, 77]
-
-        # -------------------------------------------------------------------------------------------------------
-        # [timestep, 8, pix_len, sen_len]
-        maps = torch.stack(attn_list, dim=0)
-
         # -------------------------------------------------------------------------------------------------------
         # [8, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
