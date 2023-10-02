@@ -279,7 +279,7 @@ def replace_vae_attn_to_sdpa():
 # attention storer
 def register_attention_control(unet, controller):
 
-    def _unravel_attn(self, x):
+    def _unravel_attn(x):
         h = w = int(math.sqrt(x.size(1)))
         maps = []
         x = x.permute(2, 0, 1)
@@ -324,7 +324,7 @@ def register_attention_control(unet, controller):
                 # attentino_probs = [batch, pix_len, sen_len]
                 #cond_attn, _ = torch.chunk(attention_probs, 2, dim=0)
                 #attn = controller.store(cond_attn, layer_name)
-                maps = self._unravel_attn(attention_probs)
+                maps = _unravel_attn(attention_probs)
                 for head_idx, heatmap in enumerate(maps):
                     controller.store(heatmap, layer_name)
 
