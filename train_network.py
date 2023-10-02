@@ -928,11 +928,9 @@ class NetworkTrainer:
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
-                    print(f'map_dict.keys() : {map_dict.keys()}')
-                    
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
-                        print(f'layer_dict.keys() : {layer_dict.keys()}')
+                        print(f'layer_dict : {layer_dict}')
                         for layer_name in layer_dict.keys() :
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
