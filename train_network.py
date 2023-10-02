@@ -938,12 +938,14 @@ class NetworkTrainer:
 
                             # ------------------------------------------------------------------------------------------------
                             # 2) map
+                            print(f'(0) map : {type(map)}')
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             print(f'(1) maps.shape : {maps.shape}')
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             print(f'(2) maps.shape : {maps.shape}')
-                            maps = maps.sum(0)  # [pix_len, sen_len]
+                            maps = maps.sum(0)  # [32, pix_len, sen_len]
                             print(f'(3) maps.shape : {maps.shape}')
+                            time.sleep(30)
 
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
