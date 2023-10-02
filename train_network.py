@@ -945,8 +945,7 @@ class NetworkTrainer:
                             print(f'(2) maps.shape : {maps.shape}')
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             print(f'(3) maps.shape : {maps.shape}')
-                            time.sleep(30)
-
+                            time.sleep(3)
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
