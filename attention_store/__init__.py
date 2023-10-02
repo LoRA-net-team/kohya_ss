@@ -16,7 +16,6 @@ class AttentionStore :
             self.step_store[layer_name] = []
             self.step_store[layer_name].append(attn)
         else :
-            print(f'more than one time ... ')
             self.step_store[layer_name].append(attn)
             #self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
@@ -24,15 +23,3 @@ class AttentionStore :
     def reset(self):
         self.step_store = {}
         self.attention_store = {}
-
-    # update heat map cache
-    """
-    def update(self,
-               factor: int,
-               layer_idx: int,
-               head_idx: int,
-               heatmap: torch.Tensor):
-        with auto_autocast(dtype=torch.float32):
-            key = (factor, layer_idx, head_idx)
-            self.ids_to_heatmaps[key] = self.ids_to_heatmaps[key] + heatmap
-    """
