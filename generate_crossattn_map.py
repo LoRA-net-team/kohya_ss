@@ -279,23 +279,20 @@ def replace_vae_attn_to_sdpa():
 # attention storer
 def register_attention_control(unet, controller):
 
+    # attentino_probs = [batch, pix_len, sen_len]
     def _unravel_attn(x):
         h = w = int(math.sqrt(x.size(1)))
         maps = []
         x = x.permute(2, 0, 1) # sen_len, batch, pix_len
-        # x = [sen_len, batch, pix_len]
         with auto_autocast(dtype=torch.float32):
-            for map_ in x:
+            for map_ in x :
                 """ evey sentence token """
                 # map_ = [16, pix_len]
                 map_ = map_.view(map_.size(0), h, w)
-                # map_ = [16, h, w]
-                map_ = map_[map_.size(0) // 2:]  # Filter out unconditional
-                # map_ = [8, h, w]
+                map_ = map_[map_.size(0) // 2:]  # Filter out unconditional # map_ = [8, h, w]
                 maps.append(map_)
         maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
         # maps = [77, 8, h, w]
-
         # maps = [8, 77, h, w]
         return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, tokens, height, width)
 
@@ -328,16 +325,11 @@ def register_attention_control(unet, controller):
             # pix_len = 16*16 = 256 : factor = 4*4
             # pix_len = 8*8 = 64 : factor = 8*8
             if is_cross_attention:
-                print(f'attention_probs.shape (batch, pix_len, sen_len) : {attention_probs.shape}')
-                print(f'factor : {factor}, layer_name : {layer_name}')
-
-                # -----------------------------------------------------------------------------------------------------
+                # attentino_probs = [batch, pix_len, sen_len]
                 # [8, 77, h, w]
                 maps = _unravel_attn(attention_probs)
-
-
                 for head_idx, heatmap in enumerate(maps):
-                    # shape of heatmap = [sen len, h, w]
+                    # shape of heatmap = [sen len=77, h, w]
                     attn = controller.store(heatmap, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
@@ -3218,7 +3210,7 @@ def main(args):
     layer_names = atten_collection.keys()
     total_heat_map = []
     for layer_name in layer_names :
-        attn_list = atten_collection[layer_name] # number is head, each shape = [77, H, W]
+        attn_list = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
         """
         maps = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
         maps = maps.sum(0)                   # [8, pix_len, sen_len]
@@ -3229,17 +3221,17 @@ def main(args):
         maps = maps.permute(1, 0) # [sen_len, pix_len]
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
-        global_heat_map = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
-        global_heat_map = global_heat_map.mean(0) # 77, h ,w
+        global_heat_map = torch.stack(attn_list, dim=0) # [400, 77, H, W]
+        global_heat_map = global_heat_map.sum(0) # 77, h ,w
         global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
         global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
-        print(f'global_heat_map (77,512,512): {global_heat_map.shape}')
         total_heat_map.append(global_heat_map)
         maps = []
         for trg_index in trg_indexs:
             word_map = global_heat_map[trg_index, :, :]
             maps.append(word_map)
-        heat_map = torch.stack(maps, dim=0)
+        heat_map = torch.stack(maps, dim=0) # [num,512,512]
+        print(f'heat_map : {heat_map.shape}')
         heat_map = heat_map.mean(0).squeeze(0)
         from utils import expand_image, image_overlay_heat_map
         img = image_overlay_heat_map(img=prev_image,
