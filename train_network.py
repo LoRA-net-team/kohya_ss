@@ -91,7 +91,6 @@ def register_attention_control(unet, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 attn = controller.store(attention_probs, layer_name)
-                print(f'storing attn map, layer_name: {layer_name}')
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -422,13 +421,10 @@ class NetworkTrainer:
             network.set_block_lr_weight(up_lr_weight   = args.up_lr_weight, # 0 ~ 11
                                         mid_lr_weight  = args.mid_lr_weight,
                                         down_lr_weight = args.down_lr_weight)
-
-        # 後方互換性を確保するよ
         try:
             trainable_params = network.prepare_optimizer_params(text_encoder_lr=args.text_encoder_lr,
                                                                 unet_lr=args.unet_lr,
                                                                 default_lr=args.learning_rate)
-
         except TypeError:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
@@ -440,28 +436,16 @@ class NetworkTrainer:
                 param_dict = {"lr": lr, "params": param}
                 all_params.append(param_dict)
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
-
-        # dataloaderを準備する
-        # DataLoaderのプロセス数：0はメインプロセスになる
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-
-        train_dataloader = torch.utils.data.DataLoader(
-            train_dataset_group,
-            batch_size=1,
-            shuffle=True,
-            collate_fn=collater,
-            num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers,
-        )
-
+        train_dataloader = torch.utils.data.DataLoader(train_dataset_group,batch_size=1,
+                                                       shuffle=True,collate_fn=collater,num_workers=n_workers,
+                                                       persistent_workers=args.persistent_data_loader_workers,)
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
             args.max_train_steps = args.max_train_epochs * math.ceil(
-                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps
-            )
+                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
             accelerator.print(
                 f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
-
         # データセット側にも学習ステップを送信
         train_dataset_group.set_max_train_steps(args.max_train_steps)
 
@@ -898,11 +882,9 @@ class NetworkTrainer:
                         token_ids = token_input.input_ids[0]
                         token_attns = token_input.attention_mask[0]
                         trg_token_id = []
-
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
-
                         text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
@@ -934,22 +916,17 @@ class NetworkTrainer:
                             # ------------------------------------------------------------------------------------------------
                             # 1) trg indexs
                             trg_index_list = trg_indexs[batch_i]
-
-
                             # ------------------------------------------------------------------------------------------------
                             # 2) map
                             # map is torch
-
-
+                            map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
                             maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                             # when maps len is 5 ...
                             if maps.dim() != 4 :
-                                print(f'maybe wrong...')
-                                print(f'attns shape : {attns.shape}')
-                                print(f'batch_i : {batch_i}')
-                                print(f'map shape (1, batch, pix_len, sen_len) : {map.shape}')
-                                print(f'{layer_name} ')
-                                time.sleep(50)
+                                # attns shape = [2,32,4096,227]
+                                # map = [1, 32, 4096, 227]
+                                print(f'wrong time, len(trg_indexs) : {len(trg_indexs)}')
+                                time.sleep(500)
                             maps = maps.sum(0)  # [8, pix_len, sen_len]
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
