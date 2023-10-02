@@ -87,7 +87,7 @@ class UNetCrossAttentionLocator(ModuleLocator):
         self.layer_names = []
         self.locate_middle_block = locate_middle_block
 
-    def locate(self, model: UNet2DConditionModel) -> List:
+    def locate(self, model: UNet2DConditionModel) -> List :
         """
         Locate all cross-attention modules in a UNet2DConditionModel.
 
