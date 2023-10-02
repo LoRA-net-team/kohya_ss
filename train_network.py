@@ -201,9 +201,6 @@ class NetworkTrainer:
         return encoder_hidden_states
 
     def call_unet(self, args, accelerator, unet, noisy_latents, timesteps, text_conds, batch, weight_dtype):
-        print(f' when unet, noisy_latents : {noisy_latents.shape}')
-        print(f' when unet, text_conds : {text_conds.shape}')
-        time.sleep(10)
         noise_pred = unet(noisy_latents, timesteps, text_conds).sample
         return noise_pred
 
