@@ -72,7 +72,6 @@ def register_attention_control(unet, controller):
         def forward(hidden_states, context=None, mask=None):
             is_cross_attention = False
             if context is not None:
-                print(f'text shape : {context.shape}')
                 is_cross_attention = True
             batch_size, sequence_length, _ = hidden_states.shape
             query = self.to_q(hidden_states)
@@ -91,7 +90,8 @@ def register_attention_control(unet, controller):
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
-               attn = controller.store(attention_probs, layer_name)
+                print(f'storing map, {layer_name}')
+                attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
