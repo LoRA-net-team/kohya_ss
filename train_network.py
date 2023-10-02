@@ -922,22 +922,35 @@ class NetworkTrainer:
                                     map_dict[i] = {}
                                     map_dict[i][layer_name] = []
                                     map_dict[i][layer_name].append(word_map)
-
+                    attention_storer.reset()
                     heat_maps = []
+                    batch_mask_dirs = batch["mask_dirs"]
+                    attn_loss = 0
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
                         for layer_name in layer_dict.keys() :
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
-                            print(f'{batch_index} {layer_name} : heat_map.shape = {heat_map.shape}')
-                        heat_maps.append(heat_map)
-                    attention_storer.reset()
+
+
+                            mask_dir = batch_mask_dirs[batch_index]
+                            mask_img = Image.open(mask_dir)
+                            mask_img = mask_img.resize((512, 512))
+                            mask_img = np.array(mask_img)
+                            mask_img = torch.from_numpy(mask_img)
+                            mask_img = torch.where(mask_img == 0, 0, 1)
+
+                            masked_attn_map = heat_map * mask_img.to(heat_maps[i].device)
+                            a_loss = F.mse_loss(masked_attn_map, heat_maps[i])
+                            attn_loss += a_loss
+                            print(f'{batch_index} {layer_name} : a_loss = {a_loss}')
+                        #heat_maps.append(heat_map)
+
 
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
-                    batch_mask_dirs = batch["mask_dirs"]
-                    attn_loss = 0
+                    """ 
                     for i, mask_dir in enumerate(batch_mask_dirs) :
                         mask_img = Image.open(mask_dir)
                         mask_img = mask_img.resize((512, 512))
@@ -972,7 +985,7 @@ class NetworkTrainer:
                             #attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
                             #img.save(attn_save_dir)
                     #print("atten_collection")
-
+                    """
                     task_loss = loss
                     attn_loss = attn_loss
                     loss += attn_loss
