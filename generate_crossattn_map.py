@@ -1,5 +1,6 @@
 import itertools
 import json
+from torch.nn import functional as F
 from typing import Any, List, NamedTuple, Optional, Tuple, Union, Callable
 import glob
 import importlib
@@ -3229,12 +3230,10 @@ def main(args):
         global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
         """
         global_heat_map = torch.stack(attn_list, dim=0) # [timestep, 8*2, pix_len, sen_len]
-        global_heat_map = global_heat_map.mean(0)
-        print(f'global_heat_map.shape (400, 77, h, w): {global_heat_map.shape}')
-        #global_heat_map = global_heat_map.unsqueeze(1)
-        from torch.nn import functional as F
-
+        global_heat_map = global_heat_map.mean(0) # 77, h ,w
+        global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
         global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
+        print(f'global_heat_map (77,512,512): {global_heat_map.shape}')
         total_heat_map.append(global_heat_map)
         maps = []
         for trg_index in trg_indexs:
