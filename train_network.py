@@ -926,14 +926,12 @@ class NetworkTrainer:
                                     map_dict[batch_i][layer_name] = []
                                     map_dict[batch_i][layer_name].append(word_map)
                     attention_storer.reset()
-                    print(f'map_dict : {map_dict}')
 
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
-                        print(f'layer_dict : {layer_dict}')
                         for layer_name in layer_dict.keys() :
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
