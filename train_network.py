@@ -943,25 +943,27 @@ class NetworkTrainer:
                                     map_dict[batch_i] = {}
                                     map_dict[batch_i][layer_name] = []
                                     map_dict[batch_i][layer_name].append(word_map)
-                    print(f'map_dict = {map_dict}')
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
-                    print(f'batch_mask_dirs : {batch_mask_dirs}')
                     attn_loss = 0
                     for batch_index in map_dict.keys() :
-                        print(f'batch_index : {batch_index}')
                         layer_dict = map_dict[batch_index]
                         for layer_name in layer_dict.keys() :
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
                             mask_dir = batch_mask_dirs[batch_index]
-                            print(mask_dir)
+
                             mask_img = Image.open(mask_dir)
                             mask_img = mask_img.resize((512, 512))
                             mask_img = np.array(mask_img)
                             mask_img = torch.from_numpy(mask_img)
                             mask_img = torch.where(mask_img == 0, 0, 1)
+
+                            print(f'mask_img : {mask_img.shape}')
+                            print(f'heat_map : {heat_map.shape}')
+                            time.sleep(100)
+                            
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             attn_loss += a_loss
