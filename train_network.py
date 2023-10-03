@@ -878,7 +878,6 @@ class NetworkTrainer:
                         cls_token = 49406
                         pad_token = 49407
                         trg_token = args.trg_token
-                        print(f'trg_token : {trg_token}')
                         token_input = tokenizer([trg_token],
                                                 padding="max_length",
                                                 max_length=tokenizer.model_max_length,
@@ -890,9 +889,6 @@ class NetworkTrainer:
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
-                        captions = batch['captions']
-                        print(f'captions : {captions}')
-                        time.sleep(100)
                         text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
