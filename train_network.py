@@ -928,8 +928,6 @@ class NetworkTrainer:
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
-                            #abs_dir = batch['absolute_paths'][batch_i]
-                            #abs_pil = Image.open(abs_dir)
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
                             global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
                             for trg_index in trg_index_list :
@@ -1000,6 +998,7 @@ class NetworkTrainer:
                     task_loss = loss
                     attn_loss = attn_loss
                     loss += attn_loss
+                    print(f'loss : {loss}')
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
