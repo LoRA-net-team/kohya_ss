@@ -852,7 +852,6 @@ class NetworkTrainer:
                                                     noisy_latents,timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
                         atten_collection = attention_storer.step_store
-                        print(f'*******atten_collection : {atten_collection}')
                         attention_storer.reset()
                         attention_storer.step_store = {}
                     if args.v_parameterization:
@@ -910,17 +909,18 @@ class NetworkTrainer:
                     layer_names = atten_collection.keys()
                     map_dict = {}
                     for layer_name in layer_names:
-                        print(f'layer_name : {layer_name}')
                         attn_list = atten_collection[layer_name] # just one map element
                         if len(attn_list) != 1:
                             print(f'error : {layer_name} attn_list is not 1')
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
+                        print(f'batch_attn_map : {batch_attn_map}')
                         for batch_i, map in enumerate(batch_attn_map) :
                             # ------------------------------------------------------------------------------------------------
                             # 1) trg indexs
                             trg_index_list = trg_indexs[batch_i]
+                            print(f'trg_index_list : {trg_index_list}')
                             # ------------------------------------------------------------------------------------------------
                             # 2) map
                             # map is torch
