@@ -945,6 +945,7 @@ class NetworkTrainer:
                                     map_dict[batch_i][layer_name].append(word_map)
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
+                    print(f'batch_mask_dirs : {batch_mask_dirs}')
                     attn_loss = 0
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
