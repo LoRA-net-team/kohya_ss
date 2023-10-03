@@ -915,12 +915,10 @@ class NetworkTrainer:
                         attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                         attns = attns.squeeze(0)
                         batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
-                        print(f'batch_attn_map : {batch_attn_map}')
                         for batch_i, map in enumerate(batch_attn_map) :
                             # ------------------------------------------------------------------------------------------------
                             # 1) trg indexs
                             trg_index_list = trg_indexs[batch_i]
-                            print(f'trg_index_list : {trg_index_list}')
                             # ------------------------------------------------------------------------------------------------
                             # 2) map
                             # map is torch
@@ -961,7 +959,6 @@ class NetworkTrainer:
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             attn_loss += a_loss
-                    print(f'attn_loss : {attn_loss}')
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     """ 
