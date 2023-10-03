@@ -3200,9 +3200,11 @@ def main(args):
             word_map = global_heat_map[word_index, :, :]
             word_map = expand_image(word_map, 512, 512)
             all_merges.append(word_map)
-        heat_map = torch.stack(all_merges, dim=0) # global_heat_map = [400, 77, 1, 64, 64]
+        heat_map = torch.stack(all_merges, dim=0) # global_heat_map = [sen_len, 512,512]
+        if heat_map.dim() == 3:
+           heat_map = heat_map.mean(0)#[:, 0]  # global_heat_map = [77, 64, 64]
         print(f'{layer_name} : {heat_map.shape}')
-        #global_heat_map = global_heat_map.mean(0)[:, 0]  # global_heat_map = [77, 64, 64]
+
         #global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
         #global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
         #total_heat_map.append(global_heat_map)
