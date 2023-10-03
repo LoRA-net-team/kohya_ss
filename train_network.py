@@ -874,7 +874,6 @@ class NetworkTrainer:
                     # cross attention matching loss
                     #batch["absolute_paths"]
                     #batch["mask_dirs"]
-                    args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
                         pad_token = 49407
@@ -951,6 +950,7 @@ class NetworkTrainer:
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
                             mask_dir = batch_mask_dirs[batch_index]
+                            print(mask_dir)
                             mask_img = Image.open(mask_dir)
                             mask_img = mask_img.resize((512, 512))
                             mask_img = np.array(mask_img)
@@ -1309,6 +1309,7 @@ if __name__ == "__main__":
     parser.add_argument("--up_blocks_2_norm_weight", type=float, default=10)
     parser.add_argument("--up_blocks_3_norm_weight", type=float, default=10)
     parser.add_argument("--algorithm_test", action = 'store_true')
+    parser.add_argument("--trg_token", type=str, default = 'haibara')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
