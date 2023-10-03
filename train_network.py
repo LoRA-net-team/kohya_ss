@@ -852,6 +852,7 @@ class NetworkTrainer:
                                                     noisy_latents,timesteps,
                                                     text_encoder_conds, batch, weight_dtype)
                         atten_collection = attention_storer.step_store
+                        print(f'*******atten_collection : {atten_collection}')
                         attention_storer.reset()
                         attention_storer.step_store = {}
                     if args.v_parameterization:
@@ -906,10 +907,10 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-
                     layer_names = atten_collection.keys()
                     map_dict = {}
                     for layer_name in layer_names:
+                        print(f'layer_name : {layer_name}')
                         attn_list = atten_collection[layer_name] # just one map element
                         if len(attn_list) != 1:
                             print(f'error : {layer_name} attn_list is not 1')
