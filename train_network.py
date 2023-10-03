@@ -892,6 +892,7 @@ class NetworkTrainer:
                                 trg_token_id.append(token_id)
                         captions = batch['captions']
                         print(f'captions : {captions}')
+                        time.sleep(100)
                         text_input = tokenizer(batch['captions'],
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
