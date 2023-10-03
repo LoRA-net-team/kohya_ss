@@ -3179,15 +3179,15 @@ def main(args):
     for layer_name in layer_names :
         attn_list = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
         attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
-        attns = attns.squeeze(0)
-
-        print(f'attns : {attns.shape}')
+        attns = attns.squeeze(0) # timestep, head(con, uncond), pix_len, sen_len
+        maps, _ = torch.chunk(attns, chunks=2, dim=1)
+        print(f'maps (50,8, pix, sen) : {maps.shape}')
 
         # element of attn_list = [8, pix_len, 77]
         # -------------------------------------------------------------------------------------------------------
         # [8, pix_len, sen_len]
         #maps = maps.sum(0)                   # [8, pix_len, sen_len]
-        #maps, _ = torch.chunk(maps, chunks=2, dim=0)
+
         # -------------------------------------------------------------------------------------------------------
         # [pix_len, sen_len]
         #maps = maps.sum(0)  # [pix_len, sen_len]
