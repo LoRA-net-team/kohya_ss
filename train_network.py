@@ -929,6 +929,12 @@ class NetworkTrainer:
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
+
+                            abs_dir = batch['absolute_paths'][batch_i]
+                            abs_pil = Image.open(abs_dir)
+                            print(f'abs_pil : {abs_pil.size}')
+                            print(f'maps.shape : {maps.shape}')
+                            time.sleep(100)
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
                             global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
                             for trg_index in trg_index_list :
