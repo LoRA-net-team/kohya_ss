@@ -948,6 +948,7 @@ class NetworkTrainer:
                     print(f'batch_mask_dirs : {batch_mask_dirs}')
                     attn_loss = 0
                     for batch_index in map_dict.keys() :
+                        print(f'batch_index : {batch_index}')
                         layer_dict = map_dict[batch_index]
                         for layer_name in layer_dict.keys() :
                             map_list = layer_dict[layer_name]
