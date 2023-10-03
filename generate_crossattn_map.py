@@ -1,6 +1,7 @@
 import itertools
 import json
 from torch.nn import functional as F
+from utils import expand_image, image_overlay_heat_map
 from typing import Any, List, NamedTuple, Optional, Tuple, Union, Callable
 import glob
 import importlib
@@ -53,6 +54,7 @@ from library.original_unet import FlashAttentionFunction
 from XTI_hijack import unet_forward_XTI, downblock_forward_XTI, upblock_forward_XTI
 from utils import auto_autocast
 from daam import trace, set_seed
+
 # scheduler:
 SCHEDULER_LINEAR_START = 0.00085
 SCHEDULER_LINEAR_END = 0.0120
@@ -184,9 +186,7 @@ def replace_vae_attn_to_xformers():
         key_proj = self.to_k(hidden_states)
         value_proj = self.to_v(hidden_states)
 
-        query_proj, key_proj, value_proj = map(
-            lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads), (query_proj, key_proj, value_proj)
-        )
+        query_proj, key_proj, value_proj = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads), (query_proj, key_proj, value_proj))
 
         query_proj = query_proj.contiguous()
         key_proj = key_proj.contiguous()
@@ -276,20 +276,8 @@ def replace_vae_attn_to_sdpa():
         diffusers.models.attention_processor.Attention.forward = forward_sdpa
 
 # ------------------------------------------------------------------------------------------------------------------------
-# attention storer
-def register_attention_control(unet, controller):
 
-    def _unravel_attn(x):
-        h = w = int(math.sqrt(x.size(1)))
-        maps = []
-        x = x.permute(2, 0, 1)
-        with auto_autocast(dtype=torch.float32):
-            for map_ in x:
-                map_ = map_.view(map_.size(0), h, w)
-                map_ = map_[map_.size(0) // 2:]  # Filter out unconditional
-                maps.append(map_)
-        maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
-        return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, tokens, height, width)
+def register_attention_control(unet, controller):
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, mask=None):
@@ -312,12 +300,8 @@ def register_attention_control(unet, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
-            latent_hw = 64*64
-            factor = int(math.sqrt(latent_hw // attention_probs.shape[1]))
             if is_cross_attention:
-                maps = _unravel_attn(attention_probs)
-                for head_idx, heatmap in enumerate(maps):
-                    controller.store(heatmap, layer_name)
+                attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -344,7 +328,6 @@ def register_attention_control(unet, controller):
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
-
 
 class PipelineLike:
     r"""
@@ -2983,9 +2966,7 @@ def main(args):
                     break
             else:
                 raw_prompt = prompt_list[prompt_index]
-
             raw_prompts = handle_dynamic_prompt_variants(raw_prompt, args.images_per_prompt)
-
             # repeat prompt
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
@@ -3140,7 +3121,6 @@ def main(args):
                                                highres_fix)[0]
                     batch_data.clear()
                 global_step += 1
-                print(f' ***** prev_image : {prev_image}')
 
             prompt_index += 1
         # -------------------------------------------------------------------------------------------------------
@@ -3148,9 +3128,9 @@ def main(args):
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
-
+    print(" finish of generating image ... ")
     # ------------------------------------------------------------------------------------------------------------------
-    #images
+    print(f'\n step 5. generate cross attention map')
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
         cls_token = 49406
         pad_token = 49407
@@ -3188,17 +3168,21 @@ def main(args):
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
         return text_embeddings, trg_indexs
 
+    print(f' (5.1) target index in the sentence')
     text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
-    print(f'prompt: {prompt} | trg_indexs : {trg_indexs}')
 
-    print("done!")
-    from utils import expand_image, image_overlay_heat_map
+    print(f' (5.2) collected crossattention map ')
     atten_collection = attention_storer.step_store
+
     layer_names = atten_collection.keys()
     total_heat_map = []
     for layer_name in layer_names :
-        attn_maps = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
-        print(f'attn  : {type(attn_maps)} | shape : {attn_maps.shape}')
+        attn_list = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
+        attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
+        attns = attns.squeeze(0)
+
+        print(f'attns : {attns.shape}')
+
         # element of attn_list = [8, pix_len, 77]
         # -------------------------------------------------------------------------------------------------------
         # [8, pix_len, sen_len]
@@ -3221,7 +3205,7 @@ def main(args):
         global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
         global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
         total_heat_map.append(global_heat_map)
-        """
+        
         maps = []
         for trg_index in trg_indexs :
             word_map = attn_maps[trg_index, :, :]
@@ -3242,7 +3226,8 @@ def main(args):
         a = '_'.join(layer_name)
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
-
+        """
+    """
     print("atten_collection")
     print("total attention map")
     print(f'len(total_heat_map) : {len(total_heat_map)}') # 32
@@ -3253,6 +3238,7 @@ def main(args):
                                            heat_map=total_heat_map)
     attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
     total_heat_img.save(attn_save_dir)
+    """
 
 
 def setup_parser() -> argparse.ArgumentParser:

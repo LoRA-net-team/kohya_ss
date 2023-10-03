@@ -31,41 +31,7 @@ import numpy as np
 import torch.nn.functional as F
 from utils import auto_autocast
 
-"""
-def get_attention_scores(self, query, key, attention_mask=None):
-        dtype = query.dtype
-        if self.upcast_attention:
-            query = query.float()
-            key = key.float()
 
-        if attention_mask is None:
-            baddbmm_input = torch.empty(
-                query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device
-            )
-            beta = 0
-        else:
-            baddbmm_input = attention_mask
-            beta = 1
-
-        attention_scores = torch.baddbmm(
-            baddbmm_input,
-            query,
-            key.transpose(-1, -2),
-            beta=beta,
-            alpha=self.scale,
-        )
-        del baddbmm_input
-
-        if self.upcast_softmax:
-            attention_scores = attention_scores.float()
-
-        attention_probs = attention_scores.softmax(dim=-1)
-        del attention_scores
-
-        attention_probs = attention_probs.to(dtype)
-
-        return attention_probs
-"""
 def register_attention_control(unet, controller):
 
     def ca_forward(self, layer_name):
@@ -906,7 +872,6 @@ class NetworkTrainer:
                         return batch_ids
 
                     trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-
                     layer_names = atten_collection.keys()
                     map_dict = {}
                     for layer_name in layer_names:
@@ -929,9 +894,6 @@ class NetworkTrainer:
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
-
-                            abs_dir = batch['absolute_paths'][batch_i]
-                            abs_pil = Image.open(abs_dir)
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
                             global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
                             for trg_index in trg_index_list :
@@ -945,7 +907,6 @@ class NetworkTrainer:
                                     map_dict[batch_i][layer_name].append(word_map)
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
-                    print(f'batch_mask_dirs : {batch_mask_dirs}')
                     attn_loss = 0
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
@@ -954,7 +915,6 @@ class NetworkTrainer:
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
                             mask_dir = batch_mask_dirs[batch_index]
-                            print(mask_dir)
                             mask_img = Image.open(mask_dir)
                             mask_img = mask_img.resize((512, 512))
                             mask_img = np.array(mask_img)
@@ -963,7 +923,6 @@ class NetworkTrainer:
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             attn_loss += a_loss
-                    print(f'attn_loss : {attn_loss}')
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     """ 
