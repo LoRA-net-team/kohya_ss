@@ -1,5 +1,4 @@
 # common functions for training
-
 import argparse
 import ast
 import asyncio
@@ -88,6 +87,8 @@ STEP_DIFFUSERS_DIR_NAME = "{}-step{:08d}"
 # region dataset
 
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".PNG", ".JPG", ".JPEG", ".WEBP", ".BMP"]
+
+base_mask_base_dir = r'/data7/sooyeon/MyData/jungwoo_mask'
 
 try:
     import pillow_avif
@@ -1065,7 +1066,8 @@ class BaseDataset(torch.utils.data.Dataset):
 
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
-            mask_base_dir = r'/data7/sooyeon/MyData/haibara_mask'
+            mask_base_dir = base_mask_base_dir
+
             mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
             mask_dirs.append(mask_dir)
 

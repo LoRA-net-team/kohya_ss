@@ -874,7 +874,6 @@ class NetworkTrainer:
                     # cross attention matching loss
                     #batch["absolute_paths"]
                     #batch["mask_dirs"]
-                    args.trg_token = 'haibara'
                     def generate_text_embedding(prompt, tokenizer, text_encoder):
                         cls_token = 49406
                         pad_token = 49407
@@ -930,6 +929,9 @@ class NetworkTrainer:
                             maps = maps.sum(0)  # [32, pix_len, sen_len]
                             pix_len, sen_len = maps.shape
                             res = int(math.sqrt(pix_len))
+
+                            abs_dir = batch['absolute_paths'][batch_i]
+                            abs_pil = Image.open(abs_dir)
                             maps = maps.permute(1, 0)  # [sen_len, pix_len]
                             global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
                             for trg_index in trg_index_list :
@@ -943,6 +945,7 @@ class NetworkTrainer:
                                     map_dict[batch_i][layer_name].append(word_map)
                     heat_maps = []
                     batch_mask_dirs = batch["mask_dirs"]
+                    print(f'batch_mask_dirs : {batch_mask_dirs}')
                     attn_loss = 0
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
@@ -951,6 +954,7 @@ class NetworkTrainer:
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
                             mask_dir = batch_mask_dirs[batch_index]
+                            print(mask_dir)
                             mask_img = Image.open(mask_dir)
                             mask_img = mask_img.resize((512, 512))
                             mask_img = np.array(mask_img)
@@ -959,6 +963,7 @@ class NetworkTrainer:
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             attn_loss += a_loss
+                    print(f'attn_loss : {attn_loss}')
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     """ 
@@ -1309,6 +1314,7 @@ if __name__ == "__main__":
     parser.add_argument("--up_blocks_2_norm_weight", type=float, default=10)
     parser.add_argument("--up_blocks_3_norm_weight", type=float, default=10)
     parser.add_argument("--algorithm_test", action = 'store_true')
+    parser.add_argument("--trg_token", type=str, default = 'haibara')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
