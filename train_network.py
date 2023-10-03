@@ -962,6 +962,7 @@ class NetworkTrainer:
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             attn_loss += a_loss
+                    print(f'attn_loss : {attn_loss}')
                     # ------------------------------------------------------------------------------------
                     # cross attention map loss
                     """ 
