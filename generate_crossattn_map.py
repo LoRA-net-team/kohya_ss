@@ -3179,54 +3179,34 @@ def main(args):
     for layer_name in layer_names :
         attn_list = atten_collection[layer_name] # number is head, each shape = 400 number of [77, H, W]
         attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
-        attns = attns.squeeze(0)
-
-        print(f'attns : {attns.shape}')
-
+        attns = attns.squeeze(0) # timestep, head(con, uncond), pix_len, sen_len
+        maps, _ = torch.chunk(attns, chunks=2, dim=1)
+        maps = maps.sum(0)  # [8, pix_len, sen_len]
+        maps = maps.sum(0)  # [pix_len, sen_len]
         # element of attn_list = [8, pix_len, 77]
-        # -------------------------------------------------------------------------------------------------------
-        # [8, pix_len, sen_len]
-        #maps = maps.sum(0)                   # [8, pix_len, sen_len]
-        #maps, _ = torch.chunk(maps, chunks=2, dim=0)
-        # -------------------------------------------------------------------------------------------------------
-        # [pix_len, sen_len]
-        #maps = maps.sum(0)  # [pix_len, sen_len]
-        #pix_len, sen_len = maps.shape
-        #res = int(math.sqrt(pix_len))
-        #maps = maps.permute(1, 0) # [sen_len, pix_len]
-        #global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
-        """
+        pix_len, sen_len = maps.shape
+        res = int(math.sqrt(pix_len))
+        maps = maps.permute(1, 0) # [sen_len, pix_len]
+        global_heat_map = maps.reshape(sen_len, res, res) # [sen_len, res, res]
+
+
+        #for heat_map in attn_list :
+        #    heat_map = heat_map.unsqueeze(1)
+        #    all_merges.append(F.interpolate(heat_map, size=(64,64), mode='bicubic').clamp_(min=0))
         all_merges = []
-        for heat_map in attn_list :
-            heat_map = heat_map.unsqueeze(1)
-            all_merges.append(F.interpolate(heat_map, size=(64,64), mode='bicubic').clamp_(min=0))
-        global_heat_map = torch.stack(all_merges, dim=0) # global_heat_map = [400, 77, 1, 64, 64]
-        global_heat_map = global_heat_map.mean(0)[:, 0]  # global_heat_map = [77, 64, 64]
-        global_heat_map = global_heat_map.unsqueeze(1) # 77, 1, h, w
-        global_heat_map = F.interpolate(global_heat_map,size=(512,512),mode='bicubic').clamp_(min=0)
-        total_heat_map.append(global_heat_map)
-        
-        maps = []
-        for trg_index in trg_indexs :
-            word_map = attn_maps[trg_index, :, :]
+        for word_index in trg_indexs :
+            word_map = global_heat_map[word_index, :, :]
             word_map = expand_image(word_map, 512, 512)
-            maps.append(word_map)
-
-            ####################################################################################################
-            normalized_map = (word_map - word_map.min()) / (word_map.max() - word_map.min() + 1e-8)
-
-
-            print(f'normalized_map : {normalized_map.mean()} | max : {normalized_map.max()} | min : {normalized_map.min()}')
-            total_heat_map.append(normalized_map)
-        heat_map = torch.stack(maps, dim=0) # [num,512,512]
-        heat_map = heat_map.mean(0).squeeze(0)
+            all_merges.append(word_map)
+        heat_map = torch.stack(all_merges, dim=0) # global_heat_map = [sen_len, 512,512]
+        if heat_map.dim() == 3:
+           heat_map = heat_map.mean(0)#[:, 0]  # global_heat_map = [77, 64, 64]
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map)
         layer_name = layer_name.split('_')[:5]
         a = '_'.join(layer_name)
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
-        """
     """
     print("atten_collection")
     print("total attention map")
