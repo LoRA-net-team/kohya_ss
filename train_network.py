@@ -898,10 +898,12 @@ class NetworkTrainer:
                                 attn_loss += a_loss
                         assert attn_loss != 0, "attn_loss is zero"
                         attn_loss.requires_grad = True
+
                         loss += attn_loss
                     # --------------------------------------------------------------------------------------------------
                     #print(f'loss : {loss}')
                     #loss.requires_grad = True
+                    print(f'task loss : {task_loss} | attn_loss : {attn_loss} | total loss : {loss}')
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
