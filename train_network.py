@@ -890,10 +890,7 @@ class NetworkTrainer:
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
-<<<<<<< HEAD
                                 print(f'{batch_index} {layer_name} : attn loss = {a_loss} ')
-=======
->>>>>>> 22f1ec6e270b8850c394a3d464db42e0832a34f5
                         assert attn_loss != 0, "attn_loss is zero"
                         loss += attn_loss
                     # --------------------------------------------------------------------------------------------------
