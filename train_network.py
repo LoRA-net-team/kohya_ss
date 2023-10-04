@@ -932,6 +932,7 @@ class NetworkTrainer:
                                 pil_img = Image.open(prev_image)
                                 pil_img = pil_img.resize((512, 512))
                                 print(f'pil_img : {pil_img.size}')
+                                print(f'masked_attn_map : {masked_attn_map}')
                                 img = image_overlay_heat_map(img=pil_img,
                                                              heat_map=masked_attn_map)
 
