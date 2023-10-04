@@ -912,8 +912,6 @@ class NetworkTrainer:
                                 map_list = layer_dict[layer_name]
                                 heat_map = torch.stack(map_list, dim=0)
                                 heat_map = heat_map.mean(0)
-
-
                                 mask_dir = batch_mask_dirs[batch_index]
                                 mask_img = Image.open(mask_dir)
                                 mask_img = mask_img.resize((512, 512))
@@ -921,22 +919,6 @@ class NetworkTrainer:
                                 mask_img = torch.from_numpy(mask_img)
                                 mask_img = torch.where(mask_img == 0, 0, 1)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
-                                # torch to pil img
-                                prev_image = batch['absolute_paths'][batch_index]
-                                pil_img = Image.open(prev_image)
-                                pil_img = pil_img.resize((512, 512))
-                                pil_img.save('test.png')
-
-
-
-                                heat_map_ = _convert_heat_map_colors(heat_map)
-                                heat_map_ = heat_map_.to('cpu').detach().numpy().copy().astype(np.uint8)
-                                Image.fromarray(heat_map_).save(f'{args.output_dir}/attn_{layer_name}.png')
-
-                                heat_map_ = _convert_heat_map_colors(masked_attn_map)
-                                heat_map_img_ = Image.fromarray(heat_map_.to('cpu').detach().numpy().copy().astype(np.uint8))
-                                heat_map_img_.save(f'{args.output_dir}/attn_{layer_name}_masked.png')
-
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
                         task_loss = loss
