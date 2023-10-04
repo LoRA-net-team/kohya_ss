@@ -100,14 +100,14 @@ class NetworkTrainer:
                            lr_scheduler, keys_scaled=None, mean_norm=None, maximum_norm=None,
                            task_loss=None, attn_loss=None,):
         if task_loss and attn_loss :
-            logs = {"loss/current": current_loss,
-                    "loss/average": avr_loss,
-                    "loss/task_loss": task_loss.item(),
-                    "loss/attn_loss": attn_loss.item(),}
+            logs = {"loss/task_loss": task_loss.item(),
+                    "loss/attn_loss": attn_loss.item(),
+                    "loss/current": current_loss,
+                    "loss/average": avr_loss,}
         else :
-            logs = {"loss/current": current_loss,
-                    "loss/average": avr_loss,
-                    "loss/task_loss": task_loss.item(),}
+            logs = {"loss/task_loss": task_loss.item(),
+                    "loss/current": current_loss,
+                    "loss/average": avr_loss,}
 
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
@@ -876,7 +876,6 @@ class NetworkTrainer:
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
                             layer_dict = map_dict[batch_index]
-                            layers = layer_dict.keys()
                             for layer_name in layer_dict.keys() :
                                 map_list = layer_dict[layer_name]
                                 heat_map = torch.stack(map_list, dim=0)
@@ -896,7 +895,6 @@ class NetworkTrainer:
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-                    i = 0
                     wandb_logs = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if is_main_process:
