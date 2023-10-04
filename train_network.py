@@ -31,7 +31,6 @@ import numpy as np
 import torch.nn.functional as F
 from utils import auto_autocast
 
-
 def register_attention_control(unet, controller):
 
     def ca_forward(self, layer_name):
@@ -96,13 +95,19 @@ class NetworkTrainer:
         self.is_sdxl = False
 
     # TODO 他のスクリプトと共通化する
-    def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss,
+    def generate_step_logs(self,
+                           args: argparse.Namespace, current_loss, avr_loss,
                            lr_scheduler, keys_scaled=None, mean_norm=None, maximum_norm=None,
                            task_loss=None, attn_loss=None,):
-        logs = {"loss/current": current_loss,
-                "loss/average": avr_loss,
-                "loss/task_loss": task_loss.item(),
-                "loss/attn_loss": attn_loss.item(),}
+        if task_loss and attn_loss :
+            logs = {"loss/current": current_loss,
+                    "loss/average": avr_loss,
+                    "loss/task_loss": task_loss.item(),
+                    "loss/attn_loss": attn_loss.item(),}
+        else :
+            logs = {"loss/current": current_loss,
+                    "loss/average": avr_loss,
+                    "loss/task_loss": task_loss.item(),}
 
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
@@ -155,8 +160,7 @@ class NetworkTrainer:
     def is_text_encoder_outputs_cached(self, args):
         return False
 
-    def cache_text_encoder_outputs_if_needed(
-        self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype):
+    def cache_text_encoder_outputs_if_needed(self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype):
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
@@ -171,7 +175,6 @@ class NetworkTrainer:
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,attention_storer):
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
-
 
     def train(self, args):
 
@@ -301,17 +304,6 @@ class NetworkTrainer:
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders,
                                                   train_dataset_group, weight_dtype)
 
-        """
-        UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
-        UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
-
-        if is_main_process:
-            for name, module in unet.named_modules():
-                if module.__class__.__name__ in UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 :
-                    print(f'{name} : {module}')
-        """
-
-
         # prepare network
         net_kwargs = {}
         if args.network_args is not None:
@@ -351,17 +343,6 @@ class NetworkTrainer:
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
 
-        """
-        if is_main_process:
-            unet_loras = network.unet_loras
-            for unet_lora in unet_loras :
-                lora_name = unet_lora.lora_name
-                org_forward = unet_lora.org_forward
-                lora_up = unet_lora.lora_up
-                lora_down = unet_lora.lora_down
-                print(f'{lora_name}: lora_up : {lora_up.weight}')
-        """
-        
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -375,13 +356,6 @@ class NetworkTrainer:
 
         # 学習に必要なクラスを準備する
         accelerator.print("prepare optimizer, data loader etc.")
-
-        #if is_main_process:
-        #    unet_loras = network.unet_loras
-        #    for unet_lora in unet_loras :
-        #        lora_name = unet_lora.lora_name
-        #        common_dim = unet_lora.common_dim
-        #        print(f'{lora_name} : common_dim : {common_dim} | in_dim : {unet_lora.in_dim} | out_dim : {unet_lora.out_dim}')
 
         if args.unet_blockwise_lr :
             network.set_block_lr_weight(up_lr_weight   = args.up_lr_weight, # 0 ~ 11
@@ -835,12 +809,9 @@ class NetworkTrainer:
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-
+                    task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        # cross attention matching loss
-                        #batch["absolute_paths"]
-                        #batch["mask_dirs"]
                         def generate_text_embedding(prompt, tokenizer, text_encoder):
                             cls_token = 49406
                             pad_token = 49407
@@ -877,18 +848,11 @@ class NetworkTrainer:
                         map_dict = {}
                         for layer_name in layer_names:
                             attn_list = atten_collection[layer_name] # just one map element
-                            if len(attn_list) != 1:
-                                print(f'error : {layer_name} attn_list is not 1')
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                             attns = attns.squeeze(0)
                             batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
                             for batch_i, map in enumerate(batch_attn_map) :
-                                # ------------------------------------------------------------------------------------------------
-                                # 1) trg indexs
                                 trg_index_list = trg_indexs[batch_i]
-                                # ------------------------------------------------------------------------------------------------
-                                # 2) map
-                                # map is torch
                                 map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
                                 maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                                 maps = maps.sum(0)  # [8, pix_len, sen_len]
@@ -900,17 +864,19 @@ class NetworkTrainer:
                                 for trg_index in trg_index_list :
                                     word_map = global_heat_map[trg_index, :, :]
                                     word_map = expand_image(word_map, 512, 512)
+                                    if batch_i not in map_dict.keys() :
+                                        map_dict[batch_i] = {}
                                     try :
                                         map_dict[batch_i][layer_name].append(word_map)
                                     except :
-                                        map_dict[batch_i] = {}
                                         map_dict[batch_i][layer_name] = []
-                                        map_dict[batch_i][layer_name].append(word_map)
+                                        map_dict[batch_i][layer_name].append(word_map )
                         heat_maps = []
                         batch_mask_dirs = batch["mask_dirs"]
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
                             layer_dict = map_dict[batch_index]
+                            layers = layer_dict.keys()
                             for layer_name in layer_dict.keys() :
                                 map_list = layer_dict[layer_name]
                                 heat_map = torch.stack(map_list, dim=0)
@@ -923,99 +889,16 @@ class NetworkTrainer:
                                 mask_img = torch.where(mask_img == 0, 0, 1)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
-                                print(f'{layer_name} : {a_loss}')
                                 attn_loss += a_loss
-                        task_loss = loss
-                        attn_loss = attn_loss
                         loss += attn_loss
-
                     # --------------------------------------------------------------------------------------------------
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                     i = 0
-                    standard_dict = {}
-                    for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
-                        if 'mid' in layer_name :
-                            net_name  = layer_name.split('lora_unet_mid_block_attentions_0_')[1]
-                            standard_dict[net_name] = param_dict['params'][0].data.norm(2)
-                    
                     wandb_logs = {}
-                    grad_norm_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
-                        """
-                        if args.algorithm_test :
-                            for key in standard_dict.keys() :
-                                spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
-                                spot_name = spot_name.replace('.','_')
-                                
-                                file_name = os.path.join(f'layerwise_collections',f'{spot_name}.txt')
-                                with open(file_name,'r') as f :
-                                    content = f.readlines()
-                                for line in content :
-                                    scaling_layer_name =  line.split(' : ')[0]
-                                    if layer_name == scaling_layer_name :
-                                        scale_factor = line.split(' : ')[-1]
-                                        scaling_factor = float(scale_factor.strip())
-                                        gradient = param_dict['params'][0].data
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * scaling_factor
-                                        if optimal_norm > 0 :
-                                            param_dict['params'][0].data = param_dict['params'][0].data * (optimal_norm/original_norm)
-                                
-                                if key in layer_name :
-                                    block_name = layer_name.split(key)[0]
-                                    if 'down_blocks_0' in layer_name:
-                                        gradient = param_dict['params'][0].data
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.down_blocks_0_norm_weight
-                                        if optimal_norm > 0 :
-                                            scaling_factor = optimal_norm / original_norm
-                                        else :
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'down_blocks_1' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.down_blocks_1_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'down_blocks_2' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.down_blocks_2_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'up_blocks_1' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.up_blocks_1_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'up_blocks_2' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.up_blocks_2_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'up_blocks_3' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.up_blocks_3_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                        """
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
                             try:
@@ -1055,27 +938,32 @@ class NetworkTrainer:
                             if remove_step_no is not None:
                                 remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
                                 remove_model(remove_ckpt_name)
+                # ------------------------------------------------------------------------------------------------------
+                # 1) total loss
                 current_loss = loss.detach().item()
                 if epoch == 0:
                     loss_list.append(current_loss)
                 else:
                     loss_total -= loss_list[step]
                     loss_list[step] = current_loss
-
                 loss_total += current_loss
                 avr_loss = loss_total / len(loss_list)
                 if is_main_process :
                     loss_dict[global_step] = avr_loss
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 progress_bar.set_postfix(**logs)
-
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
-
+                # ------------------------------------------------------------------------------------------------------
+                # 2) total loss
                 if args.logging_dir is not None:
-                    logs = self.generate_step_logs(args, current_loss, avr_loss,
-                                                   lr_scheduler, keys_scaled, mean_norm, maximum_norm,
-                                                   task_loss, attn_loss)
+                    if args.heatmap_loss :
+                        logs = self.generate_step_logs(args, current_loss, avr_loss,
+                                                       lr_scheduler, keys_scaled, mean_norm, maximum_norm,
+                                                       task_loss, attn_loss)
+                    else :
+                        logs = self.generate_step_logs(args, current_loss, avr_loss,
+                                                       lr_scheduler, keys_scaled, mean_norm, maximum_norm,task_loss)
                     accelerator.log(logs, step=global_step)
                     if is_main_process:
                         wandb.log(logs, step=global_step)
@@ -1083,9 +971,12 @@ class NetworkTrainer:
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
-                logs = {"loss/epoch": loss_total / len(loss_list),
-                        "loss/task_loss" : task_loss.item(),
-                        "loss/attn_loss": attn_loss.item()}
+                if args.heatmap_loss:
+                    logs = {"loss/epoch": loss_total / len(loss_list),
+                            "loss/task_loss": task_loss.item(),
+                            "loss/attn_loss": attn_loss.item()}
+                else:
+                    logs = {"loss/epoch": loss_total / len(loss_list),}
                 accelerator.log(logs, step=epoch + 1)
             accelerator.wait_for_everyone()
             # 指定エポックごとにモデルを保存
