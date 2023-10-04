@@ -96,7 +96,8 @@ class NetworkTrainer:
         self.is_sdxl = False
 
     # TODO 他のスクリプトと共通化する
-    def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss,
+    def generate_step_logs(self,
+                           args: argparse.Namespace, current_loss, avr_loss,
                            lr_scheduler, keys_scaled=None, mean_norm=None, maximum_norm=None,
                            task_loss=None, attn_loss=None,):
         if task_loss and attn_loss :
@@ -926,8 +927,12 @@ class NetworkTrainer:
                                 mask_img = torch.from_numpy(mask_img)
                                 mask_img = torch.where(mask_img == 0, 0, 1)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
+                                # torch to pil img
+                                prev_image = batch['absolute_paths'][batch_index]
+                                img = image_overlay_heat_map(img=prev_image,
+                                                             heat_map=masked_attn_map)
+                                img.save(f'{args.output_dir}/attn_{batch_index}_{layer_name}.png')
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
-                                print(f'{layer_name} : {a_loss}')
                                 attn_loss += a_loss
                         task_loss = loss
                         attn_loss = attn_loss
