@@ -48,7 +48,7 @@ def image_overlay_heat_map(img,
         heat_map = _convert_heat_map_colors(heat_map)
         heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
         heat_map_img = Image.fromarray(heat_map)
-
+        print(f'heat_map_img : {heat_map_img.size}')
         img = Image.blend(img, heat_map_img, alpha)
     else:
         img = img.copy()

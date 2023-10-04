@@ -920,6 +920,8 @@ class NetworkTrainer:
                                 map_list = layer_dict[layer_name]
                                 heat_map = torch.stack(map_list, dim=0)
                                 heat_map = heat_map.mean(0)
+
+
                                 mask_dir = batch_mask_dirs[batch_index]
                                 mask_img = Image.open(mask_dir)
                                 mask_img = mask_img.resize((512, 512))
@@ -931,10 +933,12 @@ class NetworkTrainer:
                                 prev_image = batch['absolute_paths'][batch_index]
                                 pil_img = Image.open(prev_image)
                                 pil_img = pil_img.resize((512, 512))
+                                pil_img.save('test.png')
                                 print(f'pil_img : {pil_img.size}')
-                                print(f'masked_attn_map : {masked_attn_map}')
+                                print(f'masked_attn_map : {masked_attn_map.shape}')
                                 img = image_overlay_heat_map(img=pil_img,
-                                                             heat_map=masked_attn_map)
+                                                             heat_map=heat_map,
+                                                             alpha=0.5)#masked_attn_map)
 
                                 img.save(f'{args.output_dir}/attn_{batch_index}_{layer_name}.png')
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
