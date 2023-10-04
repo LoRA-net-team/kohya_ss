@@ -37,7 +37,6 @@ def get_cached_mask(mask_dir:str):
     if mask_dir in global_stored_masks:
         return global_stored_masks[mask_dir]
     pil_img = Image.open(mask_dir)
-    #pil_img = pil_img.convert('L')
     pil_img = pil_img.resize((512, 512))
     np_img = np.array(pil_img)
     torch_img = torch.from_numpy(np_img)
@@ -895,9 +894,9 @@ class NetworkTrainer:
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
-                                print(f'{batch_index} {layer_name} : attn loss = {a_loss} ')
                         assert attn_loss != 0, "attn_loss is zero"
-                        loss += attn_loss
+                        #loss += attn_loss
+                        loss = attn_loss
                     # --------------------------------------------------------------------------------------------------
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
