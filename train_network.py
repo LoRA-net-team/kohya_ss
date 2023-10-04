@@ -107,7 +107,8 @@ class NetworkTrainer:
                     "loss/attn_loss": attn_loss.item(),}
         else :
             logs = {"loss/current": current_loss,
-                    "loss/average": avr_loss,}
+                    "loss/average": avr_loss,
+                    "loss/task_loss": task_loss.item(),}
 
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
@@ -840,7 +841,7 @@ class NetworkTrainer:
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-
+                    task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         def generate_text_embedding(prompt, tokenizer, text_encoder):
@@ -921,97 +922,15 @@ class NetworkTrainer:
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
-                        task_loss = loss
-                        attn_loss = attn_loss
                         loss += attn_loss
-
                     # --------------------------------------------------------------------------------------------------
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                     i = 0
-                    standard_dict = {}
-                    for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
-                        if 'mid' in layer_name :
-                            net_name  = layer_name.split('lora_unet_mid_block_attentions_0_')[1]
-                            standard_dict[net_name] = param_dict['params'][0].data.norm(2)
-                    
                     wandb_logs = {}
-                    grad_norm_dict = {}
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
-                        """
-                        if args.algorithm_test :
-                            for key in standard_dict.keys() :
-                                spot_name = key.split('lora_unet_mid_block_attentions_0_')[-1]
-                                spot_name = spot_name.replace('.','_')
-                                
-                                file_name = os.path.join(f'layerwise_collections',f'{spot_name}.txt')
-                                with open(file_name,'r') as f :
-                                    content = f.readlines()
-                                for line in content :
-                                    scaling_layer_name =  line.split(' : ')[0]
-                                    if layer_name == scaling_layer_name :
-                                        scale_factor = line.split(' : ')[-1]
-                                        scaling_factor = float(scale_factor.strip())
-                                        gradient = param_dict['params'][0].data
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * scaling_factor
-                                        if optimal_norm > 0 :
-                                            param_dict['params'][0].data = param_dict['params'][0].data * (optimal_norm/original_norm)
-                                
-                                if key in layer_name :
-                                    block_name = layer_name.split(key)[0]
-                                    if 'down_blocks_0' in layer_name:
-                                        gradient = param_dict['params'][0].data
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.down_blocks_0_norm_weight
-                                        if optimal_norm > 0 :
-                                            scaling_factor = optimal_norm / original_norm
-                                        else :
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'down_blocks_1' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.down_blocks_1_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'down_blocks_2' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.down_blocks_2_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'up_blocks_1' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.up_blocks_1_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'up_blocks_2' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.up_blocks_2_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                                    elif 'up_blocks_3' in layer_name:
-                                        original_norm = param_dict['params'][0].data.norm(2)
-                                        optimal_norm = standard_dict[key] * args.up_blocks_3_norm_weight
-                                        if optimal_norm > 0:
-                                            scaling_factor = optimal_norm / original_norm
-                                        else:
-                                            scaling_factor = 1
-                                        param_dict['params'][0].data = param_dict['params'][0].data * scaling_factor
-                        """
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
                             try:
@@ -1051,23 +970,24 @@ class NetworkTrainer:
                             if remove_step_no is not None:
                                 remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
                                 remove_model(remove_ckpt_name)
+                # ------------------------------------------------------------------------------------------------------
+                # 1) total loss
                 current_loss = loss.detach().item()
                 if epoch == 0:
                     loss_list.append(current_loss)
                 else:
                     loss_total -= loss_list[step]
                     loss_list[step] = current_loss
-
                 loss_total += current_loss
                 avr_loss = loss_total / len(loss_list)
                 if is_main_process :
                     loss_dict[global_step] = avr_loss
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 progress_bar.set_postfix(**logs)
-
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
-
+                # ------------------------------------------------------------------------------------------------------
+                # 2) total loss
                 if args.logging_dir is not None:
                     if args.heatmap_loss :
                         logs = self.generate_step_logs(args, current_loss, avr_loss,
@@ -1075,7 +995,7 @@ class NetworkTrainer:
                                                        task_loss, attn_loss)
                     else :
                         logs = self.generate_step_logs(args, current_loss, avr_loss,
-                                                       lr_scheduler, keys_scaled, mean_norm, maximum_norm,)
+                                                       lr_scheduler, keys_scaled, mean_norm, maximum_norm,task_loss)
                     accelerator.log(logs, step=global_step)
                     if is_main_process:
                         wandb.log(logs, step=global_step)
