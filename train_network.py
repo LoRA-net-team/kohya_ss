@@ -936,6 +936,14 @@ class NetworkTrainer:
                                 pil_img.save('test.png')
                                 print(f'pil_img : {pil_img.size}')
                                 print(f'masked_attn_map : {masked_attn_map.shape}')
+
+                                heat_map = _convert_heat_map_colors(heat_map)
+                                heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                                heat_map_img = Image.fromarray(heat_map)
+                                heat_map_img.save(f'test_heat_map.png')
+
+
+
                                 img = image_overlay_heat_map(img=pil_img,
                                                              heat_map=heat_map,
                                                              alpha=0.5)#masked_attn_map)
