@@ -36,6 +36,7 @@ global_stored_masks = {}
 def get_cached_mask(mask_dir:str):
     if mask_dir in global_stored_masks:
         return global_stored_masks[mask_dir]
+    print(f'loading mask {mask_dir}')
     pil_img = Image.open(mask_dir).resize(512, 512)
     np_img = np.array(pil_img)
     torch_img = torch.from_numpy(np_img)
