@@ -881,6 +881,7 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         map_dict = {}
                         for layer_name in layer_names:
+                            print(f'from storing attn, layer_name : {layer_name}')
                             attn_list = atten_collection[layer_name] # just one map element
                             if len(attn_list) != 1:
                                 print(f'error : {layer_name} attn_list is not 1')
@@ -916,6 +917,8 @@ class NetworkTrainer:
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
                             layer_dict = map_dict[batch_index]
+                            layers = layer_dict.keys()
+                            print(f'layers : {layers}')
                             for layer_name in layer_dict.keys() :
                                 print(f'layer_name : {layer_name}')
                                 map_list = layer_dict[layer_name]
