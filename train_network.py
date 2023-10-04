@@ -881,7 +881,7 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         map_dict = {}
                         for layer_name in layer_names:
-                            print(f'from storing attn, layer_name : {layer_name}')
+
                             attn_list = atten_collection[layer_name] # just one map element
                             if len(attn_list) != 1:
                                 print(f'error : {layer_name} attn_list is not 1')
@@ -907,8 +907,10 @@ class NetworkTrainer:
                                     word_map = global_heat_map[trg_index, :, :]
                                     word_map = expand_image(word_map, 512, 512)
                                     try :
+                                        print(f'from storing attn, layer_name : {layer_name}')
                                         map_dict[batch_i][layer_name].append(word_map)
                                     except :
+                                        print(f'from storing attn, layer_name : {layer_name}')
                                         map_dict[batch_i] = {}
                                         map_dict[batch_i][layer_name] = []
                                         map_dict[batch_i][layer_name].append(word_map)
