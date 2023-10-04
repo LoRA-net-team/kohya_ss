@@ -904,7 +904,7 @@ class NetworkTrainer:
                                         map_dict[batch_i][layer_name].append(word_map)
                                     except :
                                         map_dict[batch_i][layer_name] = []
-                                        map_dict[batch_i][layer_name].append(word_map)
+                                        map_dict[batch_i][layer_name].append(word_map )
 
 
 
