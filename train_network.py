@@ -837,133 +837,99 @@ class NetworkTrainer:
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
 
                     # ------------------------------------------------------------------------------------
-                    # cross attention matching loss
-                    #batch["absolute_paths"]
-                    #batch["mask_dirs"]
-                    def generate_text_embedding(prompt, tokenizer, text_encoder):
-                        cls_token = 49406
-                        pad_token = 49407
-                        trg_token = args.trg_token
-                        token_input = tokenizer([trg_token],
-                                                padding="max_length",
-                                                max_length=tokenizer.model_max_length,
-                                                truncation=True,
-                                                return_tensors="pt", )
-                        token_ids = token_input.input_ids[0]
-                        token_attns = token_input.attention_mask[0]
-                        trg_token_id = []
-                        for token_id, token_attn in zip(token_ids, token_attns):
-                            if token_id != cls_token and token_id != pad_token and token_attn == 1:
-                                trg_token_id.append(token_id)
-                        text_input = tokenizer(batch['captions'],
-                                               padding="max_length",
-                                               max_length=tokenizer.model_max_length,
-                                               truncation=True,
-                                               return_tensors="pt", )
-                        token_ids = text_input.input_ids
-                        attns = text_input.attention_mask
-                        batch_ids = []
-                        for token_id, attn in zip(token_ids, attns):
-                            trg_indexs = []
-                            for i, id in enumerate(token_id) :
-                                if id in trg_token_id:
-                                    trg_indexs.append(i)
-                            batch_ids.append(trg_indexs)
-                        return batch_ids
+                    if args.heatmap_loss :
+                        # cross attention matching loss
+                        #batch["absolute_paths"]
+                        #batch["mask_dirs"]
+                        def generate_text_embedding(prompt, tokenizer, text_encoder):
+                            cls_token = 49406
+                            pad_token = 49407
+                            trg_token = args.trg_token
+                            token_input = tokenizer([trg_token],
+                                                    padding="max_length",
+                                                    max_length=tokenizer.model_max_length,
+                                                    truncation=True,
+                                                    return_tensors="pt", )
+                            token_ids = token_input.input_ids[0]
+                            token_attns = token_input.attention_mask[0]
+                            trg_token_id = []
+                            for token_id, token_attn in zip(token_ids, token_attns):
+                                if token_id != cls_token and token_id != pad_token and token_attn == 1:
+                                    trg_token_id.append(token_id)
+                            text_input = tokenizer(batch['captions'],
+                                                   padding="max_length",
+                                                   max_length=tokenizer.model_max_length,
+                                                   truncation=True,
+                                                   return_tensors="pt", )
+                            token_ids = text_input.input_ids
+                            attns = text_input.attention_mask
+                            batch_ids = []
+                            for token_id, attn in zip(token_ids, attns):
+                                trg_indexs = []
+                                for i, id in enumerate(token_id) :
+                                    if id in trg_token_id:
+                                        trg_indexs.append(i)
+                                batch_ids.append(trg_indexs)
+                            return batch_ids
 
-                    trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
-                    layer_names = atten_collection.keys()
-                    map_dict = {}
-                    for layer_name in layer_names:
-                        attn_list = atten_collection[layer_name] # just one map element
-                        if len(attn_list) != 1:
-                            print(f'error : {layer_name} attn_list is not 1')
-                        attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
-                        attns = attns.squeeze(0)
-                        batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
-                        for batch_i, map in enumerate(batch_attn_map) :
-                            # ------------------------------------------------------------------------------------------------
-                            # 1) trg indexs
-                            trg_index_list = trg_indexs[batch_i]
-                            # ------------------------------------------------------------------------------------------------
-                            # 2) map
-                            # map is torch
-                            map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
-                            maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
-                            maps = maps.sum(0)  # [8, pix_len, sen_len]
-                            maps = maps.sum(0)  # [32, pix_len, sen_len]
-                            pix_len, sen_len = maps.shape
-                            res = int(math.sqrt(pix_len))
-                            maps = maps.permute(1, 0)  # [sen_len, pix_len]
-                            global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-                            for trg_index in trg_index_list :
-                                word_map = global_heat_map[trg_index, :, :]
-                                word_map = expand_image(word_map, 512, 512)
-                                try :
-                                    map_dict[batch_i][layer_name].append(word_map)
-                                except :
-                                    map_dict[batch_i] = {}
-                                    map_dict[batch_i][layer_name] = []
-                                    map_dict[batch_i][layer_name].append(word_map)
-                    heat_maps = []
-                    batch_mask_dirs = batch["mask_dirs"]
-                    attn_loss = 0
-                    for batch_index in map_dict.keys() :
-                        layer_dict = map_dict[batch_index]
-                        for layer_name in layer_dict.keys() :
-                            map_list = layer_dict[layer_name]
-                            heat_map = torch.stack(map_list, dim=0)
-                            heat_map = heat_map.mean(0)
-                            mask_dir = batch_mask_dirs[batch_index]
-                            mask_img = Image.open(mask_dir)
-                            mask_img = mask_img.resize((512, 512))
-                            mask_img = np.array(mask_img)
-                            mask_img = torch.from_numpy(mask_img)
-                            mask_img = torch.where(mask_img == 0, 0, 1)
-                            masked_attn_map = heat_map * mask_img.to(heat_map.device)
-                            a_loss = F.mse_loss(masked_attn_map, heat_map)
-                            attn_loss += a_loss
-                    # ------------------------------------------------------------------------------------
-                    # cross attention map loss
-                    """ 
-                    for i, mask_dir in enumerate(batch_mask_dirs) :
-                        mask_img = Image.open(mask_dir)
-                        mask_img = mask_img.resize((512, 512))
-                        mask_img = np.array(mask_img)
-                        mask_img = torch.from_numpy(mask_img)
-                        mask_img = torch.where(mask_img == 0, 0, 1)
-                        masked_attn_map = heat_maps[i] * mask_img.to(heat_maps[i].device)
+                        trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
+                        layer_names = atten_collection.keys()
+                        map_dict = {}
+                        for layer_name in layer_names:
+                            attn_list = atten_collection[layer_name] # just one map element
+                            if len(attn_list) != 1:
+                                print(f'error : {layer_name} attn_list is not 1')
+                            attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
+                            attns = attns.squeeze(0)
+                            batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
+                            for batch_i, map in enumerate(batch_attn_map) :
+                                # ------------------------------------------------------------------------------------------------
+                                # 1) trg indexs
+                                trg_index_list = trg_indexs[batch_i]
+                                # ------------------------------------------------------------------------------------------------
+                                # 2) map
+                                # map is torch
+                                map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
+                                maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
+                                maps = maps.sum(0)  # [8, pix_len, sen_len]
+                                maps = maps.sum(0)  # [32, pix_len, sen_len]
+                                pix_len, sen_len = maps.shape
+                                res = int(math.sqrt(pix_len))
+                                maps = maps.permute(1, 0)  # [sen_len, pix_len]
+                                global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
+                                for trg_index in trg_index_list :
+                                    word_map = global_heat_map[trg_index, :, :]
+                                    word_map = expand_image(word_map, 512, 512)
+                                    try :
+                                        map_dict[batch_i][layer_name].append(word_map)
+                                    except :
+                                        map_dict[batch_i] = {}
+                                        map_dict[batch_i][layer_name] = []
+                                        map_dict[batch_i][layer_name].append(word_map)
+                        heat_maps = []
+                        batch_mask_dirs = batch["mask_dirs"]
+                        attn_loss = 0
+                        for batch_index in map_dict.keys() :
+                            layer_dict = map_dict[batch_index]
+                            for layer_name in layer_dict.keys() :
+                                map_list = layer_dict[layer_name]
+                                heat_map = torch.stack(map_list, dim=0)
+                                heat_map = heat_map.mean(0)
+                                mask_dir = batch_mask_dirs[batch_index]
+                                mask_img = Image.open(mask_dir)
+                                mask_img = mask_img.resize((512, 512))
+                                mask_img = np.array(mask_img)
+                                mask_img = torch.from_numpy(mask_img)
+                                mask_img = torch.where(mask_img == 0, 0, 1)
+                                masked_attn_map = heat_map * mask_img.to(heat_map.device)
+                                a_loss = F.mse_loss(masked_attn_map, heat_map)
+                                print(f'{layer_name} : {a_loss}')
+                                attn_loss += a_loss
+                        task_loss = loss
+                        attn_loss = attn_loss
+                        loss += attn_loss
 
-                        attn_loss += F.mse_loss(masked_attn_map, heat_maps[i])
-                    
-                            # ---------------------------------------------------------------------------------------------
-                            # matching correspondence color to the value
-                            #heat_map = _convert_heat_map_colors(heat_map)
-                            #heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                            #heat_map_img = Image.fromarray(heat_map)
-                            #base_img = Image.open(absolute_path)
-                            #heat_map_img = image_overlay_heat_map(base_img,
-                            #                                      heat_map,)
-                            #heat_map_base_dir = os.path.join(args.output_dir, name)
-                            #os.makedirs(heat_map_base_dir, exist_ok=True)
-                            #heat_map_dir = os.path.join(heat_map_base_dir,f'{layer_name}.jpg')
-                            #try :
-                            #    Image.open(heat_map_dir)
-                            #except :
-                            #    heat_map_img.save(heat_map_dir)
-                            #base_img.save(os.path.join(heat_map_base_dir,f{name}.jpg'))
-                            
-                            #img = image_overlay_heat_map(img=prev_image,
-                            #                             heat_map=heat_map_img)
-                            #layer_name = layer_name.split('_')[:5]
-                            #a = '_'.join(layer_name)
-                            #attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
-                            #img.save(attn_save_dir)
-                    #print("atten_collection")
-                    """
-                    task_loss = loss
-                    attn_loss = attn_loss
-                    loss += attn_loss
+                    # --------------------------------------------------------------------------------------------------
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1274,6 +1240,7 @@ if __name__ == "__main__":
     parser.add_argument("--up_blocks_3_norm_weight", type=float, default=10)
     parser.add_argument("--algorithm_test", action = 'store_true')
     parser.add_argument("--trg_token", type=str, default = 'haibara')
+    parser.add_argument("--heatmap_loss", action = 'store_true')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
