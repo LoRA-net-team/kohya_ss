@@ -31,7 +31,6 @@ import numpy as np
 import torch.nn.functional as F
 from utils import auto_autocast
 
-
 def register_attention_control(unet, controller):
 
     def ca_forward(self, layer_name):
@@ -161,8 +160,7 @@ class NetworkTrainer:
     def is_text_encoder_outputs_cached(self, args):
         return False
 
-    def cache_text_encoder_outputs_if_needed(
-        self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype):
+    def cache_text_encoder_outputs_if_needed(self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype):
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
@@ -177,7 +175,6 @@ class NetworkTrainer:
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,attention_storer):
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
-
 
     def train(self, args):
 
@@ -307,17 +304,6 @@ class NetworkTrainer:
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders,
                                                   train_dataset_group, weight_dtype)
 
-        """
-        UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
-        UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
-
-        if is_main_process:
-            for name, module in unet.named_modules():
-                if module.__class__.__name__ in UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 :
-                    print(f'{name} : {module}')
-        """
-
-
         # prepare network
         net_kwargs = {}
         if args.network_args is not None:
@@ -357,17 +343,6 @@ class NetworkTrainer:
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
 
-        """
-        if is_main_process:
-            unet_loras = network.unet_loras
-            for unet_lora in unet_loras :
-                lora_name = unet_lora.lora_name
-                org_forward = unet_lora.org_forward
-                lora_up = unet_lora.lora_up
-                lora_down = unet_lora.lora_down
-                print(f'{lora_name}: lora_up : {lora_up.weight}')
-        """
-        
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -381,13 +356,6 @@ class NetworkTrainer:
 
         # 学習に必要なクラスを準備する
         accelerator.print("prepare optimizer, data loader etc.")
-
-        #if is_main_process:
-        #    unet_loras = network.unet_loras
-        #    for unet_lora in unet_loras :
-        #        lora_name = unet_lora.lora_name
-        #        common_dim = unet_lora.common_dim
-        #        print(f'{lora_name} : common_dim : {common_dim} | in_dim : {unet_lora.in_dim} | out_dim : {unet_lora.out_dim}')
 
         if args.unet_blockwise_lr :
             network.set_block_lr_weight(up_lr_weight   = args.up_lr_weight, # 0 ~ 11
