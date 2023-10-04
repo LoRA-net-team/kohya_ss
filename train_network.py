@@ -843,9 +843,6 @@ class NetworkTrainer:
 
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        # cross attention matching loss
-                        #batch["absolute_paths"]
-                        #batch["mask_dirs"]
                         def generate_text_embedding(prompt, tokenizer, text_encoder):
                             cls_token = 49406
                             pad_token = 49407
@@ -905,25 +902,13 @@ class NetworkTrainer:
                                     except :
                                         map_dict[batch_i][layer_name] = []
                                         map_dict[batch_i][layer_name].append(word_map )
-
-
-
-
-                        print(f'map_dict keys : {map_dict.keys()}')
-
-
-
-
-
                         heat_maps = []
                         batch_mask_dirs = batch["mask_dirs"]
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
                             layer_dict = map_dict[batch_index]
                             layers = layer_dict.keys()
-                            print(f'layers : {layers}')
                             for layer_name in layer_dict.keys() :
-                                print(f'layer_name : {layer_name}')
                                 map_list = layer_dict[layer_name]
                                 heat_map = torch.stack(map_list, dim=0)
                                 heat_map = heat_map.mean(0)
@@ -950,7 +935,7 @@ class NetworkTrainer:
 
                                 heat_map_ = _convert_heat_map_colors(masked_attn_map)
                                 heat_map_img_ = Image.fromarray(heat_map_.to('cpu').detach().numpy().copy().astype(np.uint8))
-                                heat_map_img_.save(f'{args.output_dir}/masked_attn_{layer_name}.png')
+                                heat_map_img_.save(f'{args.output_dir}/attn_{layer_name}_masked.png')
 
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
