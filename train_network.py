@@ -384,6 +384,7 @@ class NetworkTrainer:
         except TypeError:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+        """
         all_params = []
         for trainable_param in trainable_params:
             lr = trainable_param["lr"]
@@ -391,7 +392,8 @@ class NetworkTrainer:
             for param in params:
                 param_dict = {"lr": lr, "params": param}
                 all_params.append(param_dict)
-        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, all_params)
+        """
+        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
         train_dataloader = torch.utils.data.DataLoader(train_dataset_group,batch_size=1,
                                                        shuffle=True,collate_fn=collater,num_workers=n_workers,
@@ -905,6 +907,7 @@ class NetworkTrainer:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                     wandb_logs = {}
+                    """
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
@@ -915,6 +918,7 @@ class NetworkTrainer:
                                 gradient_dict[layer_name].append(param_dict['params'][0].grad.data.norm(2).item())
                     if is_main_process:
                         wandb.log(wandb_logs, step=global_step)
+                    """
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
