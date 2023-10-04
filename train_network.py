@@ -1,3 +1,4 @@
+from collections import defaultdict
 import importlib, wandb
 import argparse
 import gc
@@ -31,7 +32,18 @@ import numpy as np
 import torch.nn.functional as F
 from utils import auto_autocast
 
-def register_attention_control(unet, controller):
+global_stored_masks = {}
+def get_cached_mask(mask_dir:str):
+    if mask_dir in global_stored_masks:
+        return global_stored_masks[mask_dir]
+    mask_img = torch.where(torch.from_numpy(np.array(Image.open(mask_dir).resize(512, 512))) == 0, 0, 1)
+    global_stored_masks[mask_dir] = mask_img
+    return mask_img
+
+def register_attention_control(unet : nn.Module, controller):
+    """
+    Register cross attention layers to controller.
+    """
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, mask=None):
@@ -845,7 +857,7 @@ class NetworkTrainer:
 
                         trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder)
                         layer_names = atten_collection.keys()
-                        map_dict = {}
+                        map_dict = defaultdict(lambda : defaultdict(list))
                         for layer_name in layer_names:
                             attn_list = atten_collection[layer_name] # just one map element
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
@@ -864,14 +876,7 @@ class NetworkTrainer:
                                 for trg_index in trg_index_list :
                                     word_map = global_heat_map[trg_index, :, :]
                                     word_map = expand_image(word_map, 512, 512)
-                                    if batch_i not in map_dict.keys() :
-                                        map_dict[batch_i] = {}
-                                    try :
-                                        map_dict[batch_i][layer_name].append(word_map)
-                                    except :
-                                        map_dict[batch_i][layer_name] = []
-                                        map_dict[batch_i][layer_name].append(word_map )
-                        heat_maps = []
+                                    map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
                         batch_mask_dirs = batch["mask_dirs"]
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
@@ -881,14 +886,11 @@ class NetworkTrainer:
                                 heat_map = torch.stack(map_list, dim=0)
                                 heat_map = heat_map.mean(0)
                                 mask_dir = batch_mask_dirs[batch_index]
-                                mask_img = Image.open(mask_dir)
-                                mask_img = mask_img.resize((512, 512))
-                                mask_img = np.array(mask_img)
-                                mask_img = torch.from_numpy(mask_img)
-                                mask_img = torch.where(mask_img == 0, 0, 1)
+                                mask_img = get_cached_mask(mask_dir)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
+                        assert attn_loss != 0, "attn_loss is zero"
                         loss += attn_loss
                     # --------------------------------------------------------------------------------------------------
                     accelerator.backward(loss)
