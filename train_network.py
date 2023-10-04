@@ -917,6 +917,7 @@ class NetworkTrainer:
                         for batch_index in map_dict.keys() :
                             layer_dict = map_dict[batch_index]
                             for layer_name in layer_dict.keys() :
+                                print(f'layer_name : {layer_name}')
                                 map_list = layer_dict[layer_name]
                                 heat_map = torch.stack(map_list, dim=0)
                                 heat_map = heat_map.mean(0)
