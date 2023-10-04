@@ -931,7 +931,7 @@ class NetworkTrainer:
                                 prev_image = batch['absolute_paths'][batch_index]
                                 pil_img = Image.open(prev_image)
                                 pil_img = pil_img.resize((512, 512))
-                                img = image_overlay_heat_map(img=np.array(pil_img),
+                                img = image_overlay_heat_map(img=pil_img,
                                                              heat_map=masked_attn_map)
 
                                 img.save(f'{args.output_dir}/attn_{batch_index}_{layer_name}.png')
