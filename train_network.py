@@ -934,25 +934,19 @@ class NetworkTrainer:
                                 pil_img = Image.open(prev_image)
                                 pil_img = pil_img.resize((512, 512))
                                 pil_img.save('test.png')
-                                print(f'pil_img : {pil_img.size}')
-                                print(f'masked_attn_map : {masked_attn_map.shape}')
+
+
 
                                 heat_map = _convert_heat_map_colors(heat_map)
                                 heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                                 heat_map_img = Image.fromarray(heat_map)
-                                heat_map_img.save(f'test_heat_map.png')
+                                heat_map_img.save(f'{args.output_dir}/attn_{layer_name}.png')
 
                                 heat_map = _convert_heat_map_colors(masked_attn_map)
                                 heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                                 heat_map_img = Image.fromarray(heat_map)
-                                heat_map_img.save(f'test_masked_attn_map.png')
+                                heat_map_img.save(f'{args.output_dir}/masked_attn_{layer_name}.png')
 
-
-                                img = image_overlay_heat_map(img=pil_img,
-                                                             heat_map=heat_map,
-                                                             alpha=0.5)#masked_attn_map)
-
-                                img.save(f'{args.output_dir}/attn_{batch_index}_{layer_name}.png')
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
                         task_loss = loss
