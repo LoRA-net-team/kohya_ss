@@ -937,15 +937,13 @@ class NetworkTrainer:
 
 
 
-                                heat_map = _convert_heat_map_colors(heat_map)
-                                heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                                heat_map_img = Image.fromarray(heat_map)
-                                heat_map_img.save(f'{args.output_dir}/attn_{layer_name}.png')
+                                heat_map_ = _convert_heat_map_colors(heat_map)
+                                heat_map_ = heat_map_.to('cpu').detach().numpy().copy().astype(np.uint8)
+                                Image.fromarray(heat_map_).save(f'{args.output_dir}/attn_{layer_name}.png')
 
-                                heat_map = _convert_heat_map_colors(masked_attn_map)
-                                heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                                heat_map_img = Image.fromarray(heat_map)
-                                heat_map_img.save(f'{args.output_dir}/masked_attn_{layer_name}.png')
+                                heat_map_ = _convert_heat_map_colors(masked_attn_map)
+                                heat_map_img_ = Image.fromarray(heat_map_.to('cpu').detach().numpy().copy().astype(np.uint8))
+                                heat_map_img_.save(f'{args.output_dir}/masked_attn_{layer_name}.png')
 
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 attn_loss += a_loss
