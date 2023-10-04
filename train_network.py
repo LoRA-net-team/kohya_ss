@@ -898,8 +898,7 @@ class NetworkTrainer:
                                 attn_loss += a_loss
                         assert attn_loss != 0, "attn_loss is zero"
                         attn_loss.requires_grad = True
-
-                        loss += attn_loss
+                        loss = task_loss + attn_loss
                     # --------------------------------------------------------------------------------------------------
                     #print(f'loss : {loss}')
                     #loss.requires_grad = True
