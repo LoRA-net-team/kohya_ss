@@ -929,7 +929,7 @@ class NetworkTrainer:
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 # torch to pil img
                                 prev_image = batch['absolute_paths'][batch_index]
-                                img = image_overlay_heat_map(img=prev_image,
+                                img = image_overlay_heat_map(img=Image.open(prev_image),
                                                              heat_map=masked_attn_map)
                                 img.save(f'{args.output_dir}/attn_{batch_index}_{layer_name}.png')
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
