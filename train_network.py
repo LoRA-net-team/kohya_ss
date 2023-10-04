@@ -881,20 +881,12 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         map_dict = {}
                         for layer_name in layer_names:
-
                             attn_list = atten_collection[layer_name] # just one map element
-                            if len(attn_list) != 1:
-                                print(f'error : {layer_name} attn_list is not 1')
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                             attns = attns.squeeze(0)
                             batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
                             for batch_i, map in enumerate(batch_attn_map) :
-                                # ------------------------------------------------------------------------------------------------
-                                # 1) trg indexs
                                 trg_index_list = trg_indexs[batch_i]
-                                # ------------------------------------------------------------------------------------------------
-                                # 2) map
-                                # map is torch
                                 map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
                                 maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
                                 maps = maps.sum(0)  # [8, pix_len, sen_len]
@@ -906,14 +898,23 @@ class NetworkTrainer:
                                 for trg_index in trg_index_list :
                                     word_map = global_heat_map[trg_index, :, :]
                                     word_map = expand_image(word_map, 512, 512)
+                                    if batch_i not in map_dict.keys() :
+                                        map_dict[batch_i] = {}
                                     try :
-                                        print(f'from storing attn, layer_name : {layer_name}')
                                         map_dict[batch_i][layer_name].append(word_map)
                                     except :
-                                        print(f'from storing attn, layer_name : {layer_name}')
-                                        map_dict[batch_i] = {}
                                         map_dict[batch_i][layer_name] = []
                                         map_dict[batch_i][layer_name].append(word_map)
+
+
+
+
+                        print(f'map_dict keys : {map_dict.keys()}')
+
+
+
+
+
                         heat_maps = []
                         batch_mask_dirs = batch["mask_dirs"]
                         attn_loss = 0
