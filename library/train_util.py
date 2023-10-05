@@ -1059,6 +1059,7 @@ class BaseDataset(torch.utils.data.Dataset):
         mask_imgs = []
         trg_concepts = []
         trg_indexs_list = []
+        mask_dirs = []
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
@@ -1068,6 +1069,7 @@ class BaseDataset(torch.utils.data.Dataset):
             mask_base_dir = base_mask_base_dir
 
             mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
+            mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
             np_img = np.array(mas_img.resize((512, 512)))
             torch_img = torch.from_numpy(np_img)
@@ -1226,6 +1228,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         input_ids2_list.append(token_caption2)
 
         example = {}
+        example["mask_dirs"] = mask_dirs
         example["trg_indexs_list"] = trg_indexs_list
         example["trg_concepts"] = trg_concepts
         example["absolute_paths"] = absolute_paths
