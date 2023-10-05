@@ -33,8 +33,7 @@ import torch.nn.functional as F
 from utils import auto_autocast
 
 global_stored_masks = {}
-def get_cached_mask(mask_dir:str, heat_map):
-    trg_size = heat_map.shape[0]
+def get_cached_mask(mask_dir:str, trg_size):
     if mask_dir in global_stored_masks:
         return global_stored_masks[mask_dir]
     pil_img = Image.open(mask_dir)
@@ -926,9 +925,9 @@ class NetworkTrainer:
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
-                            print(f'{layer_name} heat_map shape : {heat_map.shape}')
+                            trg_size = heat_map.shape[0]
                             mask_dir = batch_mask_dirs[batch_index]
-                            mask_img = get_cached_mask(mask_dir, heat_map)
+                            mask_img = get_cached_mask(mask_dir, trg_size)
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             #a_loss.requires_grad = True
