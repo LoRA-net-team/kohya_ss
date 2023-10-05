@@ -932,6 +932,7 @@ class NetworkTrainer:
                                 #a_loss.requires_grad_(True)
                                 #accelerator.backward(a_loss)
                                 attn_loss += a_loss
+                        print(f'attn_loss : {attn_loss}')
                         assert attn_loss != 0, "attn_loss is zero"
                         loss = task_loss + attn_loss
                     accelerator.backward(loss)
