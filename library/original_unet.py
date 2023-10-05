@@ -789,7 +789,8 @@ class BasicTransformerBlock(nn.Module):
         self.attn1.set_use_sdpa(sdpa)
         self.attn2.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, context=None, timestep=None,**kwargs):
+    def forward(self, hidden_states, context=None, timestep=None, **kwargs):
+        print(f'in BasicTransformerBlock: kwargs = {kwargs}')
         # 1. Self-Attention
         norm_hidden_states = self.norm1(hidden_states)
 
@@ -797,7 +798,7 @@ class BasicTransformerBlock(nn.Module):
 
         # 2. Cross-Attention
         norm_hidden_states = self.norm2(hidden_states)
-        hidden_states = self.attn2(norm_hidden_states, context=context,**kwargs) + hidden_states
+        hidden_states = self.attn2(norm_hidden_states, context=context, **kwargs) + hidden_states
 
         # 3. Feed-forward
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
@@ -874,7 +875,7 @@ class Transformer2DModel(nn.Module):
 
         # 2. Blocks
         for block in self.transformer_blocks:
-            hidden_states = block(hidden_states, context=encoder_hidden_states, timestep=timestep)
+            hidden_states = block(hidden_states, context=encoder_hidden_states, timestep=timestep, **kwargs)
 
         # 3. Output
         if not self.use_linear_projection:
@@ -883,12 +884,9 @@ class Transformer2DModel(nn.Module):
         else:
             hidden_states = self.proj_out(hidden_states)
             hidden_states = hidden_states.reshape(batch, height, weight, inner_dim).permute(0, 3, 1, 2).contiguous()
-
         output = hidden_states + residual
-
         if not return_dict:
             return (output,)
-
         return SampleOutput(sample=output)
 
 
@@ -1239,7 +1237,7 @@ class CrossAttnUpBlock2D(nn.Module):
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet), hidden_states, temb)
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
                                                                   hidden_states, encoder_hidden_states,
-                                                                  **kwargs)[0]
+                                                                  )[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
