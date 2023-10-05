@@ -922,13 +922,29 @@ class NetworkTrainer:
                                 map_list = layer_dict[layer_name]
                                 heat_map = torch.stack(map_list, dim=0)
                                 heat_map = heat_map.mean(0)
+
                                 trg_size = heat_map.shape[0]
                                 mask_dir = batch_mask_dirs[batch_index]
                                 mask_img = get_cached_mask(mask_dir, trg_size)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
-                                a_loss = F.mse_loss(masked_attn_map.sum(), heat_map.sum())
+
+                                a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 if a_loss == 0 :
                                     print(f'layer_name : {layer_name}')
+
+                                    heat_map = _convert_heat_map_colors(heat_map)
+                                    heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                                    heat_map_img = Image.fromarray(heat_map)
+                                    heat_map_img.save(os.path.join(args.output_dir, f'check_heat_map_{layer_name}.png'))
+
+                                    masked_heat_map = _convert_heat_map_colors(masked_attn_map)
+                                    masked_heat_map = masked_heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                                    masked_heat_map_img = Image.fromarray(masked_heat_map)
+                                    masked_heat_map_img.save(os.path.join(args.output_dir, f'check_masked_heat_map_{layer_name}.png'))
+
+
+
+
                                 #a_loss.requires_grad = True
                                 #a_loss.requires_grad_(True)
                                 #accelerator.backward(a_loss)
