@@ -50,8 +50,9 @@ def register_attention_control(unet : nn.Module, controller):
     """
     Register cross attention layers to controller.
     """
+
     def ca_forward(self, layer_name):
-        def forward(hidden_states, context=None, mask=None):
+        def forward(hidden_states, context=None, trg_indexs_list=None, mask_imgs=None):
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
@@ -76,6 +77,8 @@ def register_attention_control(unet : nn.Module, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 factor = int(math.sqrt(512 // attention_probs.shape[1]))
+                print(f'trg_indexs_list : {trg_indexs_list}')
+                print(f'mask_imgs : {mask_imgs}')
                 if attention_probs.shape[1] == 4096 :
                 #print(f'{layer_name} attention_probs.shape : {attention_probs.shape}')
                     attn = controller.store(attention_probs, layer_name)
@@ -228,12 +231,12 @@ class NetworkTrainer:
                   args, accelerator, unet,
                   noisy_latents, timesteps,
                   text_conds, batch, weight_dtype,
-                  target_contepts,
+                  trg_indexs_list,
                   mask_imgs):
         noise_pred = unet(noisy_latents,
                           timesteps,
                           text_conds,
-                          target_contepts,
+                          trg_indexs_list,
                           mask_imgs).sample
         return noise_pred
 
@@ -859,7 +862,7 @@ class NetworkTrainer:
                                                     text_encoder_conds,
                                                     batch,
                                                     weight_dtype,
-                                                    batch['trg_concepts'],
+                                                    batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
                         # -----------------------------------------------------------------------------------------------------------------------
 

@@ -679,9 +679,7 @@ class BaseDataset(torch.utils.data.Dataset):
         if tokenizer is None:
             tokenizer = self.tokenizers[0]
 
-        input_ids = tokenizer(
-            caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length, return_tensors="pt"
-        ).input_ids
+        input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length, return_tensors="pt").input_ids
 
         if self.tokenizer_max_length > tokenizer.model_max_length:
             input_ids = input_ids.squeeze(0)
@@ -1060,6 +1058,7 @@ class BaseDataset(torch.utils.data.Dataset):
         absolute_paths = []
         mask_imgs = []
         trg_concepts = []
+        trg_indexs_list = []
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
@@ -1079,7 +1078,6 @@ class BaseDataset(torch.utils.data.Dataset):
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
-
             # image/latentsを処理する
             if image_info.latents is not None:  # cache_latents=Trueの場合
                 original_size = image_info.latents_original_size
@@ -1137,6 +1135,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
                 latents = None
                 image = self.image_transforms(img)  # -1.0~1.0のtorch.Tensorになる
+
             images.append(image)
             latents_list.append(latents)
             target_size = (image.shape[2], image.shape[1]) if image is not None else (latents.shape[2] * 8, latents.shape[1] * 8)
@@ -1158,9 +1157,7 @@ class BaseDataset(torch.utils.data.Dataset):
                 text_encoder_pool2_list.append(image_info.text_encoder_pool2)
                 captions.append(caption)
             elif image_info.text_encoder_outputs_npz is not None:
-                text_encoder_outputs1, text_encoder_outputs2, text_encoder_pool2 = load_text_encoder_outputs_from_disk(
-                    image_info.text_encoder_outputs_npz
-                )
+                text_encoder_outputs1, text_encoder_outputs2, text_encoder_pool2 = load_text_encoder_outputs_from_disk(image_info.text_encoder_outputs_npz)
                 text_encoder_outputs1_list.append(text_encoder_outputs1)
                 text_encoder_outputs2_list.append(text_encoder_outputs2)
                 text_encoder_pool2_list.append(text_encoder_pool2)
@@ -1177,13 +1174,45 @@ class BaseDataset(torch.utils.data.Dataset):
                     captions.append(caption_layer)
                 else:
                     captions.append(caption)
-
                 if not self.token_padding_disabled:  # this option might be omitted in future
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
                         token_caption = self.get_input_ids(caption, self.tokenizers[0])
                     input_ids_list.append(token_caption)
+
+
+                    # token_caption
+                    #------------------------------------------------------------------------------------------
+                    def generate_text_embedding(prompt, tokenizer, text_encoder, batch):
+                        cls_token = 49406
+                        pad_token = 49407
+                        token_input = tokenizer([trg_concept],
+                                                padding="max_length",
+                                                max_length=tokenizer.model_max_length,
+                                                truncation=True,
+                                                return_tensors="pt", )
+                        token_ids = token_input.input_ids[0]
+                        token_attns = token_input.attention_mask[0]
+                        trg_token_id = []
+                        for token_id, token_attn in zip(token_ids, token_attns):
+                            if token_id != cls_token and token_id != pad_token and token_attn == 1:
+                                trg_token_id.append(token_id)
+                        text_input = tokenizer(captions,
+                                               padding="max_length",
+                                               max_length=tokenizer.model_max_length,
+                                               truncation=True,
+                                               return_tensors="pt", )
+                        token_ids = text_input.input_ids
+                        attns = text_input.attention_mask
+                        for token_id, attn in zip(token_ids, attns):
+                            trg_indexs = []
+                            for i, id in enumerate(token_id):
+                                if id in trg_token_id:
+                                    trg_indexs.append(i)
+                            trg_indexs_list.append(trg_indexs)
+                    #------------------------------------------------------------------------------------------
+
 
                     if len(self.tokenizers) > 1:
                         if self.XTI_layers:
@@ -1193,19 +1222,18 @@ class BaseDataset(torch.utils.data.Dataset):
                         input_ids2_list.append(token_caption2)
 
         example = {}
+        example["trg_indexs_list"] = trg_indexs_list
         example["trg_concepts"] = trg_concepts
         example["absolute_paths"] = absolute_paths
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
-
         if len(text_encoder_outputs1_list) == 0:
             if self.token_padding_disabled:
                 # padding=True means pad in the batch
-                example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids
+                example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
                 if len(self.tokenizers) > 1:
                     example["input_ids2"] = self.tokenizer[1](
-                        captions, padding=True, truncation=True, return_tensors="pt"
-                    ).input_ids
+                        captions, padding=True, truncation=True, return_tensors="pt").input_ids
                 else:
                     example["input_ids2"] = None
             else:
