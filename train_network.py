@@ -837,16 +837,15 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
-                                                                    text_encoders, weight_dtype)
-                            trg_contepts = batch['trg_concepts']
-                            trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
-
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
-                                                                                                       noise_scheduler,
-                                                                                                       latents)
-                    # batch number of timesteps
-
+                            text_encoder_conds = self.get_text_cond(args,
+                                                                    accelerator,
+                                                                    batch,
+                                                                    tokenizers,
+                                                                    text_encoders,
+                                                                    weight_dtype)
+                            #trg_contepts = batch['trg_concepts']
+                            #trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler,latents)
                     # Predict the noise residual
                     with accelerator.autocast():
                         # -----------------------------------------------------------------------------------------------------------------------
@@ -861,16 +860,6 @@ class NetworkTrainer:
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
                         # -----------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()
                         attention_storer.step_store = {}
@@ -892,7 +881,11 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
+                        #trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
+                        trg_indexs = batch["trg_indexs_list"]
+                        captions = batch["captions"]
+                        print(f'trg_indexs : {trg_indexs}')
+                        print(f'captions : {captions}')
                         layer_names = atten_collection.keys()
                         map_dict = defaultdict(lambda : defaultdict(list))
                         for layer_name in layer_names:

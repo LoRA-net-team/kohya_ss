@@ -1264,6 +1264,7 @@ class BaseDataset(torch.utils.data.Dataset):
             images = images.to(memory_format=torch.contiguous_format).float()
         else:
             images = None
+
         example["images"] = images
         example["latents"] = torch.stack(latents_list) if latents_list[0] is not None else None
         example["captions"] = captions
