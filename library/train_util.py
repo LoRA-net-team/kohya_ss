@@ -1060,6 +1060,7 @@ class BaseDataset(torch.utils.data.Dataset):
         trg_concepts = []
         trg_indexs_list = []
         mask_dirs = []
+        print(f'bucket_batch_size : {bucket_batch_size}')
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
@@ -1226,7 +1227,6 @@ class BaseDataset(torch.utils.data.Dataset):
                         else:
                             token_caption2 = self.get_input_ids(caption, self.tokenizers[1])
                         input_ids2_list.append(token_caption2)
-
         example = {}
         example["mask_dirs"] = mask_dirs
         example["trg_indexs_list"] = trg_indexs_list
