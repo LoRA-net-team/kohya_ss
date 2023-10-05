@@ -861,7 +861,6 @@ class Transformer2DModel(nn.Module):
                 trg_indexs_list=None,
                 mask=None):
 
-        print(f'in Transformer2DModel trg_indexs_list :', trg_indexs_list)
         # 1. Input
         batch, _, height, weight = hidden_states.shape
         residual = hidden_states
@@ -962,7 +961,6 @@ class CrossAttnDownBlock2D(nn.Module):
 
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet),
                                                                   hidden_states, temb)
-                print(f'attn : {attn.__class__.__name__}')
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
                                                                   hidden_states, encoder_hidden_states)[0]
             else:
