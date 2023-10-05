@@ -891,48 +891,47 @@ class NetworkTrainer:
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
-                    #if args.heatmap_loss :
-                    trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
-                    layer_names = atten_collection.keys()
-                    map_dict = defaultdict(lambda : defaultdict(list))
-                    for layer_name in layer_names:
-                        attn_list = atten_collection[layer_name] # just one map element
-                        attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
-                        attns = attns.squeeze(0)
-                        batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
-                        for batch_i, map in enumerate(batch_attn_map) :
-                            trg_index_list = trg_indexs[batch_i]
-                            map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
-                            maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
-                            maps = maps.sum(0)  # [8, pix_len, sen_len]
-                            maps = maps.sum(0)  # [32, pix_len, sen_len]
-                            pix_len, sen_len = maps.shape
-                            res = int(math.sqrt(pix_len))
-                            maps = maps.permute(1, 0)  # [sen_len, pix_len]
-                            global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-                            for trg_index in trg_index_list :
-                                word_map = global_heat_map[trg_index, :, :]
-                                map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
-                    batch_mask_dirs = batch["mask_dirs"]
-                    attn_loss = 0
-                    for batch_index in map_dict.keys() :
-                        layer_dict = map_dict[batch_index]
-                        for layer_name in layer_dict.keys() :
-                            map_list = layer_dict[layer_name]
-                            heat_map = torch.stack(map_list, dim=0)
-                            heat_map = heat_map.mean(0)
-                            trg_size = heat_map.shape[0]
-                            mask_dir = batch_mask_dirs[batch_index]
-                            mask_img = get_cached_mask(mask_dir, trg_size)
-                            masked_attn_map = heat_map * mask_img.to(heat_map.device)
-                            a_loss = F.mse_loss(masked_attn_map, heat_map)
-                            #a_loss.requires_grad = True
-                            #a_loss.requires_grad_(True)
-                            #accelerator.backward(a_loss)
-                            attn_loss += a_loss
-                    assert attn_loss != 0, "attn_loss is zero"
-                    #attn_loss.requires_grad = True
-                    loss = task_loss + attn_loss
+                    if args.heatmap_loss :
+                        trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
+                        layer_names = atten_collection.keys()
+                        map_dict = defaultdict(lambda : defaultdict(list))
+                        for layer_name in layer_names:
+                            attn_list = atten_collection[layer_name] # just one map element
+                            attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
+                            attns = attns.squeeze(0)
+                            batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
+                            for batch_i, map in enumerate(batch_attn_map) :
+                                trg_index_list = trg_indexs[batch_i]
+                                map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
+                                maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
+                                maps = maps.sum(0)  # [8, pix_len, sen_len]
+                                maps = maps.sum(0)  # [32, pix_len, sen_len]
+                                pix_len, sen_len = maps.shape
+                                res = int(math.sqrt(pix_len))
+                                maps = maps.permute(1, 0)  # [sen_len, pix_len]
+                                global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
+                                for trg_index in trg_index_list :
+                                    word_map = global_heat_map[trg_index, :, :]
+                                    map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
+                        batch_mask_dirs = batch["mask_dirs"]
+                        attn_loss = 0
+                        for batch_index in map_dict.keys() :
+                            layer_dict = map_dict[batch_index]
+                            for layer_name in layer_dict.keys() :
+                                map_list = layer_dict[layer_name]
+                                heat_map = torch.stack(map_list, dim=0)
+                                heat_map = heat_map.mean(0)
+                                trg_size = heat_map.shape[0]
+                                mask_dir = batch_mask_dirs[batch_index]
+                                mask_img = get_cached_mask(mask_dir, trg_size)
+                                masked_attn_map = heat_map * mask_img.to(heat_map.device)
+                                a_loss = F.mse_loss(masked_attn_map, heat_map)
+                                #a_loss.requires_grad = True
+                                #a_loss.requires_grad_(True)
+                                #accelerator.backward(a_loss)
+                                attn_loss += a_loss
+                        assert attn_loss != 0, "attn_loss is zero"
+                        loss = task_loss + attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
