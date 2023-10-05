@@ -220,7 +220,6 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)
-        print(f'input_ids : {input_ids}')
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         return encoder_hidden_states
 
@@ -882,11 +881,8 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        #trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
                         trg_indexs = batch["trg_indexs_list"]
-                        captions = batch["captions"]
                         print(f'trg_indexs : {trg_indexs}')
-                        print(f'captions : {captions}')
                         layer_names = atten_collection.keys()
                         map_dict = defaultdict(lambda : defaultdict(list))
                         for layer_name in layer_names:
@@ -926,19 +922,16 @@ class NetworkTrainer:
                                 if a_loss == 0 :
                                     print(f'layer_name : {layer_name}')
 
-                                    heat_map = _convert_heat_map_colors(heat_map)
-                                    heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                                    heat_map_img = Image.fromarray(heat_map)
-                                    heat_map_img.save(os.path.join(args.output_dir, f'check_heat_map_{layer_name}.png'))
+                                    #heat_map = _convert_heat_map_colors(heat_map)
+                                    #heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                                    #heat_map_img = Image.fromarray(heat_map)
+                                    #heat_map_img.save(os.path.join(args.output_dir, f'check_heat_map_{layer_name}.png'))
+                                    print(f'masked_attn_map : {masked_attn_map}')
 
-                                    masked_heat_map = _convert_heat_map_colors(masked_attn_map)
-                                    masked_heat_map = masked_heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                                    masked_heat_map_img = Image.fromarray(masked_heat_map)
-                                    masked_heat_map_img.save(os.path.join(args.output_dir, f'check_masked_heat_map_{layer_name}.png'))
-
-
-
-
+                                    #masked_heat_map = _convert_heat_map_colors(masked_attn_map)
+                                    #masked_heat_map = masked_heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                                    #masked_heat_map_img = Image.fromarray(masked_heat_map)
+                                    #masked_heat_map_img.save(os.path.join(args.output_dir, f'check_masked_heat_map_{layer_name}.png'))
                                 #a_loss.requires_grad = True
                                 #a_loss.requires_grad_(True)
                                 #accelerator.backward(a_loss)
