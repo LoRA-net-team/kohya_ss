@@ -1040,7 +1040,8 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                 if attn is not None:
                     hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
                                                                       hidden_states,
-                                                                      encoder_hidden_states )[0]
+                                                                      encoder_hidden_states,
+                                                                      **kwargs)[0]
                     hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet), hidden_states, temb)
             else:
                 if attn is not None:
@@ -1235,9 +1236,9 @@ class CrossAttnUpBlock2D(nn.Module):
                     return custom_forward
 
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet), hidden_states, temb)
-                hidden_states = torch.utils.checkpoint.checkpoint(
-                    create_custom_forward(attn, return_dict=False), hidden_states, encoder_hidden_states
-                )[0]
+                hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
+                                                                  hidden_states, encoder_hidden_states,
+                                                                  **kwargs)[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
