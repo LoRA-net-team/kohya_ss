@@ -789,7 +789,7 @@ class BasicTransformerBlock(nn.Module):
         self.attn1.set_use_sdpa(sdpa)
         self.attn2.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, context=None, timestep=None):
+    def forward(self, hidden_states, context=None, timestep=None,**kwargs):
         # 1. Self-Attention
         norm_hidden_states = self.norm1(hidden_states)
 
@@ -854,7 +854,7 @@ class Transformer2DModel(nn.Module):
         for transformer in self.transformer_blocks:
             transformer.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, encoder_hidden_states=None, timestep=None, return_dict: bool = True):
+    def forward(self, hidden_states, encoder_hidden_states=None, timestep=None, return_dict: bool = True,**kwargs):
         # 1. Input
         batch, _, height, weight = hidden_states.shape
         residual = hidden_states
@@ -1020,7 +1020,7 @@ class UNetMidBlock2DCrossAttn(nn.Module):
         for attn in self.attentions:
             attn.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, temb=None, encoder_hidden_states=None):
+    def forward(self, hidden_states, temb=None, encoder_hidden_states=None,**kwargs,):
         for i, resnet in enumerate(self.resnets):
             attn = None if i == 0 else self.attentions[i - 1]
 
@@ -1215,7 +1215,7 @@ class CrossAttnUpBlock2D(nn.Module):
         temb=None,
         encoder_hidden_states=None,
         upsample_size=None,
-    ):
+        **kwargs,):
         for resnet, attn in zip(self.resnets, self.attentions):
             # pop res hidden states
             res_hidden_states = res_hidden_states_tuple[-1]
@@ -1504,7 +1504,7 @@ class UNet2DConditionModel(nn.Module):
                 sample, res_samples = downsample_block(hidden_states=sample,
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
-                                                       mask=mask_img)
+                                                       mask=mask_imgs)
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
             down_block_res_samples += res_samples
@@ -1518,7 +1518,8 @@ class UNet2DConditionModel(nn.Module):
         # 4. mid
         sample = self.mid_block(sample,
                                 emb,
-                                encoder_hidden_states=encoder_hidden_states)
+                                encoder_hidden_states=encoder_hidden_states,
+                                mask=mask_imgs)
         # ControlNetの出力を追加する
         if mid_block_additional_residual is not None:
             sample += mid_block_additional_residual
@@ -1538,7 +1539,8 @@ class UNet2DConditionModel(nn.Module):
                                         temb=emb,
                                         res_hidden_states_tuple=res_samples,
                                         encoder_hidden_states=encoder_hidden_states, # text information
-                                        upsample_size=upsample_size,)                #
+                                        upsample_size=upsample_size,
+                                        mask=mask_imgs)                #
             else:
                 sample = upsample_block(hidden_states=sample,
                                         temb=emb,
