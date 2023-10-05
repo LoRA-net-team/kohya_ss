@@ -77,10 +77,6 @@ def register_attention_control(unet : nn.Module, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 factor = int(math.sqrt(512 // attention_probs.shape[1]))
-                #print(f'trg_indexs_list : {trg_indexs_list}')
-                #print(f'mask_imgs : {mask_imgs}')
-                #if attention_probs.shape[1] == 4096 :
-                #print(f'{layer_name} attention_probs.shape : {attention_probs.shape}')
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
@@ -928,27 +924,20 @@ class NetworkTrainer:
                             trg_size = heat_map.shape[0]
                             mask_dir = batch_mask_dirs[batch_index]
                             mask_img = get_cached_mask(mask_dir, trg_size)
-                            print(f'heat_map : {heat_map.shape} | mask_img : {mask_img.shape}')
-
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
-
-
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             #a_loss.requires_grad = True
-                            a_loss.requires_grad_(True)
-                            accelerator.backward(a_loss)
+                            #a_loss.requires_grad_(True)
+                            #accelerator.backward(a_loss)
                             attn_loss += a_loss
                     assert attn_loss != 0, "attn_loss is zero"
                     #attn_loss.requires_grad = True
-                    #loss = task_loss + attn_loss
-                    # --------------------------------------------------------------------------------------------------
-
+                    loss = task_loss + attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                     wandb_logs = {}
-
                     """
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if is_main_process:
