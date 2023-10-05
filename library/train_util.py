@@ -1184,7 +1184,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
                     # token_caption
                     #------------------------------------------------------------------------------------------
-                    def generate_text_embedding(prompt, tokenizer, text_encoder, batch):
+                    def generate_text_embedding(caption, tokenizer):
                         cls_token = 49406
                         pad_token = 49407
                         token_input = tokenizer([trg_concept],
@@ -1198,7 +1198,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 trg_token_id.append(token_id)
-                        text_input = tokenizer(captions,
+                        text_input = tokenizer(caption,
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
                                                truncation=True,
@@ -1210,7 +1210,11 @@ class BaseDataset(torch.utils.data.Dataset):
                             for i, id in enumerate(token_id):
                                 if id in trg_token_id:
                                     trg_indexs.append(i)
-                            trg_indexs_list.append(trg_indexs)
+                        return trg_indexs
+
+                    trg_indexs = generate_text_embedding(caption, self.tokenizer)
+                    trg_indexs_list.append(trg_indexs)
+                    
                     #------------------------------------------------------------------------------------------
 
 
