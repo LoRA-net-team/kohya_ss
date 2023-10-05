@@ -928,7 +928,11 @@ class NetworkTrainer:
                             trg_size = heat_map.shape[0]
                             mask_dir = batch_mask_dirs[batch_index]
                             mask_img = get_cached_mask(mask_dir, trg_size)
+                            print(f'heat_map : {heat_map.shape} | mask_img : {mask_img.shape}')
+
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
+
+
                             a_loss = F.mse_loss(masked_attn_map, heat_map)
                             #a_loss.requires_grad = True
                             a_loss.requires_grad_(True)
