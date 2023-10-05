@@ -908,6 +908,7 @@ class NetworkTrainer:
                                 word_map = global_heat_map[trg_index, :, :]
                                 word_map = expand_image(word_map, 512, 512)
                                 map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
+                    """
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
 
@@ -935,6 +936,7 @@ class NetworkTrainer:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                     wandb_logs = {}
+                    """
                     """
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if is_main_process:
