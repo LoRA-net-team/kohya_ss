@@ -71,15 +71,10 @@ def register_attention_control(unet : nn.Module, controller):
                                              query, key.transpose(-1, -2),beta=0,alpha=self.scale,)
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
-
-
-
-
-
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 factor = int(math.sqrt(512 // attention_probs.shape[1]))
-                print(f'{layer_name} attention_probs.shape : {attention_probs.shape}')
+                #print(f'{layer_name} attention_probs.shape : {attention_probs.shape}')
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
