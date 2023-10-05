@@ -1074,7 +1074,7 @@ class BaseDataset(torch.utils.data.Dataset):
             torch_img = torch.from_numpy(np_img)
             mask_img = torch.where(torch_img == 0, 0, 1)
             trg_concept = 'jw'
-            trg_concepts.append(trg_contept)
+            trg_concepts.append(trg_concept)
             mask_imgs.append(mask_img)
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
