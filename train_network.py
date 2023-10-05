@@ -914,6 +914,7 @@ class NetworkTrainer:
                                     word_map = global_heat_map[trg_index, :, :]
                                     map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
                         batch_mask_dirs = batch["mask_dirs"]
+
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
                             layer_dict = map_dict[batch_index]
@@ -930,7 +931,8 @@ class NetworkTrainer:
                                 #a_loss.requires_grad_(True)
                                 #accelerator.backward(a_loss)
                                 attn_loss += a_loss
-                        print(f'attn_loss : {attn_loss}')
+                        if attn_loss == 0 :
+                            print(f'batch_mask_dirs : {batch_mask_dirs}')
                         assert attn_loss != 0, "attn_loss is zero"
                         loss = task_loss + attn_loss
                     accelerator.backward(loss)
