@@ -919,7 +919,7 @@ class NetworkTrainer:
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
                                 #if a_loss == 0 :
                                 #    print(f'layer_name : {layer_name}')
-                                attn_loss += a_loss
+                                attn_loss = attn_loss + a_loss
                             attn_loss.requires_grad = True
                         if attn_loss == 0 :
                             print(f'batch_mask_dirs : {batch_mask_dirs}')
