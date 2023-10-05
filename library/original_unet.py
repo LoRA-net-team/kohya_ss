@@ -797,7 +797,7 @@ class BasicTransformerBlock(nn.Module):
 
         # 2. Cross-Attention
         norm_hidden_states = self.norm2(hidden_states)
-        hidden_states = self.attn2(norm_hidden_states, context=context) + hidden_states
+        hidden_states = self.attn2(norm_hidden_states, context=context,**kwargs) + hidden_states
 
         # 3. Feed-forward
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
@@ -960,7 +960,7 @@ class CrossAttnDownBlock2D(nn.Module):
                 )[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
-                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states).sample
+                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
 
             output_states += (hidden_states,)
 
@@ -1043,7 +1043,7 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet), hidden_states, temb)
             else:
                 if attn is not None:
-                    hidden_states = attn(hidden_states, encoder_hidden_states).sample
+                    hidden_states = attn(hidden_states, encoder_hidden_states,**kwargs).sample
                 hidden_states = resnet(hidden_states, temb)
 
         return hidden_states
@@ -1239,7 +1239,7 @@ class CrossAttnUpBlock2D(nn.Module):
                 )[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
-                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states).sample
+                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
 
         if self.upsamplers is not None:
             for upsampler in self.upsamplers:
@@ -1471,7 +1471,7 @@ class UNet2DConditionModel(nn.Module):
         mid_block_additional_residual: Optional[torch.Tensor] = None,
         trg_indexs_list=None,
         mask_imgs=None) -> Union[Dict, Tuple]:
-        print(f'in original unet, trg_indexs_list : {trg_indexs_list}')
+
 
         default_overall_up_factor = 2**self.num_upsamplers
         forward_upsample_size = False
