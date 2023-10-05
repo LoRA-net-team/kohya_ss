@@ -927,6 +927,8 @@ class NetworkTrainer:
                                 mask_img = get_cached_mask(mask_dir, trg_size)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 a_loss = F.mse_loss(masked_attn_map.sum(), heat_map.sum())
+                                if a_loss == 0 :
+                                    print(f'layer_name : {layer_name}')
                                 #a_loss.requires_grad = True
                                 #a_loss.requires_grad_(True)
                                 #accelerator.backward(a_loss)
