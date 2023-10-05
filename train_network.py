@@ -34,8 +34,8 @@ from utils import auto_autocast
 
 global_stored_masks = {}
 def get_cached_mask(mask_dir:str, trg_size):
-    if mask_dir in global_stored_masks:
-        return global_stored_masks[mask_dir]
+    #if mask_dir in global_stored_masks:
+    #    return global_stored_masks[mask_dir]
     pil_img = Image.open(mask_dir)
     pil_img = pil_img.resize((trg_size,trg_size))
     np_img = np.array(pil_img)
