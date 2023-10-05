@@ -960,6 +960,7 @@ class CrossAttnDownBlock2D(nn.Module):
                 )[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
+                print(f'in crossdownblock2d, kwargs: {kwargs}')
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
 
             output_states += (hidden_states,)
