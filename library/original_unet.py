@@ -954,7 +954,8 @@ class CrossAttnDownBlock2D(nn.Module):
                 def create_custom_forward(module, return_dict=None):
                     def custom_forward(*inputs):
                         if return_dict is not None:
-                            return module(*inputs, return_dict=return_dict)
+                            return module(*inputs, trg_indexs_list=trg_indexs_list, mask=mask,
+                                          return_dict=return_dict)
                         else:
                             return module(*inputs)
                     return custom_forward
@@ -1037,7 +1038,9 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                 def create_custom_forward(module, return_dict=None):
                     def custom_forward(*inputs):
                         if return_dict is not None:
-                            return module(*inputs, return_dict=return_dict)
+
+                            return module(*inputs, trg_indexs_list=trg_indexs_list, mask=mask,
+                                          return_dict=return_dict)
                         else:
                             return module(*inputs)
 
@@ -1235,20 +1238,22 @@ class CrossAttnUpBlock2D(nn.Module):
                 def create_custom_forward(module, return_dict=None):
                     def custom_forward(*inputs):
                         if return_dict is not None:
-                            return module(*inputs, return_dict=return_dict)
+                            return module(*inputs, trg_indexs_list=trg_indexs_list, mask=mask,
+                                          return_dict=return_dict)
                         else:
                             return module(*inputs)
 
                     return custom_forward
 
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet),
-                                                                  hidden_states, temb)
+                                                                  hidden_states, temb,
+                                                                  )
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
                                                                   hidden_states, encoder_hidden_states,
                                                                   )[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
-                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
+                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states).sample
 
         if self.upsamplers is not None:
             for upsampler in self.upsamplers:
