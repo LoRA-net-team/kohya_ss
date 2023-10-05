@@ -1484,7 +1484,6 @@ class UNet2DConditionModel(nn.Module):
         timesteps = self.handle_unusual_timesteps(sample, timesteps)  # 変な時だけ処理
         t_emb = self.time_proj(timesteps)
         t_emb = t_emb.to(dtype=self.dtype)
-
         emb = self.time_embedding(t_emb)
 
         # ------------------------------------------------------------------------------------------
@@ -1497,7 +1496,8 @@ class UNet2DConditionModel(nn.Module):
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
             if downsample_block.has_cross_attention:
-                sample, res_samples = downsample_block(hidden_states=sample,temb=emb,
+                sample, res_samples = downsample_block(hidden_states=sample,
+                                                       temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,)
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
