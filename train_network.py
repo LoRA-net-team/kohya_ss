@@ -52,8 +52,7 @@ def register_attention_control(unet : nn.Module, controller):
     """
 
     def ca_forward(self, layer_name):
-        def forward(hidden_states, context=None, trg_indexs_list=None, mask_imgs=None):
-            print(f'in register, trg_indexs_list : {trg_indexs_list}')
+        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
@@ -78,7 +77,11 @@ def register_attention_control(unet : nn.Module, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 factor = int(math.sqrt(512 // attention_probs.shape[1]))
+                print(f'CROSS ATTENTION, mask : {mask}')
                 attn = controller.store(attention_probs, layer_name)
+                #
+                #print(f'in register, trg_indexs_list : {trg_indexs_list}')
+
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)

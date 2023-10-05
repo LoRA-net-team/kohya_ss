@@ -789,9 +789,9 @@ class BasicTransformerBlock(nn.Module):
         self.attn1.set_use_sdpa(sdpa)
         self.attn2.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, context=None, timestep=None, trg_indexs_list=None,
+    def forward(self, hidden_states, context=None,
+                timestep=None, trg_indexs_list=None,
                 mask=None) :
-        print(f'in BasicTransformerBlock: trg_index = {trg_indexs_list}')
         # 1. Self-Attention
         norm_hidden_states = self.norm1(hidden_states)
 
@@ -799,7 +799,8 @@ class BasicTransformerBlock(nn.Module):
 
         # 2. Cross-Attention
         norm_hidden_states = self.norm2(hidden_states)
-        hidden_states = self.attn2(norm_hidden_states, context=context, trg_indexs_list=trg_indexs_list, mask=mask) + hidden_states
+        hidden_states = self.attn2(norm_hidden_states, context=context,
+                                   trg_indexs_list=trg_indexs_list, mask=mask) + hidden_states
 
         # 3. Feed-forward
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
