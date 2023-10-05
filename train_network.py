@@ -920,7 +920,7 @@ class NetworkTrainer:
                                 #if a_loss == 0 :
                                 #    print(f'layer_name : {layer_name}')
                                 attn_loss = attn_loss + a_loss
-                            attn_loss.requires_grad = True
+                            #attn_loss.requires_grad = True
                         if attn_loss == 0 :
                             print(f'batch_mask_dirs : {batch_mask_dirs}')
                         assert attn_loss != 0, "attn_loss is zero"

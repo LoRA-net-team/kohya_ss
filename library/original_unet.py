@@ -940,6 +940,7 @@ class CrossAttnDownBlock2D(nn.Module):
             attn.set_use_sdpa(sdpa)
 
     def forward(self, hidden_states, temb=None, encoder_hidden_states=None, **kwargs):
+        print(f'start of CrossAttnDownBlock2D')
         output_states = ()
 
         for resnet, attn in zip(self.resnets, self.attentions):
@@ -1502,6 +1503,7 @@ class UNet2DConditionModel(nn.Module):
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
             if downsample_block.has_cross_attention:
+                print(f'in unet, downsample_block : {downsample_block.__class__.__name__}')
                 sample, res_samples = downsample_block(hidden_states=sample,
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
