@@ -854,7 +854,10 @@ class Transformer2DModel(nn.Module):
         for transformer in self.transformer_blocks:
             transformer.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, encoder_hidden_states=None, timestep=None, return_dict: bool = True,**kwargs):
+    def forward(self, hidden_states, encoder_hidden_states=None, timestep=None, return_dict: bool = True,
+                **kwargs):
+
+        print(f'in Transformer2DModel :',  **kwargs)
         # 1. Input
         batch, _, height, weight = hidden_states.shape
         residual = hidden_states
