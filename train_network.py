@@ -41,7 +41,6 @@ def get_cached_mask(mask_dir:str):#, trg_size):
     np_img = np.array(pil_img)
     torch_img = torch.from_numpy(np_img)
     mask_img = torch.where(torch_img== 0, 0, 1)
-    print(f'mask_img (should be binary) : {mask_img}')
     global_stored_masks[mask_dir] = mask_img
     return mask_img
 
@@ -883,7 +882,6 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         trg_indexs = batch["trg_indexs_list"]
-                        print(f'trg_indexs : {trg_indexs}')
                         layer_names = atten_collection.keys()
                         map_dict = defaultdict(lambda : defaultdict(list))
                         for layer_name in layer_names:
@@ -905,7 +903,6 @@ class NetworkTrainer:
                                     word_map = global_heat_map[trg_index, :, :]
                                     map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
                         batch_mask_dirs = batch["mask_dirs"]
-
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
                             layer_dict = map_dict[batch_index]
@@ -915,30 +912,13 @@ class NetworkTrainer:
                                 heat_map = heat_map.mean(0)
                                 heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), size=(512,512), mode='bicubic')
 
-
-
                                 #trg_size = heat_map.shape[0]
                                 mask_dir = batch_mask_dirs[batch_index]
                                 mask_img = get_cached_mask(mask_dir)#, trg_size)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
-
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
-                                if a_loss == 0 :
-                                    print(f'layer_name : {layer_name}')
-
-                                    #heat_map = _convert_heat_map_colors(heat_map)
-                                    #heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                                    #heat_map_img = Image.fromarray(heat_map)
-                                    #heat_map_img.save(os.path.join(args.output_dir, f'check_heat_map_{layer_name}.png'))
-                                    print(f'masked_attn_map : {masked_attn_map}')
-
-                                    #masked_heat_map = _convert_heat_map_colors(masked_attn_map)
-                                    #masked_heat_map = masked_heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                                    #masked_heat_map_img = Image.fromarray(masked_heat_map)
-                                    #masked_heat_map_img.save(os.path.join(args.output_dir, f'check_masked_heat_map_{layer_name}.png'))
-                                #a_loss.requires_grad = True
-                                #a_loss.requires_grad_(True)
-                                #accelerator.backward(a_loss)
+                                #if a_loss == 0 :
+                                #    print(f'layer_name : {layer_name}')
                                 attn_loss += a_loss
                         if attn_loss == 0 :
                             print(f'batch_mask_dirs : {batch_mask_dirs}')
