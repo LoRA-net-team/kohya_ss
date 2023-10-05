@@ -1471,6 +1471,7 @@ class UNet2DConditionModel(nn.Module):
         mid_block_additional_residual: Optional[torch.Tensor] = None,
         trg_indexs_list=None,
         mask_imgs=None) -> Union[Dict, Tuple]:
+        print(f'in original unet, trg_indexs_list : {trg_indexs_list}')
 
         default_overall_up_factor = 2**self.num_upsamplers
         forward_upsample_size = False
