@@ -957,7 +957,7 @@ class CrossAttnDownBlock2D(nn.Module):
                                                                   hidden_states, temb)
                 print(f'attn : {attn.__class__.__name__}')
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
-                                                                  hidden_states, encoder_hidden_states, **kwargs)[0]
+                                                                  hidden_states, encoder_hidden_states)[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
@@ -1232,7 +1232,8 @@ class CrossAttnUpBlock2D(nn.Module):
 
                     return custom_forward
 
-                hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet), hidden_states, temb)
+                hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet),
+                                                                  hidden_states, temb)
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
                                                                   hidden_states, encoder_hidden_states,
                                                                   )[0]
@@ -1500,7 +1501,6 @@ class UNet2DConditionModel(nn.Module):
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
             if downsample_block.has_cross_attention:
-                print(f'in unet, downsample_block : {downsample_block.__class__.__name__}')
                 sample, res_samples = downsample_block(hidden_states=sample,
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
