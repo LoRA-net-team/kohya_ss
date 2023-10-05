@@ -41,6 +41,7 @@ def get_cached_mask(mask_dir:str, trg_size):
     np_img = np.array(pil_img)
     torch_img = torch.from_numpy(np_img)
     mask_img = torch.where(torch_img== 0, 0, 1)
+    print(f'mask_img (should be binary) : {mask_img}')
     global_stored_masks[mask_dir] = mask_img
     return mask_img
 
