@@ -859,7 +859,7 @@ class NetworkTrainer:
                                                     text_encoder_conds,
                                                     batch,
                                                     weight_dtype,
-                                                    batch['target_contepts'],
+                                                    batch['target_concepts'],
                                                     batch['mask_imgs'])
                         # -----------------------------------------------------------------------------------------------------------------------
 
