@@ -77,11 +77,11 @@ def register_attention_control(unet : nn.Module, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 factor = int(math.sqrt(512 // attention_probs.shape[1]))
-                print(f'trg_indexs_list : {trg_indexs_list}')
-                print(f'mask_imgs : {mask_imgs}')
-                if attention_probs.shape[1] == 4096 :
+                #print(f'trg_indexs_list : {trg_indexs_list}')
+                #print(f'mask_imgs : {mask_imgs}')
+                #if attention_probs.shape[1] == 4096 :
                 #print(f'{layer_name} attention_probs.shape : {attention_probs.shape}')
-                    attn = controller.store(attention_probs, layer_name)
+                attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -916,18 +916,16 @@ class NetworkTrainer:
                             global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
                             for trg_index in trg_index_list :
                                 word_map = global_heat_map[trg_index, :, :]
-                                word_map = expand_image(word_map, 512, 512)
                                 map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
-                    """
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
-
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
                         for layer_name in layer_dict.keys() :
                             map_list = layer_dict[layer_name]
                             heat_map = torch.stack(map_list, dim=0)
                             heat_map = heat_map.mean(0)
+                            print(f'{layer_name} heat_map shape : {heat_map.shape}')
                             mask_dir = batch_mask_dirs[batch_index]
                             mask_img = get_cached_mask(mask_dir)
                             masked_attn_map = heat_map * mask_img.to(heat_map.device)
@@ -946,7 +944,7 @@ class NetworkTrainer:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                     wandb_logs = {}
-                    """
+
                     """
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if is_main_process:
