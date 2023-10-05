@@ -789,8 +789,9 @@ class BasicTransformerBlock(nn.Module):
         self.attn1.set_use_sdpa(sdpa)
         self.attn2.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, context=None, timestep=None, **kwargs):
-        print(f'in BasicTransformerBlock: kwargs = {kwargs}')
+    def forward(self, hidden_states, context=None, timestep=None, trg_indexs_list=None,
+                mask=None) :
+        print(f'in BasicTransformerBlock: trg_index = {trg_indexs_list}')
         # 1. Self-Attention
         norm_hidden_states = self.norm1(hidden_states)
 
@@ -798,7 +799,7 @@ class BasicTransformerBlock(nn.Module):
 
         # 2. Cross-Attention
         norm_hidden_states = self.norm2(hidden_states)
-        hidden_states = self.attn2(norm_hidden_states, context=context, **kwargs) + hidden_states
+        hidden_states = self.attn2(norm_hidden_states, context=context, trg_indexs_list=trg_indexs_list, mask=mask) + hidden_states
 
         # 3. Feed-forward
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
@@ -856,9 +857,11 @@ class Transformer2DModel(nn.Module):
             transformer.set_use_sdpa(sdpa)
 
     def forward(self, hidden_states, encoder_hidden_states=None, timestep=None, return_dict: bool = True,
-                **kwargs):
 
-        print(f'in Transformer2DModel :',  **kwargs)
+                trg_indexs_list=None,
+                mask=None):
+
+        print(f'in Transformer2DModel trg_indexs_list :', trg_indexs_list)
         # 1. Input
         batch, _, height, weight = hidden_states.shape
         residual = hidden_states
@@ -875,7 +878,8 @@ class Transformer2DModel(nn.Module):
 
         # 2. Blocks
         for block in self.transformer_blocks:
-            hidden_states = block(hidden_states, context=encoder_hidden_states, timestep=timestep, **kwargs)
+            hidden_states = block(hidden_states, context=encoder_hidden_states, timestep=timestep,
+                                  trg_indexs_list=trg_indexs_list, mask=mask)
 
         # 3. Output
         if not self.use_linear_projection:
@@ -940,7 +944,9 @@ class CrossAttnDownBlock2D(nn.Module):
         for attn in self.attentions:
             attn.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, temb=None, encoder_hidden_states=None, **kwargs):
+    def forward(self, hidden_states, temb=None, encoder_hidden_states=None,
+        trg_indexs_list=None,
+        mask=None):
         output_states = ()
         for resnet, attn in zip(self.resnets, self.attentions):
             if self.training and self.gradient_checkpointing:
@@ -960,7 +966,7 @@ class CrossAttnDownBlock2D(nn.Module):
                                                                   hidden_states, encoder_hidden_states)[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
-                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,**kwargs).sample
+                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states).sample
 
             output_states += (hidden_states,)
 
@@ -1020,7 +1026,9 @@ class UNetMidBlock2DCrossAttn(nn.Module):
         for attn in self.attentions:
             attn.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, temb=None, encoder_hidden_states=None, **kwargs):
+    def forward(self, hidden_states, temb=None, encoder_hidden_states=None,
+                trg_indexs_list=None,
+                mask=None):
         for i, resnet in enumerate(self.resnets):
             attn = None if i == 0 else self.attentions[i - 1]
 
@@ -1042,7 +1050,7 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                     hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet), hidden_states, temb)
             else:
                 if attn is not None:
-                    hidden_states = attn(hidden_states, encoder_hidden_states,**kwargs).sample
+                    hidden_states = attn(hidden_states, encoder_hidden_states,).sample
                 hidden_states = resnet(hidden_states, temb)
 
         return hidden_states
@@ -1214,7 +1222,8 @@ class CrossAttnUpBlock2D(nn.Module):
         temb=None,
         encoder_hidden_states=None,
         upsample_size=None,
-        **kwargs,):
+        trg_indexs_list=None,
+        mask=None):
         for resnet, attn in zip(self.resnets, self.attentions):
             # pop res hidden states
             res_hidden_states = res_hidden_states_tuple[-1]
