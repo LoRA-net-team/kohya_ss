@@ -236,8 +236,8 @@ class NetworkTrainer:
         noise_pred = unet(noisy_latents,
                           timesteps,
                           text_conds,
-                          trg_indexs_list,
-                          mask_imgs).sample
+                          trg_indexs_list=trg_indexs_list,
+                          mask_imgs=mask_imgs,).sample
         return noise_pred
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,attention_storer):
