@@ -939,7 +939,8 @@ class CrossAttnDownBlock2D(nn.Module):
         for attn in self.attentions:
             attn.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, temb=None, encoder_hidden_states=None):
+    def forward(self, hidden_states, temb=None, encoder_hidden_states=None,
+                **kwargs):
         output_states = ()
 
         for resnet, attn in zip(self.resnets, self.attentions):
@@ -1020,7 +1021,7 @@ class UNetMidBlock2DCrossAttn(nn.Module):
         for attn in self.attentions:
             attn.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, temb=None, encoder_hidden_states=None,**kwargs,):
+    def forward(self, hidden_states, temb=None, encoder_hidden_states=None, **kwargs):
         for i, resnet in enumerate(self.resnets):
             attn = None if i == 0 else self.attentions[i - 1]
 
