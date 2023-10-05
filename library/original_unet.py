@@ -624,8 +624,7 @@ class CrossAttention(nn.Module):
             query,
             key.transpose(-1, -2),
             beta=0,
-            alpha=self.scale,
-        )
+            alpha=self.scale,)
         attention_probs = attention_scores.softmax(dim=-1)
 
         # cast back to the original dtype
@@ -1470,7 +1469,8 @@ class UNet2DConditionModel(nn.Module):
         return_dict: bool = True,
         down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
-    ) -> Union[Dict, Tuple]:
+        mask_imgs=None) -> Union[Dict, Tuple]:
+
         default_overall_up_factor = 2**self.num_upsamplers
         forward_upsample_size = False
         upsample_size = None
@@ -1491,6 +1491,11 @@ class UNet2DConditionModel(nn.Module):
         sample = self.conv_in(sample)
 
         # ------------------------------------------------------------------------------------------
+        # 2.1 mask image
+
+
+
+        # ------------------------------------------------------------------------------------------
         # 3. down
         # encoder_hidden_states = [4,277,768]
         down_block_res_samples = (sample,)
@@ -1498,7 +1503,8 @@ class UNet2DConditionModel(nn.Module):
             if downsample_block.has_cross_attention:
                 sample, res_samples = downsample_block(hidden_states=sample,
                                                        temb=emb,
-                                                       encoder_hidden_states=encoder_hidden_states,)
+                                                       encoder_hidden_states=encoder_hidden_states,
+                                                       mask=mask_img)
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
             down_block_res_samples += res_samples

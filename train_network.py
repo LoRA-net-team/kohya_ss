@@ -224,8 +224,14 @@ class NetworkTrainer:
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         return encoder_hidden_states
 
-    def call_unet(self, args, accelerator, unet, noisy_latents, timesteps, text_conds, batch, weight_dtype):
-        noise_pred = unet(noisy_latents, timesteps, text_conds).sample
+    def call_unet(self,
+                  args, accelerator, unet,
+                  noisy_latents, timesteps,
+                  text_conds, batch, weight_dtype,mask_imgs):
+        noise_pred = unet(noisy_latents,
+                          timesteps,
+                          text_conds,
+                          mask_imgs).sample
         return noise_pred
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,attention_storer):
@@ -831,15 +837,34 @@ class NetworkTrainer:
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler, latents)
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
+                                                                                                       noise_scheduler,
+                                                                                                       latents)
                     # batch number of timesteps
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator,
+                        # -----------------------------------------------------------------------------------------------------------------------
+                        noise_pred = self.call_unet(args,
+                                                    accelerator,
                                                     unet,
-                                                    noisy_latents,timesteps,
-                                                    text_encoder_conds, batch, weight_dtype)
+                                                    noisy_latents,
+                                                    timesteps,
+                                                    text_encoder_conds,
+                                                    batch,
+                                                    weight_dtype,
+                                                    batch['mask_imgs'])
+                        # -----------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()
                         attention_storer.step_store = {}
@@ -885,6 +910,7 @@ class NetworkTrainer:
                                 map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
                     batch_mask_dirs = batch["mask_dirs"]
                     attn_loss = 0
+
                     for batch_index in map_dict.keys() :
                         layer_dict = map_dict[batch_index]
                         for layer_name in layer_dict.keys() :
@@ -900,7 +926,7 @@ class NetworkTrainer:
                             accelerator.backward(a_loss)
                             attn_loss += a_loss
                     assert attn_loss != 0, "attn_loss is zero"
-                    attn_loss.requires_grad = True
+                    #attn_loss.requires_grad = True
                     #loss = task_loss + attn_loss
                     # --------------------------------------------------------------------------------------------------
 

@@ -1058,19 +1058,22 @@ class BaseDataset(torch.utils.data.Dataset):
         text_encoder_outputs2_list = []
         text_encoder_pool2_list = []
         absolute_paths = []
-        mask_dirs = []
+        mask_imgs = []
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
             absolute_paths.append(absolute_path)
-
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
             mask_base_dir = base_mask_base_dir
 
             mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
-            mask_dirs.append(mask_dir)
+            mas_img = Image.open(mask_dir)
+            np_img = np.array(mas_img.resize((512, 512)))
+            torch_img = torch.from_numpy(np_img)
+            mask_img = torch.where(torch_img == 0, 0, 1)
 
+            mask_imgs.append(mask_img)
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
@@ -1189,7 +1192,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
         example = {}
         example["absolute_paths"] = absolute_paths
-        example["mask_dirs"] = mask_dirs
+        example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
 
         if len(text_encoder_outputs1_list) == 0:
@@ -1783,24 +1786,17 @@ class ControlNetDataset(BaseDataset):
 
     def __getitem__(self, index):
         example = self.dreambooth_dataset_delegate[index]
-
-        bucket = self.dreambooth_dataset_delegate.bucket_manager.buckets[
-            self.dreambooth_dataset_delegate.buckets_indices[index].bucket_index
-        ]
+        bucket = self.dreambooth_dataset_delegate.bucket_manager.buckets[self.dreambooth_dataset_delegate.buckets_indices[index].bucket_index]
         bucket_batch_size = self.dreambooth_dataset_delegate.buckets_indices[index].bucket_batch_size
         image_index = self.dreambooth_dataset_delegate.buckets_indices[index].batch_index * bucket_batch_size
-
         conditioning_images = []
-
         for i, image_key in enumerate(bucket[image_index : image_index + bucket_batch_size]):
             image_info = self.dreambooth_dataset_delegate.image_data[image_key]
-
             target_size_hw = example["target_sizes_hw"][i]
             original_size_hw = example["original_sizes_hw"][i]
             crop_top_left = example["crop_top_lefts"][i]
             flipped = example["flippeds"][i]
             cond_img = load_image(image_info.cond_img_path)
-
             if self.dreambooth_dataset_delegate.enable_bucket:
                 assert (
                     cond_img.shape[0] == original_size_hw[0] and cond_img.shape[1] == original_size_hw[1]
