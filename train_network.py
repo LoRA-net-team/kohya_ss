@@ -54,7 +54,7 @@ def register_attention_control(unet : nn.Module, controller):
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, **kwargs):
             #trg_indexs_list=None, mask_imgs=None):
-            
+
             print(f'in register, **kwargs: {kwargs}')
             is_cross_attention = False
             if context is not None:

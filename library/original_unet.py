@@ -957,6 +957,7 @@ class CrossAttnDownBlock2D(nn.Module):
 
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet),
                                                                   hidden_states, temb)
+                print(f'attn : {attn.__class__.__name__}')
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
                                                                   hidden_states, encoder_hidden_states, **kwargs)[0]
             else:
