@@ -227,10 +227,13 @@ class NetworkTrainer:
     def call_unet(self,
                   args, accelerator, unet,
                   noisy_latents, timesteps,
-                  text_conds, batch, weight_dtype,mask_imgs):
+                  text_conds, batch, weight_dtype,
+                  target_contepts,
+                  mask_imgs):
         noise_pred = unet(noisy_latents,
                           timesteps,
                           text_conds,
+                          target_contepts,
                           mask_imgs).sample
         return noise_pred
 
@@ -837,6 +840,9 @@ class NetworkTrainer:
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
+                            trg_contepts = batch['trg_concepts']
+                            trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
+
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
                                                                                                        noise_scheduler,
                                                                                                        latents)
@@ -853,6 +859,7 @@ class NetworkTrainer:
                                                     text_encoder_conds,
                                                     batch,
                                                     weight_dtype,
+                                                    batch['target_contepts'],
                                                     batch['mask_imgs'])
                         # -----------------------------------------------------------------------------------------------------------------------
 

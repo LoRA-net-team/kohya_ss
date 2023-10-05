@@ -1470,6 +1470,7 @@ class UNet2DConditionModel(nn.Module):
         return_dict: bool = True,
         down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
+        target_contepts=None,
         mask_imgs=None) -> Union[Dict, Tuple]:
 
         default_overall_up_factor = 2**self.num_upsamplers
@@ -1505,6 +1506,7 @@ class UNet2DConditionModel(nn.Module):
                 sample, res_samples = downsample_block(hidden_states=sample,
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
+                                                       target_contepts=target_contepts,
                                                        mask=mask_imgs)
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
@@ -1520,6 +1522,7 @@ class UNet2DConditionModel(nn.Module):
         sample = self.mid_block(sample,
                                 emb,
                                 encoder_hidden_states=encoder_hidden_states,
+                                target_contepts=target_contepts,
                                 mask=mask_imgs)
         # ControlNetの出力を追加する
         if mid_block_additional_residual is not None:
@@ -1541,6 +1544,7 @@ class UNet2DConditionModel(nn.Module):
                                         res_hidden_states_tuple=res_samples,
                                         encoder_hidden_states=encoder_hidden_states, # text information
                                         upsample_size=upsample_size,
+                                        target_contepts=target_contepts,
                                         mask=mask_imgs)                #
             else:
                 sample = upsample_block(hidden_states=sample,

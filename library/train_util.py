@@ -1059,6 +1059,7 @@ class BaseDataset(torch.utils.data.Dataset):
         text_encoder_pool2_list = []
         absolute_paths = []
         mask_imgs = []
+        trg_concepts = []
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
@@ -1072,7 +1073,8 @@ class BaseDataset(torch.utils.data.Dataset):
             np_img = np.array(mas_img.resize((512, 512)))
             torch_img = torch.from_numpy(np_img)
             mask_img = torch.where(torch_img == 0, 0, 1)
-
+            trg_concept = 'jw'
+            trg_concepts.append(trg_contept)
             mask_imgs.append(mask_img)
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
@@ -1191,6 +1193,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         input_ids2_list.append(token_caption2)
 
         example = {}
+        example["trg_concepts"] = trg_concepts
         example["absolute_paths"] = absolute_paths
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
