@@ -44,6 +44,8 @@ def get_cached_mask(mask_dir:str):
     global_stored_masks[mask_dir] = mask_img
     return mask_img
 
+factors = {0, 1, 2, 4, 8, 16, 32, 64}
+
 def register_attention_control(unet : nn.Module, controller):
     """
     Register cross attention layers to controller.
@@ -77,7 +79,7 @@ def register_attention_control(unet : nn.Module, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 factor = int(math.sqrt(512 // attention_probs.shape[1]))
-                print(f'{layer_name} factor : {factor}')
+                print(f'{layer_name} attention_probs.shape : {attention_probs.shape}')
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
