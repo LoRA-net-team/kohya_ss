@@ -1267,6 +1267,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
         example["images"] = images
         example["latents"] = torch.stack(latents_list) if latents_list[0] is not None else None
+        print(f'in getitem, captions : {captions}')
         example["captions"] = captions
         example["original_sizes_hw"] = torch.stack([torch.LongTensor(x) for x in original_sizes_hw])
         example["crop_top_lefts"] = torch.stack([torch.LongTensor(x) for x in crop_top_lefts])
