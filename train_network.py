@@ -94,11 +94,11 @@ def register_attention_control(unet : nn.Module, controller):
                             res = int(math.sqrt(word_heat_map.shape[1]))
 
                             m = mask[batch_idx].to(word_heat_map.dtype) # (512,512)
-                            print(f'mask : {m}')
                             m = F.interpolate(m.unsqueeze(0).unsqueeze(0),
                                               size=((res, res)),
                                               mode='bicubic')
                             print(f'after interpolate, mask : {m.shape}')
+                            m = m.squeeze(0)
                             m = m.repeat(head_num, res, res)
                             m = m.reshape(-1, res*res)
                             attention_prob[:, :, word_idx] = attention_prob[:, :, word_idx] * m
