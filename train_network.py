@@ -109,7 +109,7 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
-                            attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
+                            attn_loss = F.mse_loss(word_heat_map.sum(), masked_heat_map.sum())
                             controller.store(attn_loss, layer_name)
                     """
                     # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
@@ -998,6 +998,7 @@ class NetworkTrainer:
                         assert attn_loss != 0, "attn_loss is zero"
 
                         attn_loss.requires_grad = True
+                        print(f'attn_loss : {attn_loss}')
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     #print(f'attn_loss : {attn_loss} | task_loss : {task_loss} | total_loss : {loss}')
