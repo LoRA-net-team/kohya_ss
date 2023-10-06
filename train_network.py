@@ -76,11 +76,19 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
-                factor = int(math.sqrt(512 // attention_probs.shape[1]))
-                print(f'CROSS ATTENTION, mask : {mask}')
-                attn = controller.store(attention_probs, layer_name)
-                #
-                #print(f'in register, trg_indexs_list : {trg_indexs_list}')
+                print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape}')
+                """
+                res = int(math.sqrt(attention_probs.shape[1]))
+                trg_indexs = torch.Tensor(trg_indexs_list)
+                heat_map = attention_probs.mean(0)
+                heat_map = heat_map[:, trg_indexs, :]
+                heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), size=(512,512), mode='bicubic')
+
+                mask = torch.stack(mask, dim=0)
+                masked_attn_map = heat_map * mask.to(heat_map.device)
+                a_loss = F.mse_loss(masked_attn_map, heat_map)
+                controller.store(a_loss, layer_name)
+                """
 
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
