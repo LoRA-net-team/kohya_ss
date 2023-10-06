@@ -82,7 +82,7 @@ def register_attention_control(unet : nn.Module, controller):
                     #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
-    
+
                     batch_heat_maps = []
                     #attn_loss_list = []
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
@@ -925,17 +925,13 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        #trg_indexs = batch["trg_indexs_list"]
                         layer_names = atten_collection.keys()
-                        #map_dict = defaultdict(lambda : defaultdict(list))
-                        attn_loss = 0#torch.tensors(0)
+                        attn_loss = 0
                         for layer_name in layer_names:
-                            loss_list = atten_collection[layer_name] # just one map element
-                            attn_loss = attn_loss + sum(loss_list)
+                            attn_loss = attn_loss + sum(atten_collection[layer_name])
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
                             #print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
-
                             """
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                             attns = attns.squeeze(0)
