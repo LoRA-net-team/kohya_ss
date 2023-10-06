@@ -1190,16 +1190,19 @@ class BaseDataset(torch.utils.data.Dataset):
                     def generate_text_embedding(caption, tokenizer):
                         cls_token = 49406
                         pad_token = 49407
+                        print(f'trg_concept : {trg_concept}')
                         token_input = tokenizer([trg_concept],
                                                 padding="max_length",
                                                 max_length=tokenizer.model_max_length,
                                                 truncation=True,
                                                 return_tensors="pt", )
+                        print(f'token_input : {token_input}')
                         token_ids = token_input.input_ids[0]
                         token_attns = token_input.attention_mask[0]
                         trg_token_id = []
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
+                                print(f'token_id : {token_id}')
                                 trg_token_id.append(token_id)
                         text_input = tokenizer(caption,
                                                padding="max_length",
@@ -1216,6 +1219,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         return trg_indexs
 
                     trg_indexs = generate_text_embedding(caption, self.tokenizers[0])
+
                     trg_indexs_list.append(trg_indexs)
 
                     #------------------------------------------------------------------------------------------
