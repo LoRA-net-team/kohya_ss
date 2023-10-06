@@ -59,8 +59,6 @@ def register_attention_control(unet : nn.Module, controller):
             query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
-            if is_cross_attention:
-                print(f'layer_name: {layer_name}, key : {key.shape}')
             value = self.to_v(context)
 
             query = self.reshape_heads_to_batch_dim(query)
@@ -91,10 +89,7 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
                             attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
-                            controller.store(attn_loss, layer_name )
-                            #auto_grad = torch.autograd.grad(masked_heat_map, word_heat_map, retain_graph=True,create_graph=True)[0]
-                            #print(f'auto_grad : {auto_grad}')
-
+                            controller.store(attn_loss, layer_name)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)

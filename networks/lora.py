@@ -164,15 +164,6 @@ class LoRAModule(torch.nn.Module):
         else:
             scale = self.scale
         lx = self.lora_up(lx)
-        """
-        if self.lora_middle :
-            lx_1 = self.lora_down(x)
-            lx_2 = self.lora_middle(x)
-            lx_3 = self.lora_up(x)
-            lx = torch.cat([lx_1, lx_2, lx_3], axis=1)
-        """
-        if 'attn2_to_k' in self.lora_name:
-            print(f'{self.lora_name} : lx : {lx.shape}')
         return org_forwarded + lx * self.multiplier * scale
 
 
