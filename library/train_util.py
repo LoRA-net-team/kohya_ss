@@ -1195,15 +1195,15 @@ class BaseDataset(torch.utils.data.Dataset):
                                                 padding="max_length",
                                                 max_length=tokenizer.model_max_length,
                                                 truncation=True,
-                                                return_tensors="pt", )
-                        print(f'token_input : {token_input}')
+                                                return_tensors="pt", ) # token_input = 24215
                         token_ids = token_input.input_ids[0]
                         token_attns = token_input.attention_mask[0]
                         trg_token_id = []
                         for token_id, token_attn in zip(token_ids, token_attns):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
-                                print(f'token_id : {token_id}')
+                                # token_id = 24215
                                 trg_token_id.append(token_id)
+                        print(f'caption : {caption}')
                         text_input = tokenizer(caption,
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
@@ -1212,6 +1212,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         token_ids = text_input.input_ids
                         attns = text_input.attention_mask
                         for token_id, attn in zip(token_ids, attns):
+                            print(f'token_id : {token_id}')
                             trg_indexs = []
                             for i, id in enumerate(token_id):
                                 if id in trg_token_id:
