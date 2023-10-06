@@ -896,7 +896,7 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
-
+                        print(f'attn_loss : {attn_loss}')
                         attn_loss.requires_grad = True
                         loss = task_loss + attn_loss
 
