@@ -77,6 +77,7 @@ def register_attention_control(unet : nn.Module, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 if trg_indexs_list is not None:
+                    print(f'query : {query.shape}')
                     # attention_probs = batch*head, pix_len, sen_len
                     trg_indexs = trg_indexs_list
                     #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
