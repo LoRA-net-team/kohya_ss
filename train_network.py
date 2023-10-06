@@ -81,9 +81,9 @@ def register_attention_control(unet : nn.Module, controller):
                 print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
                 batch_num = len(trg_indexs)
                 batch_heat_maps = []
-                for batch_idx in range(batch_num):
+                for batch_idx, batch_trg_index in enumerate(trg_indexs):
                     word_heat_maps = []
-                    for word_idx in batch_idx :
+                    for word_idx in batch_trg_index :
                         word_heat_map = attention_probs[batch_idx, word_idx, :]
                         word_heat_maps.append(word_heat_maps)
                     batch_heat_maps.append(word_heat_maps)
