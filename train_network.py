@@ -927,9 +927,12 @@ class NetworkTrainer:
                         #trg_indexs = batch["trg_indexs_list"]
                         layer_names = atten_collection.keys()
                         #map_dict = defaultdict(lambda : defaultdict(list))
+                        attn_loss = torch.tensors(0)
                         for layer_name in layer_names:
                             loss_list = atten_collection[layer_name] # just one map element
-                            print(f"layer_name : {layer_name} : loss_list : {loss_list}")
+                            for loss in loss_list :
+                                attn_loss = attn_loss + loss
+                            print(f"layer_name : {layer_name} : attn_loss : {attn_loss}")
 
                             """
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
