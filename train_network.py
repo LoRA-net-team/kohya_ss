@@ -954,6 +954,8 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
+                            attn_loss_list = atten_collection[layer_name]
+                            print(f'attn_loss_list : {attn_loss_list}')
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
