@@ -128,7 +128,7 @@ def register_attention_control(unet : nn.Module, controller):
                     # batch_heat_maps = torch.Tensor(batch_heat_maps)
                     # print(f'batch_heat_maps : {batch_heat_maps}')
                     # word_heat_map = attention_probs[batch_idx, trg_indexs, : ]
-                    """
+                    
                     res = int(math.sqrt(attention_probs.shape[1]))
 
                     heat_map = attention_probs.mean(0)
