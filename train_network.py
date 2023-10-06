@@ -59,6 +59,8 @@ def register_attention_control(unet : nn.Module, controller):
             query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
+            if is_cross_attention:
+                print(f'layer_name: {layer_name}, key : {key.shape}')
             value = self.to_v(context)
 
             query = self.reshape_heads_to_batch_dim(query)
