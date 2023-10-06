@@ -927,7 +927,6 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         # -----------------------------------------------------------------------------------------------------------------------
                         atten_collection = attention_storer.step_store
-                        print(f'atten_collection : {atten_collection}')
                         attention_storer.reset()
                         attention_storer.step_store = {}
                     if args.v_parameterization:
@@ -1000,10 +999,9 @@ class NetworkTrainer:
                         assert attn_loss != 0, "attn_loss is zero"
                         #loss = task_loss + attn_loss
                         attn_loss.requires_grad = True
-                        #loss = task_loss + attn_loss
-                        loss = attn_loss
-                        print(f'attn_loss : {attn_loss}')
-                    print(f'loss : {loss}')
+                        loss = task_loss + attn_loss
+                        #loss = attn_loss
+                    print(f'attn_loss : {attn_loss} | task_loss : {task_loss} | total_loss : {loss}')
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
