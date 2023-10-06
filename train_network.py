@@ -76,50 +76,51 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
-                # attention_probs = batch*head, pix_len, sen_len
-                trg_indexs = trg_indexs_list
-                #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
-                batch_num = len(trg_indexs)
-                attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
-
-                batch_heat_maps = []
-                #attn_loss_list = []
-                for batch_idx, attention_prob in enumerate(attention_probs_batch) :
-                    word_heat_maps = []
-                    batch_trg_index = trg_indexs[batch_idx] # two times
-                    for word_idx in batch_trg_index :
-                        word_heat_map = attention_prob[:, :, word_idx]
-                        res = int(math.sqrt(word_heat_map.shape[1]))
-                        word_heat_map = word_heat_map.reshape(-1, res, res)
-                        word_heat_maps.append(word_heat_map)
-                    word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
-                    #print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
-                    word_heat_maps = word_heat_maps.mean(0)
-                    #print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
-                    word_heat_maps = F.interpolate(word_heat_maps.unsqueeze(0).unsqueeze(0), size=((512, 512)), mode='bicubic')
-                    word_heat_maps = word_heat_maps.squeeze()
-                    masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
-                    #print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
-                    attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
-                    #attn_loss_list.append(attn_loss)
-                    controller.store(attn_loss, layer_name)
-                #batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
-                #print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
-                #batch_heat_maps = torch.Tensor(batch_heat_maps)
-                #print(f'batch_heat_maps : {batch_heat_maps}')
-                #word_heat_map = attention_probs[batch_idx, trg_indexs, :]
-                """
-                res = int(math.sqrt(attention_probs.shape[1]))
-                
-                heat_map = attention_probs.mean(0)
-                heat_map = heat_map[:, trg_indexs, :]
-                heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), size=(512,512), mode='bicubic')
-
-                mask = torch.stack(mask, dim=0)
-                masked_attn_map = heat_map * mask.to(heat_map.device)
-                a_loss = F.mse_loss(masked_attn_map, heat_map)
-                controller.store(a_loss, layer_name)
-                """
+                if trg_indexs_list is not None:
+                    # attention_probs = batch*head, pix_len, sen_len
+                    trg_indexs = trg_indexs_list
+                    #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
+                    batch_num = len(trg_indexs)
+                    attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
+    
+                    batch_heat_maps = []
+                    #attn_loss_list = []
+                    for batch_idx, attention_prob in enumerate(attention_probs_batch) :
+                        word_heat_maps = []
+                        batch_trg_index = trg_indexs[batch_idx] # two times
+                        for word_idx in batch_trg_index :
+                            word_heat_map = attention_prob[:, :, word_idx]
+                            res = int(math.sqrt(word_heat_map.shape[1]))
+                            word_heat_map = word_heat_map.reshape(-1, res, res)
+                            word_heat_maps.append(word_heat_map)
+                        word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
+                        #print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
+                        word_heat_maps = word_heat_maps.mean(0)
+                        #print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
+                        word_heat_maps = F.interpolate(word_heat_maps.unsqueeze(0).unsqueeze(0), size=((512, 512)), mode='bicubic')
+                        word_heat_maps = word_heat_maps.squeeze()
+                        masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
+                        #print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
+                        attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
+                        #attn_loss_list.append(attn_loss)
+                        controller.store(attn_loss, layer_name)
+                    #batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
+                    #print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
+                    #batch_heat_maps = torch.Tensor(batch_heat_maps)
+                    #print(f'batch_heat_maps : {batch_heat_maps}')
+                    #word_heat_map = attention_probs[batch_idx, trg_indexs, :]
+                    """
+                    res = int(math.sqrt(attention_probs.shape[1]))
+                    
+                    heat_map = attention_probs.mean(0)
+                    heat_map = heat_map[:, trg_indexs, :]
+                    heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), size=(512,512), mode='bicubic')
+    
+                    mask = torch.stack(mask, dim=0)
+                    masked_attn_map = heat_map * mask.to(heat_map.device)
+                    a_loss = F.mse_loss(masked_attn_map, heat_map)
+                    controller.store(a_loss, layer_name)
+                    """
 
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
