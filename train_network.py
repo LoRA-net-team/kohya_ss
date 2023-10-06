@@ -95,8 +95,8 @@ def register_attention_control(unet : nn.Module, controller):
                     print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
                     word_heat_maps = word_heat_maps.mean(0)
                     print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
-                    word_heat_maps = F.interpolate(word_heat_maps, size=(512, 512), mode='bicubic')
-
+                    word_heat_maps = F.interpolate(word_heat_maps.unsqueeze(0).unsqueeze(0), size=((512, 512)), mode='bicubic')
+                    word_heat_maps = word_heat_maps.squeeze()
                     masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
                     print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
                     batch_heat_maps.append(word_heat_maps)
