@@ -102,8 +102,17 @@ def register_attention_control(unet : nn.Module, controller):
                         masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
                         #print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
                         attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
+
+                        self.to_q.requires_grad = True
+                        self.to_k.requires_grad = True
+                        optimizer = args.optimizer_type([self.to_q, self.to_k], lr=1e-2 )
+                        optimizer.zero_grad()
+                        attn_loss.backward()
+
+
+
                         #attn_loss_list.append(attn_loss)
-                        controller.store(attn_loss, layer_name)
+                        #controller.store(attn_loss, layer_name)
                     #batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
                     #print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
                     #batch_heat_maps = torch.Tensor(batch_heat_maps)
@@ -923,6 +932,7 @@ class NetworkTrainer:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
+                    """
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         layer_names = atten_collection.keys()
@@ -932,7 +942,7 @@ class NetworkTrainer:
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
                             #print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
-                            """
+                            
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                             attns = attns.squeeze(0)
                             batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
@@ -949,8 +959,8 @@ class NetworkTrainer:
                                 for trg_index in trg_index_list :
                                     word_map = global_heat_map[trg_index, :, :]
                                     map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
-                            """
-                        """
+                            
+                        
                         batch_mask_dirs = batch["mask_dirs"]
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
@@ -974,10 +984,11 @@ class NetworkTrainer:
                         if attn_loss == 0 :
                             print(f'batch_mask_dirs : {batch_mask_dirs}')
                         assert attn_loss != 0, "attn_loss is zero"
-                        """
+                        
                         #loss = task_loss + attn_loss
                         attn_loss.requires_grad = True
                         loss = task_loss + attn_loss
+                    """
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
