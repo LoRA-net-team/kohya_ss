@@ -954,6 +954,7 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             attn_loss_list = atten_collection[layer_name]
                             a_l = sum(atten_collection[layer_name])
+                            a_l.requires_grad = True
                             accelerator.backward(a_l)
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
