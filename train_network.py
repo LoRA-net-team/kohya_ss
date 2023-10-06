@@ -106,14 +106,10 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = F.interpolate(mask_.unsqueeze(0).unsqueeze(0),size=((res, res)), mode='bicubic').squeeze()
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
-
                             masked_heat_map = word_heat_map * mask_
-
                             attn_loss = F.mse_loss(word_heat_maps, masked_heat_map)
+                            print(f'attn_loss (in cross attention module) : {attn_loss}')
                             controller.store(attn_loss, layer_name)
-
-
-
                     """
                     # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
                     # print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
@@ -930,6 +926,7 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         # -----------------------------------------------------------------------------------------------------------------------
                         atten_collection = attention_storer.step_store
+                        print(f'atten_collection : {atten_collection}')
                         attention_storer.reset()
                         attention_storer.step_store = {}
                     if args.v_parameterization:
