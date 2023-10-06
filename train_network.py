@@ -109,9 +109,9 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
-                            attention_prob[:, :, word_idx] = masked_heat_map
-                            #attn_loss = F.mse_loss(word_heat_map.sum(), masked_heat_map.sum())
-                            #controller.store(attn_loss, layer_name)
+                            #attention_prob[:, :, word_idx] = masked_heat_map
+                            attn_loss = F.mse_loss(word_heat_map.sum(), masked_heat_map.sum())
+                            controller.store(attn_loss, layer_name)
                     """
                     # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
                     # print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
@@ -947,17 +947,18 @@ class NetworkTrainer:
                     task_loss = loss
 
                     # ------------------------------------------------------------------------------------
-                    """
+
                     if args.heatmap_loss :
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
                             attn_loss_list = atten_collection[layer_name]
-                            attn_loss = attn_loss + sum(atten_collection[layer_name])
+                            a_l = sum(atten_collection[layer_name])
+                            accelerator.backward(a_l)
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
                             #print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
-                            
+                    """
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                             attns = attns.squeeze(0)
                             batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
