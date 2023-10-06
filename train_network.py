@@ -76,6 +76,7 @@ def register_attention_control(unet : nn.Module, controller):
                 print(f'collecting attntion')
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
+                    print(f'trg_indexs : {trg_indexs}')
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
