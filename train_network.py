@@ -977,7 +977,7 @@ class NetworkTrainer:
                         """
                         #loss = task_loss + attn_loss
                         attn_loss.requires_grad = True
-                        loss = attn_loss
+                        loss = task_loss + attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
