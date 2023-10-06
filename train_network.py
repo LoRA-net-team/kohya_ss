@@ -90,9 +90,6 @@ def register_attention_control(unet : nn.Module, controller):
 
             if is_cross_attention:
                 if trg_indexs_list is not None:
-                    attention_probs = attention_probs * 2
-                    """
-                    print(f'query : {query.shape}')
                     # attention_probs = batch*head, pix_len, sen_len
                     trg_indexs = trg_indexs_list
                     #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
@@ -108,7 +105,6 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = F.interpolate(mask_.unsqueeze(0).unsqueeze(0),size=((res, res)), mode='bicubic').squeeze()
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
-
                             org = attention_prob[:, :, word_idx].detach().clone()
                             print(f'org : {org.shape} | mask_ : {mask_.shape}')
                             attention_prob[:, :, word_idx] = org + mask_
