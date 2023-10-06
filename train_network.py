@@ -90,11 +90,13 @@ def register_attention_control(unet : nn.Module, controller):
                         word_heat_map = attention_prob[:, :, word_idx]
                         res = int(math.sqrt(word_heat_map.shape[1]))
                         word_heat_map = word_heat_map.reshape(-1, res, res)
-                        print(f'word_heat_map : {word_heat_map.shape}')
                         word_heat_maps.append(word_heat_map)
                     word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
                     word_heat_maps = word_heat_maps.mean(0)
-                    print(f'word_heat_maps (res,res): {word_heat_maps.shape}')
+                    word_heat_maps = F.interpolate(word_heat_maps, size=(512, 512), mode='bicubic')
+
+                    masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
+                    print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
                     batch_heat_maps.append(word_heat_maps)
                 batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
                 print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
