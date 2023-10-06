@@ -76,10 +76,14 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
+                # attention_probs = batch*head, pix_len, sen_len
+                trg_indexs = torch.Tensor(trg_indexs_list)
+                print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape}')
+
                 print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape}')
                 """
                 res = int(math.sqrt(attention_probs.shape[1]))
-                trg_indexs = torch.Tensor(trg_indexs_list)
+                
                 heat_map = attention_probs.mean(0)
                 heat_map = heat_map[:, trg_indexs, :]
                 heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), size=(512,512), mode='bicubic')
