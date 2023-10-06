@@ -73,6 +73,7 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
+                print(f'collecting attntion')
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
