@@ -54,7 +54,7 @@ def register_attention_control(unet : nn.Module, controller):
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
-            print('doing CrossAttention')
+
 
             is_cross_attention = False
             if context is not None:
@@ -86,7 +86,7 @@ def register_attention_control(unet : nn.Module, controller):
                 beta=0,
                 alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
-
+            print('[CrossAttention] made attention_probs')
             if is_cross_attention:
                 if trg_indexs_list is not None:
                     # attention_probs = batch*head, pix_len, sen_len
