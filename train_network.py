@@ -77,6 +77,8 @@ def register_attention_control(unet : nn.Module, controller):
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
                 if trg_indexs_list is not None:
+                    attention_probs = attention_probs * 2
+                    """
                     print(f'query : {query.shape}')
                     # attention_probs = batch*head, pix_len, sen_len
                     trg_indexs = trg_indexs_list
@@ -100,6 +102,7 @@ def register_attention_control(unet : nn.Module, controller):
 
                             #word_heat_map = word_heat_map.reshape(-1, res, res)
                             #word_heat_maps.append(word_heat_map)
+                    """
                         #word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
                         #print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
                         #word_heat_maps = word_heat_maps.mean(0)
@@ -115,7 +118,7 @@ def register_attention_control(unet : nn.Module, controller):
                     #print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
                     #batch_heat_maps = torch.Tensor(batch_heat_maps)
                     #print(f'batch_heat_maps : {batch_heat_maps}')
-                    #word_heat_map = attention_probs[batch_idx, trg_indexs, :]
+                    #word_heat_map = attention_probs[batch_idx, trg_indexs, : ]
                     """
                     res = int(math.sqrt(attention_probs.shape[1]))
                     
