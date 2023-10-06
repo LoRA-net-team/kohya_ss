@@ -134,6 +134,8 @@ class LoRAModule(torch.nn.Module):
         del self.org_module
 
     def forward(self, x):
+
+
         org_forwarded = self.org_forward(x)
 
         # module dropout
@@ -169,6 +171,8 @@ class LoRAModule(torch.nn.Module):
             lx_3 = self.lora_up(x)
             lx = torch.cat([lx_1, lx_2, lx_3], axis=1)
         """
+        if 'to_k' in self.lora_name:
+            print(f'{self.lora_name} : lx : {lx.shape}')
         return org_forwarded + lx * self.multiplier * scale
 
 
