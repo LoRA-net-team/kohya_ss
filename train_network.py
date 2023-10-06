@@ -998,9 +998,8 @@ class NetworkTrainer:
                         assert attn_loss != 0, "attn_loss is zero"
 
                         attn_loss.requires_grad = True
-                        #loss = task_loss + args.attn_loss_ratio * attn_loss
-                        loss = attn_loss
-                        print(f'attn_loss : {attn_loss} | loss : {loss}')
+                        loss = task_loss + args.attn_loss_ratio * attn_loss
+
                     #print(f'attn_loss : {attn_loss} | task_loss : {task_loss} | total_loss : {loss}')
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
