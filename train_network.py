@@ -78,11 +78,12 @@ def register_attention_control(unet : nn.Module, controller):
             if is_cross_attention:
                 # attention_probs = batch*head, pix_len, sen_len
                 trg_indexs = trg_indexs_list
-                print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
+                #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
                 batch_num = len(trg_indexs)
                 attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
 
                 batch_heat_maps = []
+                attn_loss_list = []
                 for batch_idx, attention_prob in enumerate(attention_probs_batch) :
                     word_heat_maps = []
                     batch_trg_index = trg_indexs[batch_idx]
@@ -92,20 +93,20 @@ def register_attention_control(unet : nn.Module, controller):
                         word_heat_map = word_heat_map.reshape(-1, res, res)
                         word_heat_maps.append(word_heat_map)
                     word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
-                    print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
+                    #print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
                     word_heat_maps = word_heat_maps.mean(0)
-                    print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
+                    #print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
                     word_heat_maps = F.interpolate(word_heat_maps.unsqueeze(0).unsqueeze(0), size=((512, 512)), mode='bicubic')
                     word_heat_maps = word_heat_maps.squeeze()
                     masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
-                    print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
-                    batch_heat_maps.append(word_heat_maps)
-
-                batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
-                print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
-
+                    #print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
+                    attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
+                    attn_loss_list.append(attn_loss)
+                    controller.store(attn_loss_list, layer_name)
+                #batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
+                #print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
                 #batch_heat_maps = torch.Tensor(batch_heat_maps)
-                print(f'batch_heat_maps : {batch_heat_maps}')
+                #print(f'batch_heat_maps : {batch_heat_maps}')
                 #word_heat_map = attention_probs[batch_idx, trg_indexs, :]
                 """
                 res = int(math.sqrt(attention_probs.shape[1]))
@@ -923,11 +924,14 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        trg_indexs = batch["trg_indexs_list"]
+                        #trg_indexs = batch["trg_indexs_list"]
                         layer_names = atten_collection.keys()
-                        map_dict = defaultdict(lambda : defaultdict(list))
+                        #map_dict = defaultdict(lambda : defaultdict(list))
                         for layer_name in layer_names:
-                            attn_list = atten_collection[layer_name] # just one map element
+                            loss_list = atten_collection[layer_name] # just one map element
+                            print(f"layer_name : {layer_name} : loss_list : {loss_list}")
+
+                            """
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                             attns = attns.squeeze(0)
                             batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
@@ -944,6 +948,8 @@ class NetworkTrainer:
                                 for trg_index in trg_index_list :
                                     word_map = global_heat_map[trg_index, :, :]
                                     map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
+                            """
+                        """
                         batch_mask_dirs = batch["mask_dirs"]
                         attn_loss = 0
                         for batch_index in map_dict.keys() :
@@ -959,6 +965,7 @@ class NetworkTrainer:
                                 mask_img = get_cached_mask(mask_dir, trg_size)
                                 masked_attn_map = heat_map * mask_img.to(heat_map.device)
                                 a_loss = F.mse_loss(masked_attn_map, heat_map)
+                                
                                 #if a_loss == 0 :
                                 #    print(f'layer_name : {layer_name}')
                                 attn_loss = attn_loss + a_loss
@@ -973,7 +980,7 @@ class NetworkTrainer:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                     wandb_logs = {}
-                    """
+                    
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
