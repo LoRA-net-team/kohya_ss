@@ -91,23 +91,33 @@ def register_attention_control(unet : nn.Module, controller):
                         for word_idx in batch_trg_index :
                             word_heat_map = attention_prob[:, :, word_idx]
                             res = int(math.sqrt(word_heat_map.shape[1]))
-                            word_heat_map = word_heat_map.reshape(-1, res, res)
-                            word_heat_maps.append(word_heat_map)
-                        word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
-                        #print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
-                        word_heat_maps = word_heat_maps.mean(0)
-                        #print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
-                        word_heat_maps = F.interpolate(word_heat_maps.unsqueeze(0).unsqueeze(0), size=((512, 512)), mode='bicubic')
-                        word_heat_maps = word_heat_maps.squeeze()
-                        masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
-                        #print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
-                        attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
 
-                        self.to_q.requires_grad = True
-                        self.to_k.requires_grad = True
-                        optimizer = torch.optim.AdamW([{'params' : [self.to_q.parameters(), self.to_k.parameters()],'lr' : 0.0001,}])
-                        optimizer.zero_grad()
-                        attn_loss.backward()
+
+                            m = mask[batch_idx]
+                            print(f'word_heat_map : {word_heat_map.shape} | mask : {m.shape}')
+                            m = F.interpolate(m.unsqueeze(0).unsqueeze(0), size=((res, res)),mode='bicubic')
+                            print(f'after interpolate, mask : {m.shape}')
+                            m = m.reshape(-1, res*res)
+                            print(f'after reshape, mask : {m.shape}')
+                            attention_prob[:, :, word_idx] = word_heat_map * m
+                            
+
+                            #word_heat_map = word_heat_map.reshape(-1, res, res)
+                            #word_heat_maps.append(word_heat_map)
+
+
+                        #word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
+                        #print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
+                        #word_heat_maps = word_heat_maps.mean(0)
+                        #print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
+                        #word_heat_maps = F.interpolate(word_heat_maps.unsqueeze(0).unsqueeze(0), size=((512, 512)), mode='bicubic')
+                        #word_heat_maps = word_heat_maps.squeeze()
+                        #masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
+                        #print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
+                        #attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
+
+
+
 
 
 
