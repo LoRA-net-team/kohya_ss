@@ -110,7 +110,7 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
                             #attention_prob[:, :, word_idx] = masked_heat_map
-                            attn_loss = F.mse_loss(word_heat_map.sum(), masked_heat_map.sum())
+                            attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
                             controller.store(attn_loss, layer_name )
                     """
                     # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
@@ -953,13 +953,13 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             attn_loss_list = atten_collection[layer_name]
-                            a_l = sum(atten_collection[layer_name])
-                            a_l.requires_grad = True
-                            accelerator.backward(a_l)
+                            attn_loss = attn_loss + sum(atten_collection[layer_name])
+                            #a_l.requires_grad = True
+                            #accelerator.backward(a_l)
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
                             #print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
-                    """
+                        """
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
                             attns = attns.squeeze(0)
                             batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
@@ -1000,11 +1000,10 @@ class NetworkTrainer:
                             #attn_loss.requires_grad = True
                         
                         assert attn_loss != 0, "attn_loss is zero"
-
+                        """
                         attn_loss.requires_grad = True
-                        print(f'attn_loss : {attn_loss}')
-                        loss = task_loss + args.attn_loss_ratio * attn_loss
-                    """
+                        loss = task_loss + attn_loss
+
                     #print(f'attn_loss : {attn_loss} | task_loss : {task_loss} | total_loss : {loss}')
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
