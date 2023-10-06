@@ -998,7 +998,7 @@ class NetworkTrainer:
                         assert attn_loss != 0, "attn_loss is zero"
                         #loss = task_loss + attn_loss
                         attn_loss.requires_grad = True
-                        loss = task_loss + attn_loss
+                        loss = task_loss + args.attn_loss_ratio * attn_loss
                         #loss = attn_loss
                     #print(f'attn_loss : {attn_loss} | task_loss : {task_loss} | total_loss : {loss}')
                     accelerator.backward(loss)
@@ -1242,6 +1242,7 @@ if __name__ == "__main__":
     parser.add_argument("--algorithm_test", action = 'store_true')
     parser.add_argument("--trg_token", type=str, default = 'haibara')
     parser.add_argument("--heatmap_loss", action = 'store_true')
+    parser.add_argument("--attn_loss_ratio", type = float, default = 1.0)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
