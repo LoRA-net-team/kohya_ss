@@ -105,7 +105,7 @@ def register_attention_control(unet : nn.Module, controller):
 
                         self.to_q.requires_grad = True
                         self.to_k.requires_grad = True
-                        optimizer = args.optimizer_type([self.to_q, self.to_k], lr=1e-2 )
+                        optimizer = torch.optim.AdamW([self.to_q, self.to_k], lr=1e-2 )
                         optimizer.zero_grad()
                         attn_loss.backward()
 
