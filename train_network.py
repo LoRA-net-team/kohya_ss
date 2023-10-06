@@ -61,10 +61,13 @@ def register_attention_control(unet : nn.Module, controller):
                 is_cross_attention = True
 
             if self.use_memory_efficient_attention_xformers:
+                print(f'(1) use_memory_efficient_attention_xformers')
                 return self.forward_memory_efficient_xformers(hidden_states, context, mask)
             if self.use_memory_efficient_attention_mem_eff:
+                print(f'(2) use_memory_efficient_attention_mem_eff')
                 return self.forward_memory_efficient_mem_eff(hidden_states, context, mask)
             if self.use_sdpa:
+                print(f'(3) use_sdpa')
                 return self.forward_sdpa(hidden_states, context, mask)
 
             query = self.to_q(hidden_states)
