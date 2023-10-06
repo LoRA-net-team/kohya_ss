@@ -92,7 +92,9 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = F.interpolate(mask_.unsqueeze(0).unsqueeze(0),size=((res, res)), mode='bicubic').squeeze()
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
+
                             org = attention_prob[:, :, word_idx].detach().clone()
+                            print(f'org : {org.shape} | mask_ : {mask_.shape}')
                             attention_prob[:, :, word_idx] = org + mask_
 
                             #word_heat_map = word_heat_map.reshape(-1, res, res)
