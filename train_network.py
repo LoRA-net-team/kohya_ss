@@ -76,7 +76,6 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
             if is_cross_attention:
-                print(f'bafore attention_probs : {attention_probs}')
                 if trg_indexs_list is not None:
                     # attention_probs = batch*head, pix_len, sen_len
                     trg_indexs = trg_indexs_list
@@ -95,8 +94,8 @@ def register_attention_control(unet : nn.Module, controller):
                                               mode='bicubic')
                             m = m.squeeze()
                             m = m.repeat(head_num, 1,1)
-                            attention_prob[:, :, word_idx] = word_heat_map * m.reshape(-1, res*res)
-                    print(f'after attention_probs : {attention_probs}')
+                            #attention_prob[:, :, word_idx] = word_heat_map * m.reshape(-1, res*res)
+
                             #word_heat_map = word_heat_map.reshape(-1, res, res)
                             #word_heat_maps.append(word_heat_map)
                         #word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
