@@ -75,10 +75,38 @@ def register_attention_control(unet : nn.Module, controller):
             key = self.to_k(context)
             value = self.to_v(context)
 
-            query = self.reshape_heads_to_batch_dim(query)
-            key = self.reshape_heads_to_batch_dim(key)
-            value = self.reshape_heads_to_batch_dim(value)
+            #query = self.reshape_heads_to_batch_dim(query)
+            #key = self.reshape_heads_to_batch_dim(key)
+            #value = self.reshape_heads_to_batch_dim(value)
 
+
+            #
+
+            from einops import rearrange
+            import xformers.ops
+            h = self.heads
+            q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b n h d", h=h), (query,key,value))
+            del query,key,value
+
+            q = q.contiguous()
+            k = k.contiguous()
+            v = v.contiguous()
+            #out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None)  # 最適なのを選んでくれる
+
+            scale = 1 / q.shape[-1] ** 0.5
+            q = q * scale
+            attn = q @ k.transpose(-2, -1)
+            attn = attn.softmax(-1)
+            if is_cross_attention:
+                if trg_indexs_list is not None:
+                    trg_indexs = trg_indexs_list
+                    # print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
+                    batch_num = len(trg_indexs)
+                    print(f'attn : {attn.shape}')
+
+            out = attn @ v
+            out = rearrange(out, "b n h d -> b n (h d)", h=h)
+            """
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
@@ -112,7 +140,7 @@ def register_attention_control(unet : nn.Module, controller):
                             #attention_prob[:, :, word_idx] = masked_heat_map
                             attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
                             controller.store(attn_loss, layer_name )
-                    """
+                    
                     # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
                     # print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
                     # word_heat_maps = word_heat_maps.mean(0)
@@ -140,7 +168,7 @@ def register_attention_control(unet : nn.Module, controller):
                     masked_attn_map = heat_map * mask.to(heat_map.device)
                     a_loss = F.mse_loss(masked_attn_map, heat_map)
                     controller.store(a_loss, layer_name)
-                    """
+                    
             # cast back to the original dtype
             attention_probs = attention_probs.to(value.dtype)
             # compute attention output
@@ -148,7 +176,9 @@ def register_attention_control(unet : nn.Module, controller):
             # reshape hidden_states
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             # linear proj
-            hidden_states = self.to_out[0](hidden_states)
+            """
+            #hidden_states = self.to_out[0](hidden_states)
+            hidden_states = self.to_out[0](out)
             return hidden_states
         return forward
 
