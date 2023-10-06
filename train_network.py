@@ -91,7 +91,6 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             if is_cross_attention:
                 if trg_indexs_list is not None:
-                    print(f'trg_indexs_list : {trg_indexs_list}')
                     # attention_probs = batch*head, pix_len, sen_len
                     trg_indexs = trg_indexs_list
                     #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')

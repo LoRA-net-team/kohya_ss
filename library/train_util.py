@@ -1176,15 +1176,15 @@ class BaseDataset(torch.utils.data.Dataset):
                         caption_layer.append(caption_)
                     captions.append(caption_layer)
                 else:
+                    print(f'into captions, caption : {caption}')
                     captions.append(caption)
+                
                 if not self.token_padding_disabled:  # this option might be omitted in future
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
                         token_caption = self.get_input_ids(caption, self.tokenizers[0])
                     input_ids_list.append(token_caption)
-
-
                     # token_caption
                     #------------------------------------------------------------------------------------------
                     def generate_text_embedding(caption, tokenizer):
@@ -1217,7 +1217,6 @@ class BaseDataset(torch.utils.data.Dataset):
                         return trg_indexs
 
                     trg_indexs = generate_text_embedding(caption, self.tokenizers[0])
-
                     trg_indexs_list.append(trg_indexs)
 
                     #------------------------------------------------------------------------------------------
