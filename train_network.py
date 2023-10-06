@@ -1009,7 +1009,7 @@ class NetworkTrainer:
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
-                        accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+                        accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm )
                     """
                     wandb_logs = {}                    
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
