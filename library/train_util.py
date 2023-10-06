@@ -1216,6 +1216,7 @@ class BaseDataset(torch.utils.data.Dataset):
                             trg_indexs = []
                             for i, id in enumerate(token_id):
                                 if id in trg_token_id:
+                                    print(f'id to save : {id}')
                                     trg_indexs.append(i)
                         return trg_indexs
 
