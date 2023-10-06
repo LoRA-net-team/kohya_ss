@@ -104,17 +104,12 @@ def register_attention_control(unet : nn.Module, controller):
                         res = int(math.sqrt(attention_prob.shape[1]))
                         for word_idx in batch_trg_index :
                             word_heat_map = attention_prob[:, :, word_idx]
-                            print(f'word_heat_map : {word_heat_map.shape}')
-
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                             mask_ = F.interpolate(mask_.unsqueeze(0).unsqueeze(0),size=((res, res)), mode='bicubic').squeeze()
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
-                            print(f'masked_heat_map : {masked_heat_map.shape}')
-
                             attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
-                            print(f'attn_loss (in cross attention module) : {attn_loss}')
                             controller.store(attn_loss, layer_name)
                     """
                     # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
@@ -958,8 +953,8 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             attn_loss_list = atten_collection[layer_name]
-                            print(f'attn_loss_list : {attn_loss_list}')
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
+                            print(f'{layer_name} : {attn_loss}')
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
                             #print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
