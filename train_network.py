@@ -113,7 +113,7 @@ def register_attention_control(unet : nn.Module, controller):
                             masked_heat_map = word_heat_map * mask_
                             print(f'masked_heat_map : {masked_heat_map.shape}')
 
-                            attn_loss = F.mse_loss(word_heat_maps, masked_heat_map)
+                            attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
                             print(f'attn_loss (in cross attention module) : {attn_loss}')
                             controller.store(attn_loss, layer_name)
                     """
