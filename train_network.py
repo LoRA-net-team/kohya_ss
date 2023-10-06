@@ -80,11 +80,15 @@ def register_attention_control(unet : nn.Module, controller):
                 trg_indexs = trg_indexs_list
                 print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
                 batch_num = len(trg_indexs)
+                attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
+
                 batch_heat_maps = []
-                for batch_idx, batch_trg_index in enumerate(trg_indexs):
+                for batch_idx, attention_prob in enumerate(attention_probs_batch) :
                     word_heat_maps = []
+                    batch_trg_index = trg_indexs[batch_idx]
                     for word_idx in batch_trg_index :
-                        word_heat_map = attention_probs[batch_idx, word_idx, :]
+                        word_heat_map = attention_probs[:, word_idx, :]
+                        print(f'word_heat_map : {word_heat_map.shape}')
                         word_heat_maps.append(word_heat_map)
                     word_heat_maps = torch.stack(word_heat_maps).mean(0)
                     print(f'word_heat_maps : {word_heat_maps.shape}')
