@@ -83,10 +83,10 @@ def register_attention_control(unet : nn.Module, controller):
                 attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
 
                 batch_heat_maps = []
-                attn_loss_list = []
+                #attn_loss_list = []
                 for batch_idx, attention_prob in enumerate(attention_probs_batch) :
                     word_heat_maps = []
-                    batch_trg_index = trg_indexs[batch_idx]
+                    batch_trg_index = trg_indexs[batch_idx] # two times
                     for word_idx in batch_trg_index :
                         word_heat_map = attention_prob[:, :, word_idx]
                         res = int(math.sqrt(word_heat_map.shape[1]))
@@ -101,8 +101,8 @@ def register_attention_control(unet : nn.Module, controller):
                     masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
                     #print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
                     attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
-                    attn_loss_list.append(attn_loss)
-                    controller.store(attn_loss_list, layer_name)
+                    #attn_loss_list.append(attn_loss)
+                    controller.store(attn_loss, layer_name)
                 #batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
                 #print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
                 #batch_heat_maps = torch.Tensor(batch_heat_maps)
