@@ -933,7 +933,7 @@ class NetworkTrainer:
                             attn_loss = attn_loss + sum(loss_list)
                             #for loss in loss_list :
                             #    attn_loss = attn_loss + loss
-                            print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
+                            #print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
 
                             """
                             attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
@@ -977,14 +977,15 @@ class NetworkTrainer:
                         if attn_loss == 0 :
                             print(f'batch_mask_dirs : {batch_mask_dirs}')
                         assert attn_loss != 0, "attn_loss is zero"
+                        """
                         #loss = task_loss + attn_loss
                         loss = attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-                    wandb_logs = {}
-                    
+                    """
+                    wandb_logs = {}                    
                     for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
                         if is_main_process:
                             wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
