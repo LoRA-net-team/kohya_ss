@@ -78,9 +78,8 @@ def register_attention_control(unet : nn.Module, controller):
             if is_cross_attention:
                 # attention_probs = batch*head, pix_len, sen_len
                 trg_indexs = torch.Tensor(trg_indexs_list)
-                print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape}')
-
-                print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape}')
+                print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
+                
                 """
                 res = int(math.sqrt(attention_probs.shape[1]))
                 
