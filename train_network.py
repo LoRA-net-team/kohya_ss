@@ -85,7 +85,7 @@ def register_attention_control(unet : nn.Module, controller):
                     word_heat_maps = []
                     for word_idx in batch_trg_index :
                         word_heat_map = attention_probs[batch_idx, word_idx, :]
-                        word_heat_maps.append(word_heat_maps)
+                        word_heat_maps.append(word_heat_map)
                     word_heat_maps = torch.stack(word_heat_maps).mean(0)
                     print(f'word_heat_maps : {word_heat_maps.shape}')
                     #batch_heat_maps.append()
