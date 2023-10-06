@@ -51,8 +51,6 @@ def register_attention_control(unet : nn.Module, controller):
     Register cross attention layers to controller.
     """
 
-
-
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -112,8 +110,8 @@ def register_attention_control(unet : nn.Module, controller):
                             masked_heat_map = word_heat_map * mask_
 
                             attn_loss = F.mse_loss(word_heat_maps, masked_heat_map)
-                            attn_loss_list.append(attn_loss)
-                    controller.store(attn_loss, layer_name)
+                            controller.store(attn_loss, layer_name)
+
 
 
                     """
@@ -1003,8 +1001,8 @@ class NetworkTrainer:
                         assert attn_loss != 0, "attn_loss is zero"
                         #loss = task_loss + attn_loss
                         #attn_loss.requires_grad = True
-                        #loss = task_loss + attn_loss
-                        loss = attn_loss
+                        loss = task_loss + attn_loss
+                        #loss = attn_loss
 
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
