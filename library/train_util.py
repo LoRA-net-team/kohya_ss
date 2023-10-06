@@ -1121,9 +1121,7 @@ class BaseDataset(torch.utils.data.Dataset):
                             img = img[:, p : p + self.width]
 
                     im_h, im_w = img.shape[0:2]
-                    assert (
-                        im_h == self.height and im_w == self.width
-                    ), f"image size is small / 画像サイズが小さいようです: {image_info.absolute_path}"
+                    assert (im_h == self.height and im_w == self.width), f"image size is small / 画像サイズが小さいようです: {image_info.absolute_path}"
 
                     original_size = [im_w, im_h]
                     crop_ltrb = (0, 0, 0, 0)
@@ -1176,9 +1174,8 @@ class BaseDataset(torch.utils.data.Dataset):
                         caption_layer.append(caption_)
                     captions.append(caption_layer)
                 else:
-                    print(f'into captions, caption : {caption}')
                     captions.append(caption)
-                
+
                 if not self.token_padding_disabled:  # this option might be omitted in future
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
