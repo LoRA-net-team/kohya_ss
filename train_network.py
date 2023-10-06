@@ -111,7 +111,7 @@ def register_attention_control(unet : nn.Module, controller):
                             masked_heat_map = word_heat_map * mask_
                             #attention_prob[:, :, word_idx] = masked_heat_map
                             attn_loss = F.mse_loss(word_heat_map.sum(), masked_heat_map.sum())
-                            controller.store(attn_loss, layer_name)
+                            controller.store(attn_loss, layer_name )
                     """
                     # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
                     # print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
