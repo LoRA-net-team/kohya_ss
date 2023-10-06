@@ -50,83 +50,34 @@ def register_attention_control(unet : nn.Module, controller):
     """
     Register cross attention layers to controller.
     """
-
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
-
-
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
-            """
-            if self.use_memory_efficient_attention_xformers:
-                print(f'(1) use_memory_efficient_attention_xformers')
-                return self.forward_memory_efficient_xformers(hidden_states, context, mask)
-            if self.use_memory_efficient_attention_mem_eff:
-                print(f'(2) use_memory_efficient_attention_mem_eff')
-                return self.forward_memory_efficient_mem_eff(hidden_states, context, mask)
-            if self.use_sdpa:
-                print(f'(3) use_sdpa')
-                return self.forward_sdpa(hidden_states, context, mask)
-            """
             query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
 
-            #query = self.reshape_heads_to_batch_dim(query)
-            #key = self.reshape_heads_to_batch_dim(key)
-            #value = self.reshape_heads_to_batch_dim(value)
-
-
-            #
-
-            from einops import rearrange
-            import xformers.ops
-            h = self.heads
-            q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b n h d", h=h), (query,key,value))
-            del query,key,value
-
-            q = q.contiguous()
-            k = k.contiguous()
-            v = v.contiguous()
-            #out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None)  # 最適なのを選んでくれる
-
-            scale = 1 / q.shape[-1] ** 0.5
-            q = q * scale
-            attn = q @ k.transpose(-2, -1)
-            attn = attn.softmax(-1)
-            if is_cross_attention:
-                if trg_indexs_list is not None:
-                    trg_indexs = trg_indexs_list
-                    # print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
-                    batch_num = len(trg_indexs)
-                    print(f'attn : {attn.shape}')
-
-            out = attn @ v
-            out = rearrange(out, "b n h d -> b n (h d)", h=h)
-            """
+            query = self.reshape_heads_to_batch_dim(query)
+            key = self.reshape_heads_to_batch_dim(key)
+            value = self.reshape_heads_to_batch_dim(value)
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-            attention_scores = torch.baddbmm(
-                torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                query,
-                key.transpose(-1, -2),
-                beta=0,
-                alpha=self.scale, )
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
+                                                         device=query.device),
+                                             query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
+            attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
                 if trg_indexs_list is not None:
-                    # attention_probs = batch*head, pix_len, sen_len
                     trg_indexs = trg_indexs_list
-                    #print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
-                    attn_loss_list = []
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
-                        word_heat_maps = []
                         batch_trg_index = trg_indexs[batch_idx] # two times
                         head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
@@ -137,48 +88,14 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
-                            #attention_prob[:, :, word_idx] = masked_heat_map
                             attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
                             controller.store(attn_loss, layer_name )
-                    
-                    # word_heat_maps = torch.stack(word_heat_maps, dim = 0).mean(0)
-                    # print(f'word_heat_maps (8,res,res) : {word_heat_maps.shape}')
-                    # word_heat_maps = word_heat_maps.mean(0)
-                    # print(f'word_heat_maps (res,res) : {word_heat_maps.shape}')
-                    # word_heat_maps = F.interpolate(word_heat_maps.unsqueeze(0).unsqueeze(0), size=((512, 512)), mode='bicubic')
-                    # word_heat_maps = word_heat_maps.squeeze()
-                    # masked_heat_map = word_heat_maps * mask[batch_idx].to(word_heat_maps.device)
-                    # print(f'word_heat_maps (512,512) : {word_heat_maps.shape} | masked_heat_map (512,512) : {masked_heat_map.shape}')
-                    # attn_loss = F.mse_loss(word_heat_maps,masked_heat_map)
-                    # attn_loss_list.append(attn_loss)
-                    # controller.store(attn_loss, layer_name)
-                    # batch_heat_maps = torch.stack(batch_heat_maps)#.mean(0)
-                    # print(f'batch_heat_maps (batch_num, res,res): {batch_heat_maps.shape}')
-                    # batch_heat_maps = torch.Tensor(batch_heat_maps)
-                    # print(f'batch_heat_maps : {batch_heat_maps}')
-                    # word_heat_map = attention_probs[batch_idx, trg_indexs, : ]
-                    
-                    res = int(math.sqrt(attention_probs.shape[1]))
+                            auto_grad = torch.autograd.grad(masked_heat_map, word_heat_map, retain_graph=True,create_graph=True)[0]
+                            print(f'auto_grad : {auto_grad}')
 
-                    heat_map = attention_probs.mean(0)
-                    heat_map = heat_map[:, trg_indexs, :]
-                    heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), size=(512,512), mode='bicubic')
-
-                    mask = torch.stack(mask, dim=0)
-                    masked_attn_map = heat_map * mask.to(heat_map.device)
-                    a_loss = F.mse_loss(masked_attn_map, heat_map)
-                    controller.store(a_loss, layer_name)
-                    
-            # cast back to the original dtype
-            attention_probs = attention_probs.to(value.dtype)
-            # compute attention output
             hidden_states = torch.bmm(attention_probs, value)
-            # reshape hidden_states
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
-            # linear proj
-            """
-            #hidden_states = self.to_out[0](hidden_states)
-            hidden_states = self.to_out[0](out)
+            hidden_states = self.to_out[0](hidden_states)
             return hidden_states
         return forward
 
@@ -977,81 +894,19 @@ class NetworkTrainer:
                     task_loss = loss
 
                     # ------------------------------------------------------------------------------------
-
                     if args.heatmap_loss :
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
-                            attn_loss_list = atten_collection[layer_name]
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
-                            #a_l.requires_grad = True
-                            #accelerator.backward(a_l)
-                            #for loss in loss_list :
-                            #    attn_loss = attn_loss + loss
-                            #print(f"layer_name : {layer_name} : sum(loss_list) : {sum(loss_list)}")
-                        """
-                            attns = torch.stack(attn_list, dim=0) # batch, 8*batch, pix_len, sen_len
-                            attns = attns.squeeze(0)
-                            batch_attn_map = torch.chunk(attns, len(trg_indexs), dim=0)
-                            for batch_i, map in enumerate(batch_attn_map) :
-                                trg_index_list = trg_indexs[batch_i]
-                                map = map.squeeze(0)  # [8*batch, pix_len, sen_len]
-                                maps = torch.stack([map], dim=0)  # [timestep, 8*2, pix_len, sen_len]
-                                maps = maps.sum(0)  # [8, pix_len, sen_len]
-                                maps = maps.sum(0)  # [32, pix_len, sen_len]
-                                pix_len, sen_len = maps.shape
-                                res = int(math.sqrt(pix_len))
-                                maps = maps.permute(1, 0)  # [sen_len, pix_len]
-                                global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-                                for trg_index in trg_index_list :
-                                    word_map = global_heat_map[trg_index, :, :]
-                                    map_dict[batch_i][layer_name].append(word_map) # we can do this because default dict
-                            
-                        
-                        batch_mask_dirs = batch["mask_dirs"]
-                        attn_loss = 0
-                        for batch_index in map_dict.keys() :
-                            layer_dict = map_dict[batch_index]
-                            for layer_name in layer_dict.keys() :
-                                map_list = layer_dict[layer_name]
-                                heat_map = torch.stack(map_list, dim=0)
-                                heat_map = heat_map.mean(0)
-                                #heat_map = F.interpolate(heat_map.unsqueeze(0).unsqueeze(0), size=(512,512), mode='bicubic')
 
-                                trg_size = heat_map.shape[0]
-                                mask_dir = batch_mask_dirs[batch_index]
-                                mask_img = get_cached_mask(mask_dir, trg_size)
-                                masked_attn_map = heat_map * mask_img.to(heat_map.device)
-                                a_loss = F.mse_loss(masked_attn_map, heat_map)
-                                
-                                #if a_loss == 0 :
-                                #    print(f'layer_name : {layer_name}')
-                                attn_loss = attn_loss + a_loss
-                            #attn_loss.requires_grad = True
-                        
-                        assert attn_loss != 0, "attn_loss is zero"
-                        """
                         attn_loss.requires_grad = True
                         loss = task_loss + attn_loss
 
-                    #print(f'attn_loss : {attn_loss} | task_loss : {task_loss} | total_loss : {loss}')
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm )
-                    """
-                    wandb_logs = {}                    
-                    for (layer_name, param), param_dict in zip(network.named_parameters(), optimizer.param_groups):
-                        if is_main_process:
-                            wandb_logs[layer_name] = param_dict['params'][0].grad.data.norm(2)
-                            try:
-                                gradient_dict[layer_name].append(param_dict['params'][0].grad.data.norm(2).item())
-                            except:
-                                gradient_dict[layer_name] = []
-                                gradient_dict[layer_name].append(param_dict['params'][0].grad.data.norm(2).item())
-                    if is_main_process:
-                        wandb.log(wandb_logs, step=global_step)
-                    """
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
