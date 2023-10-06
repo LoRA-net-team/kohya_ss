@@ -79,7 +79,11 @@ def register_attention_control(unet : nn.Module, controller):
                 # attention_probs = batch*head, pix_len, sen_len
                 trg_indexs = torch.Tensor(trg_indexs_list)
                 print(f'cross attention : {layer_name} : attention_probs : {attention_probs.shape} | trg_indexs : {trg_indexs}')
-                
+                batch_num = trg_indexs.shape[0]
+                for batch_idx in range(batch_num):
+                    word_idx = trg_indexs[batch_idx]
+                    print(f'word_idx : {word_idx}')
+                    #word_heat_map = attention_probs[batch_idx, trg_indexs, :]
                 """
                 res = int(math.sqrt(attention_probs.shape[1]))
                 
