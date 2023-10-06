@@ -861,7 +861,7 @@ class Transformer2DModel(nn.Module):
 
                 trg_indexs_list=None,
                 mask=None):
-
+        print(f'in transformer2dmodel, trg_indexs_list : {trg_indexs_list.shape}')
         # 1. Input
         batch, _, height, weight = hidden_states.shape
         residual = hidden_states
