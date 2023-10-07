@@ -2139,9 +2139,14 @@ def register_attention_control(unet, controller):
             if not is_cross_attention:
                 self_attn_map = attention_probs.sum(dim=0)
                 im = (self_attn_map - self_attn_map.min()) / (self_attn_map.max() - self_attn_map.min() + 1e-8)
-                print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
-                heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                from utils import _convert_heat_map_colors
+                heat_map = _convert_heat_map_colors(im)
+                heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 heat_map_img = Image.fromarray(heat_map)
+
+                #print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
+                #heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                #heat_map_img = Image.fromarray(heat_map)
                 heat_map_img.save(f'{layer_name}.jpg')
 
             if is_cross_attention:

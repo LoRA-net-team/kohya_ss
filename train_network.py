@@ -76,6 +76,7 @@ def register_attention_control(unet : nn.Module, controller):
 
                 self_attn_map = attention_probs.mean(dim=0)
                 print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
+
                 heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 heat_map_img = Image.fromarray(heat_map)
                 heat_map_img.save(f'{layer_name}.jpg')
