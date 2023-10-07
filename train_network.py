@@ -939,12 +939,14 @@ class NetworkTrainer:
                         """
                         layer_names = cross_key_collection.keys()
                         for layer_name in layer_names:
-                            net_name = layer_name.split('_attn1')[0]
-                            self_layer_name = f'{net_name}_attn2'
-                            cross_key = cross_key_collection[layer_name]
-                            self_query = self_query_collection[self_layer_name]
-                            self_key = self_key_collection[self_layer_name]
+                            net_name = layer_name.split('_attn2')[0]
+                            self_layer_name = f'{net_name}_attn1'
+                            cross_key = cross_key_collection[layer_name][0]
+                            self_query = self_query_collection[self_layer_name][0]
+                            self_key = self_key_collection[self_layer_name][0]
                             print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
+                            collection_list = len(cross_key_collection[layer_name])
+                            print(f'len of collection list : {collection_list}')
 
 
 
