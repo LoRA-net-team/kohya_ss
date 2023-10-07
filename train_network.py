@@ -244,7 +244,7 @@ class NetworkTrainer:
                   text_conds, batch, weight_dtype,
                   trg_indexs_list,
                   mask_imgs):
-        print(f'in call unet, trg_indexs_list : {trg_indexs_list}')
+        print(f'in call unet, trg_indexs_list : {trg_indexs_list}' )
         noise_pred = unet(noisy_latents,
                           timesteps,
                           text_conds,
@@ -864,6 +864,7 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         # -----------------------------------------------------------------------------------------------------------------------
+                        print(f'go to call unet function')
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
