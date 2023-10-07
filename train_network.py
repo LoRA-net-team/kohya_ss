@@ -946,7 +946,9 @@ class NetworkTrainer:
                             self_query = self_query_collection[self_layer_name][0]
                             self_key = self_key_collection[self_layer_name][0]
                             cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-                            self_attn_loss = self_attn_loss + 1/cos_sim(self_query,self_key)
+                            sim = cos_sim(self_query, self_key)
+                            sim = sim.mean()
+                            self_attn_loss = self_attn_loss + 1/sim
                             """
                             print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
                             collection_list = len(cross_key_collection[layer_name])
