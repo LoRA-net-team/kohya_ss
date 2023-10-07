@@ -73,6 +73,8 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if not is_cross_attention:
+                query, key = controller.self_query_key_caching(query, key, layer_name)
+                """
                 self_attn_map = attention_probs.sum(dim=0)
                 im = (self_attn_map - self_attn_map.min()) / (self_attn_map.max() - self_attn_map.min() + 1e-8)
                 from utils import _convert_heat_map_colors
@@ -84,9 +86,9 @@ def register_attention_control(unet : nn.Module, controller):
                 # heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 # heat_map_img = Image.fromarray(heat_map)
                 heat_map_img.save(f'training_{layer_name}.jpg')
-
-
+                """
             if is_cross_attention:
+                key = controller.cross_key_caching(key, layer_name)
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -898,6 +900,14 @@ class NetworkTrainer:
                         atten_collection = attention_storer.step_store
                         attention_storer.reset()
                         attention_storer.step_store = {}
+
+                        self_query_collection = attention_storer.self_query_store
+                        self_key_collection = attention_storer.self_key_store
+                        cross_key_collection = attention_storer.cross_key_store
+                        attention_storer.self_query_store = {}
+                        attention_storer.self_key_store = {}
+                        attention_storer.cross_key_store = {}
+
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
@@ -922,7 +932,21 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
-                    accelerator.backward(loss)
+                        """
+                        self_query_collection = attention_storer.self_query_store
+                        self_key_collection = attention_storer.self_key_store
+                        cross_key_collection
+                        """
+                        layer_names = cross_key_collection.keys()
+                        for layer_name in layer_names:
+                            print(f'[cross] layer_name : {layer_name}')
+                        self_layer_names = self_query_collection.keys()
+                        for self_layer_name in self_layer_names:
+                            print(f'[self] layer_name : {self_layer_name}')
+
+
+
+                accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm )
@@ -943,6 +967,9 @@ class NetworkTrainer:
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
                     attention_storer.reset()
                     attention_storer.step_store = {}
+                    attention_storer.self_query_store = {}
+                    attention_storer.self_key_store = {}
+                    attention_storer.cross_key_store = {}
                     
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
@@ -1016,10 +1043,9 @@ class NetworkTrainer:
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
             attention_storer.reset()
             attention_storer.step_store = {}
-
-
-            # end of epoch
-
+            attention_storer.self_query_store = {}
+            attention_storer.self_key_store = {}
+            attention_storer.cross_key_store = {}
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
 
