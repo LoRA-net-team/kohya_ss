@@ -1520,7 +1520,6 @@ class UNet2DConditionModel(nn.Module):
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
             if downsample_block.has_cross_attention:
-                print(f'in down block, trg_indexs_list: {trg_indexs_list}')
                 sample, res_samples = downsample_block(hidden_states=sample,
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
