@@ -947,17 +947,14 @@ class NetworkTrainer:
                             self_key = self_key_collection[self_layer_name][0]
                             cos_sim = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
                             sim = cos_sim(self_query, self_key)
-                            sim = sim.sum()
+                            sim = abs(sim.sum())
                             self_attn_loss = self_attn_loss + 1/sim
                             """
                             print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
                             collection_list = len(cross_key_collection[layer_name])
                             print(f'len of collection list : {collection_list}')
                             """
-                        print(f'self_attn_loss : {self_attn_loss}')
-
-
-
+                        loss = loss + self_attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
