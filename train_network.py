@@ -947,8 +947,13 @@ class NetworkTrainer:
                             cross_key = cross_key_collection[layer_name][0]
                             self_query = self_query_collection[self_layer_name][0]
                             self_key = self_key_collection[self_layer_name][0]
+
+                            attention_scores_1 = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], cross_key.shape[1],
+                                                                         self_query, cross_key.transpose(-1, -2), beta=0, alpha=self.scale, )).softmax(dim=-1)
+                            attention_scores_2 = torch.baddbmm(torch.empty(self_key.shape[0], self_key.shape[1], cross_key.shape[1],
+                                                                           self_key, cross_key.transpose(-1, -2), beta=0, alpha=self.scale, )).softmax(dim=-1)
                             cos_sim = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-                            sim = cos_sim(self_query, self_key)
+                            sim = cos_sim(attention_scores_1,attention_scores_2)
                             sim = abs(sim.sum())
                             self_attn_loss = self_attn_loss + 1/sim
                             """
