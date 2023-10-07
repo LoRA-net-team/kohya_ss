@@ -53,7 +53,6 @@ def register_attention_control(unet : nn.Module, controller):
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
-            print(f'trg_indexs_list {trg_indexs_list}')
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
@@ -74,10 +73,8 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
-                print(f'collecting attntion')
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
-                    print(f'trg_indexs : {trg_indexs}')
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
@@ -92,7 +89,6 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
                             attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
-                            print(f'attn_loss : {attn_loss}')
                             controller.store(attn_loss, layer_name)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -857,8 +853,6 @@ class NetworkTrainer:
                                                                     tokenizers,
                                                                     text_encoders,
                                                                     weight_dtype)
-                            #trg_contepts = batch['trg_concepts']
-                            #trg_indexs = generate_text_embedding(batch["captions"], tokenizer, text_encoder, batch)
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler,latents)
                     # Predict the noise residual
                     with accelerator.autocast():
@@ -900,10 +894,7 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
-                        #attn_loss.requires_grad = True
-                        #loss = task_loss + attn_loss
-                        loss = attn_loss
-
+                        loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
