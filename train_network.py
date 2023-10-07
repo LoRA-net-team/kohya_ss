@@ -333,8 +333,17 @@ class NetworkTrainer:
             print(" make wandb process log file")
             wandb.init(project=args.wandb_init_name)
             wandb.run.name = folder_name
+            """
             cfg = {"attn_loss_ratio": 1}
+            sweep_id = wandb.sweep(cfg.sweep_config)
             wandb.config.update(cfg)
+            sweep_configuration = {"method": "random",
+                                   "metric": {"goal": "minimize", "name": "loss"},
+                                   "parameters": {"attnloss_ratio": {"max": 20, "min": 1},},}
+            sweep_id = wandb.sweep(sweep=sweep_configuration,
+                                   project="sy-first-sweep")
+            wandb.agent(sweep_id, function=, count=10)
+            """
 
 
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
