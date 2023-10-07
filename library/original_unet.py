@@ -590,7 +590,7 @@ class CrossAttention(nn.Module):
         tensor = tensor.permute(0, 2, 1, 3).reshape(batch_size // head_size, seq_len, dim * head_size)
         return tensor
 
-    def forward(self, hidden_states, context=None, mask=None):
+    def forward(self, hidden_states, context=None, trg_indexs_list=None, mask=None):
         if self.use_memory_efficient_attention_xformers:
             return self.forward_memory_efficient_xformers(hidden_states, context, mask)
         if self.use_memory_efficient_attention_mem_eff:
