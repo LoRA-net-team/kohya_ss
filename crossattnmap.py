@@ -3310,7 +3310,14 @@ def main(args):
     """
 
 
-def setup_parser() -> argparse.ArgumentParser:
+
+def arg_as_list(s):
+    import ast
+    v = ast.literal_eval(s)
+    return v
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--v2", action="store_true",
                         help="load Stable Diffusion v2.0 model / Stable Diffusion 2.0のモデルを読み込む")
@@ -3320,14 +3327,9 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument("--from_file", type=str, default=None,
                         help="if specified, load prompts from this file / 指定時はプロンプトをファイルから読み込む")
     parser.add_argument("--interactive", action="store_true",
-                        help="interactive mode (generates one image) / 対話モード（生成される画像は1枚になります）"
-                        )
-    parser.add_argument(
-        "--no_preview", action="store_true", help="do not show generated image in interactive mode / 対話モードで画像を表示しない"
-    )
-    parser.add_argument(
-        "--image_path", type=str, default=None, help="image to inpaint or to generate from / img2imgまたはinpaintを行う元画像"
-    )
+                        help="interactive mode (generates one image) / 対話モード（生成される画像は1枚になります）")
+    parser.add_argument("--no_preview", action="store_true", help="do not show generated image in interactive mode / 対話モードで画像を表示しない")
+    parser.add_argument("--image_path", type=str, default=None, help="image to inpaint or to generate from / img2imgまたはinpaintを行う元画像")
     parser.add_argument("--mask_path", type=str, default=None, help="mask in inpainting / inpaint時のマスク")
     parser.add_argument("--strength", type=float, default=None, help="img2img strength / img2img時のstrength")
     parser.add_argument("--images_per_prompt", type=int, default=1,
@@ -3335,156 +3337,70 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outdir", type=str, default="outputs", help="dir to write results to / 生成画像の出力先")
     parser.add_argument("--sequential_file_name", action="store_true",
                         help="sequential output file name / 生成画像のファイル名を連番にする")
-    parser.add_argument(
-        "--use_original_file_name",
-        action="store_true",
-        help="prepend original file name in img2img / img2imgで元画像のファイル名を生成画像のファイル名の先頭に付ける",
-    )
-    # parser.add_argument("--ddim_eta", type=float, default=0.0, help="ddim eta (eta=0.0 corresponds to deterministic sampling", )
+    parser.add_argument("--use_original_file_name",
+                        action="store_true",
+                        help="prepend original file name in img2img / img2imgで元画像のファイル名を生成画像のファイル名の先頭に付ける",)
     parser.add_argument("--n_iter", type=int, default=1, help="sample this often / 繰り返し回数")
     parser.add_argument("--H", type=int, default=None, help="image height, in pixel space / 生成画像高さ")
     parser.add_argument("--W", type=int, default=None, help="image width, in pixel space / 生成画像幅")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size / バッチサイズ")
-    parser.add_argument(
-        "--vae_batch_size",
-        type=float,
-        default=None,
-        help="batch size for VAE, < 1.0 for ratio / VAE処理時のバッチサイズ、1未満の値の場合は通常バッチサイズの比率",
-    )
-    parser.add_argument(
-        "--vae_slices",
-        type=int,
-        default=None,
-        help="number of slices to split image into for VAE to reduce VRAM usage, None for no splitting (default), slower if specified. 16 or 32 recommended / VAE処理時にVRAM使用量削減のため画像を分割するスライス数、Noneの場合は分割しない（デフォルト）、指定すると遅くなる。16か32程度を推奨",
-    )
+    parser.add_argument("--vae_batch_size",type=float,default=None,
+                        help="batch size for VAE, < 1.0 for ratio / VAE処理時のバッチサイズ、1未満の値の場合は通常バッチサイズの比率",)
+    parser.add_argument("--vae_slices",type=int,default=None,
+                        help="number of slices to split image into for VAE to reduce VRAM usage, None for no splitting (default), slower if specified. 16 or 32 recommended,")
     parser.add_argument("--steps", type=int, default=50, help="number of ddim sampling steps / サンプリングステップ数")
-    parser.add_argument(
-        "--sampler",
-        type=str,
-        default="ddim",
-        choices=[
-            "ddim",
-            "pndm",
-            "lms",
-            "euler",
-            "euler_a",
-            "heun",
-            "dpm_2",
-            "dpm_2_a",
-            "dpmsolver",
-            "dpmsolver++",
-            "dpmsingle",
-            "k_lms",
-            "k_euler",
-            "k_euler_a",
-            "k_dpm_2",
-            "k_dpm_2_a",
-        ],
-        help=f"sampler (scheduler) type / サンプラー（スケジューラ）の種類",
-    )
-    parser.add_argument(
-        "--scale",
-        type=float,
-        default=7.5,
-        help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty)) / guidance scale",
-    )
+    parser.add_argument("--sampler",type=str,default="ddim",
+                        choices=["ddim","pndm","lms","euler","euler_a","heun","dpm_2","dpm_2_a","dpmsolver","dpmsolver++","dpmsingle",
+                                 "k_lms","k_euler","k_euler_a","k_dpm_2","k_dpm_2_a",],
+                        help=f"sampler (scheduler) type / サンプラー（スケジューラ）の種類",)
+    parser.add_argument("--scale",type=float,default=7.5,
+                        help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty)) / guidance scale",)
     parser.add_argument("--ckpt", type=str, default=None,
                         help="path to checkpoint of model / モデルのcheckpointファイルまたはディレクトリ")
-    parser.add_argument(
-        "--vae", type=str, default=None,
-        help="path to checkpoint of vae to replace / VAEを入れ替える場合、VAEのcheckpointファイルまたはディレクトリ"
-    )
-    parser.add_argument(
-        "--tokenizer_cache_dir",
-        type=str,
-        default=None,
-        help="directory for caching Tokenizer (for offline training) / Tokenizerをキャッシュするディレクトリ（ネット接続なしでの学習のため）",
-    )
+    parser.add_argument("--vae", type=str, default=None,
+                        help="path to checkpoint of vae to replace / VAEを入れ替える場合、VAEのcheckpointファイルまたはディレクトリ")
+    parser.add_argument("--tokenizer_cache_dir",type=str,
+                        default=None,
+                        help="directory for caching Tokenizer (for offline training) / Tokenizerをキャッシュするディレクトリ（ネット接続なしでの学習のため）",)
     # parser.add_argument("--replace_clip_l14_336", action='store_true',
     #                     help="Replace CLIP (Text Encoder) to l/14@336 / CLIP(Text Encoder)をl/14@336に入れ替える")
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=None,
-        help="seed, or seed of seeds in multiple generation / 1枚生成時のseed、または複数枚生成時の乱数seedを決めるためのseed",
-    )
-    parser.add_argument(
-        "--iter_same_seed",
-        action="store_true",
-        help="use same seed for all prompts in iteration if no seed specified / 乱数seedの指定がないとき繰り返し内はすべて同じseedを使う（プロンプト間の差異の比較用）",
-    )
-    parser.add_argument(
-        "--shuffle_prompts",
-        action="store_true",
-        help="shuffle prompts in iteration / 繰り返し内のプロンプトをシャッフルする",
-    )
+    parser.add_argument("--seed",type=int,default=None,
+                        help="seed, or seed of seeds in multiple generation / 1枚生成時のseed、または複数枚生成時の乱数seedを決めるためのseed",)
+    parser.add_argument("--iter_same_seed",action="store_true",
+                        help="use same seed for all prompts in iteration if no seed specified / 乱数seedの指定がないとき繰り返し内はすべて同じseedを使う（プロンプト間の差異の比較用）",)
+    parser.add_argument("--shuffle_prompts",action="store_true",
+                        help="shuffle prompts in iteration / 繰り返し内のプロンプトをシャッフルする",)
     parser.add_argument("--fp16", action="store_true", help="use fp16 / fp16を指定し省メモリ化する")
     parser.add_argument("--bf16", action="store_true", help="use bfloat16 / bfloat16を指定し省メモリ化する")
     parser.add_argument("--xformers", action="store_true", help="use xformers / xformersを使用し高速化する")
     parser.add_argument("--sdpa", action="store_true", help="use sdpa in PyTorch 2 / sdpa")
-    parser.add_argument(
-        "--diffusers_xformers",
-        action="store_true",
-        help="use xformers by diffusers (Hypernetworks doesn't work) / Diffusersでxformersを使用する（Hypernetwork利用不可）",
-    )
-    parser.add_argument(
-        "--opt_channels_last", action="store_true",
-        help="set channels last option to model / モデルにchannels lastを指定し最適化する"
-    )
-    parser.add_argument(
-        "--network_module", type=str, default=None, nargs="*",
-        help="additional network module to use / 追加ネットワークを使う時そのモジュール名"
-    )
-    parser.add_argument(
-        "--network_weights", type=str, default=None, nargs="*", help="additional network weights to load / 追加ネットワークの重み"
-    )
+    parser.add_argument("--diffusers_xformers",action="store_true",
+                        help="use xformers by diffusers (Hypernetworks doesn't work) / Diffusersでxformersを使用する（Hypernetwork利用不可）",)
+    parser.add_argument("--opt_channels_last", action="store_true",help="set channels last option to model / モデルにchannels lastを指定し最適化する")
+    parser.add_argument("--network_module", type=str, default=None, nargs="*",
+                        help="additional network module to use / 追加ネットワークを使う時そのモジュール名")
+    parser.add_argument("--network_weights", type=str, default=None, nargs="*", help="additional network weights to load / 追加ネットワークの重み")
     parser.add_argument("--network_mul", type=float, default=None, nargs="*",
                         help="additional network multiplier / 追加ネットワークの効果の倍率")
-    parser.add_argument(
-        "--network_args", type=str, default=None, nargs="*",
-        help="additional argmuments for network (key=value) / ネットワークへの追加の引数"
-    )
+    parser.add_argument("--network_args", type=str, default=None, nargs="*",
+                        help="additional argmuments for network (key=value) / ネットワークへの追加の引数")
     parser.add_argument("--network_show_meta", action="store_true",
                         help="show metadata of network model / ネットワークモデルのメタデータを表示する")
     parser.add_argument("--network_merge", action="store_true",
                         help="merge network weights to original model / ネットワークの重みをマージする")
-    parser.add_argument(
-        "--network_pre_calc", action="store_true", help="pre-calculate network for generation / ネットワークのあらかじめ計算して生成する"
-    )
-    parser.add_argument(
-        "--textual_inversion_embeddings",
-        type=str,
-        default=None,
-        nargs="*",
-        help="Embeddings files of Textual Inversion / Textual Inversionのembeddings",
-    )
-    parser.add_argument(
-        "--XTI_embeddings",
-        type=str,
-        default=None,
-        nargs="*",
-        help="Embeddings files of Extended Textual Inversion / Extended Textual Inversionのembeddings",
-    )
+    parser.add_argument("--network_pre_calc", action="store_true", help="pre-calculate network for generation / ネットワークのあらかじめ計算して生成する")
+    parser.add_argument("--textual_inversion_embeddings",type=str,default=None,nargs="*",
+                        help="Embeddings files of Textual Inversion / Textual Inversionのembeddings",)
+    parser.add_argument("--XTI_embeddings", type=str, default=None, nargs="*",
+                        help="Embeddings files of Extended Textual Inversion / Extended Textual Inversionのembeddings",)
     parser.add_argument("--clip_skip", type=int, default=None,
                         help="layer number from bottom to use in CLIP / CLIPの後ろからn層目の出力を使う")
-    parser.add_argument(
-        "--max_embeddings_multiples",
-        type=int,
-        default=None,
-        help="max embeding multiples, max token length is 75 * multiples / トークン長をデフォルトの何倍とするか 75*この値 がトークン長となる",
-    )
-    parser.add_argument(
-        "--clip_guidance_scale",
-        type=float,
-        default=0.0,
-        help="enable CLIP guided SD, scale for guidance (DDIM, PNDM, LMS samplers only) / CLIP guided SDを有効にしてこのscaleを適用する（サンプラーはDDIM、PNDM、LMSのみ）",
-    )
-    parser.add_argument(
-        "--clip_image_guidance_scale",
-        type=float,
-        default=0.0,
-        help="enable CLIP guided SD by image, scale for guidance / 画像によるCLIP guided SDを有効にしてこのscaleを適用する",
-    )
+    parser.add_argument("--max_embeddings_multiples", type=int, default=None,
+                        help="max embeding multiples, max token length is 75 * multiples / トークン長をデフォルトの何倍とするか 75*この値 がトークン長となる",)
+    parser.add_argument("--clip_guidance_scale", type=float, default=0.0,
+                        help="enable CLIP guided SD, scale for guidance (DDIM, PNDM, LMS samplers only) / CLIP guided SDを有効にしてこのscaleを適用する（サンプラーはDDIM、PNDM、LMSのみ）",)
+    parser.add_argument("--clip_image_guidance_scale",type=float,default=0.0,
+                        help="enable CLIP guided SD by image, scale for guidance / 画像によるCLIP guided SDを有効にしてこのscaleを適用する",)
     parser.add_argument(
         "--vgg16_guidance_scale",
         type=float,
@@ -3561,21 +3477,6 @@ def setup_parser() -> argparse.ArgumentParser:
         nargs="*",
         help="ControlNet guidance ratio for steps / ControlNetでガイドするステップ比率",
     )
-    # parser.add_argument(
-    #     "--control_net_image_path", type=str, default=None, nargs="*", help="image for ControlNet guidance / ControlNetでガイドに使う画像"
-    # )
-
-    return parser
-
-
-def arg_as_list(s):
-    import ast
-    v = ast.literal_eval(s)
-    return v
-
-
-if __name__ == "__main__":
-    parser = setup_parser()
     parser.add_argument("--device", default='cuda')
     parser.add_argument("--trg_token", type = str)
     args = parser.parse_args()
