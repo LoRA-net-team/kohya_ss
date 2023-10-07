@@ -943,10 +943,10 @@ class NetworkTrainer:
                         self_layer_names = self_query_collection.keys()
                         for self_layer_name in self_layer_names:
                             print(f'[self] layer_name : {self_layer_name}')
-                        
 
+                            
 
-                accelerator.backward(loss)
+                    accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm )
