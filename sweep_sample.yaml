@@ -1,0 +1,9 @@
+program: train_network.py
+method: bayes
+metric:
+  name: loss
+  goal: minimize
+parameters:
+  attn_loss_ratio:
+    min: 1
+    max: 20

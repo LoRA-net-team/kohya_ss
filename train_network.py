@@ -72,10 +72,12 @@ def register_attention_control(unet : nn.Module, controller):
                                              query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+            """
             if not is_cross_attention:
                 if trg_indexs_list is not None:
                     query, key = controller.self_query_key_caching(query, key, layer_name)
-                """
+            """
+            """
                 self_attn_map = attention_probs.sum(dim=0)
                 im = (self_attn_map - self_attn_map.min()) / (self_attn_map.max() - self_attn_map.min() + 1e-8)
                 from utils import _convert_heat_map_colors
@@ -87,11 +89,10 @@ def register_attention_control(unet : nn.Module, controller):
                 # heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 # heat_map_img = Image.fromarray(heat_map)
                 heat_map_img.save(f'training_{layer_name}.jpg')
-                """
+            """
             if is_cross_attention:
-
                 if trg_indexs_list is not None:
-                    key = controller.cross_key_caching(key, layer_name)
+                    #key = controller.cross_key_caching(key, layer_name)
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
@@ -106,7 +107,7 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
-                            attn_loss = F.mse_loss(word_heat_map, masked_heat_map)
+                            attn_loss = F.mse_loss(word_heat_map.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -938,7 +939,7 @@ class NetworkTrainer:
                         self_query_collection = attention_storer.self_query_store
                         self_key_collection = attention_storer.self_key_store
                         cross_key_collection
-                        """
+                        
                         self_attn_loss = 0
                         layer_names = cross_key_collection.keys()
                         for layer_name in layer_names:
@@ -956,12 +957,12 @@ class NetworkTrainer:
                             sim = cos_sim(attention_scores_1,attention_scores_2)
                             sim = abs(sim.sum())
                             self_attn_loss = self_attn_loss + 1/sim
-                            """
+                        
                             print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
                             collection_list = len(cross_key_collection[layer_name])
                             print(f'len of collection list : {collection_list}')
-                            """
-                        loss = loss + self_attn_loss
+                        """
+                        #loss = loss + self_attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()

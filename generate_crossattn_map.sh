@@ -1,14 +1,15 @@
 python generate_crossattn_map.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights "./result/jungwoo_experience/jungwoo_base_1/jungwoo-000020.safetensors" \
-      --prompt "jungwoo, white_background" --outdir 20231002_result/jungwoo_base_1 --seed 42 --trg_token 'jungwoo'
+      --network_weights "./result/jungwoo_experience/jungwoo_1_base/jungwoo-000017.safetensors" \
+      --prompt "jw, white_background" --outdir 20231007_result/jungwoo_base_1 --seed 42 --trg_token 'jw'
 # ---------------------------------------------------------------------------------------------------------------------------------------
 python generate_crossattn_map.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights "./result/jungwoo_experience/jungwoo_base_2/jungwoo-000024.safetensors" \
-      --prompt "jungwoo, white_background" --outdir 20231002_result/jungwoo_base_2 --seed 42 --trg_token 'jungwoo'
+      --network_weights "./result/jungwoo_experience/jungwoo_1_attnloss_10/jungwoo-000021.safetensors" \
+      --prompt "jungwoo, white_background" --outdir 20231007_result/jungwoo_1_attnloss_10 --seed 42 --trg_token 'jungwoo'
+
 # ---------------------------------------------------------------------------------------------------------------------------------------
 python generate_crossattn_map.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
