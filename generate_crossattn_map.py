@@ -280,7 +280,7 @@ def replace_vae_attn_to_sdpa():
 def register_attention_control(unet, controller):
 
     def ca_forward(self, layer_name):
-        def forward(hidden_states, context=None, mask=None):
+        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
