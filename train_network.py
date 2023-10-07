@@ -900,9 +900,9 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
-                        print(f'attn_loss : {attn_loss}')
-                        attn_loss.requires_grad = True
-                        loss = task_loss + attn_loss
+                        #attn_loss.requires_grad = True
+                        #loss = task_loss + attn_loss
+                        loss = attn_loss
 
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
