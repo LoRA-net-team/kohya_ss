@@ -937,6 +937,7 @@ class NetworkTrainer:
                         self_key_collection = attention_storer.self_key_store
                         cross_key_collection
                         """
+                        self_attn_loss = 0
                         layer_names = cross_key_collection.keys()
                         for layer_name in layer_names:
                             net_name = layer_name.split('_attn2')[0]
@@ -944,9 +945,14 @@ class NetworkTrainer:
                             cross_key = cross_key_collection[layer_name][0]
                             self_query = self_query_collection[self_layer_name][0]
                             self_key = self_key_collection[self_layer_name][0]
+                            cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+                            self_attn_loss = self_attn_loss + 1/cos_sim(self_query,self_key)
+                            """
                             print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
                             collection_list = len(cross_key_collection[layer_name])
                             print(f'len of collection list : {collection_list}')
+                            """
+                        print(f'self_attn_loss : {self_attn_loss}')
 
 
 
