@@ -333,6 +333,10 @@ class NetworkTrainer:
             print(" make wandb process log file")
             wandb.init(project=args.wandb_init_name)
             wandb.run.name = folder_name
+            cfg = {"attn_loss_ratio": 1}
+            wandb.config.update(cfg)
+
+
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
         # モデルを読み込む
