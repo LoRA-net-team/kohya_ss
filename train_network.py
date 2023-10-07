@@ -1046,6 +1046,7 @@ class NetworkTrainer:
             attention_storer.self_query_store = {}
             attention_storer.self_key_store = {}
             attention_storer.cross_key_store = {}
+
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
 
