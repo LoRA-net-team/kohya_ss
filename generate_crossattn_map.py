@@ -966,7 +966,9 @@ class PipelineLike:
                     text_emb_last,
                 ).sample
             else:
-                noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
+                noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                                       trg_indexs_list=None,
+                                       mask_imgs=None, ).sample
 
             # perform guidance
             if do_classifier_free_guidance:
