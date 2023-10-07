@@ -73,7 +73,8 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if not is_cross_attention:
-                query, key = controller.self_query_key_caching(query, key, layer_name)
+                if trg_indexs_list is not None:
+                    query, key = controller.self_query_key_caching(query, key, layer_name)
                 """
                 self_attn_map = attention_probs.sum(dim=0)
                 im = (self_attn_map - self_attn_map.min()) / (self_attn_map.max() - self_attn_map.min() + 1e-8)
@@ -88,8 +89,9 @@ def register_attention_control(unet : nn.Module, controller):
                 heat_map_img.save(f'training_{layer_name}.jpg')
                 """
             if is_cross_attention:
-                key = controller.cross_key_caching(key, layer_name)
+
                 if trg_indexs_list is not None:
+                    key = controller.cross_key_caching(key, layer_name)
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
