@@ -73,7 +73,10 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if not is_cross_attention:
-                print(f'{layer_name} : attention_probs : {attention_probs.shape}')
+
+                self_attn_map = attention_probs.mean(dim=0)
+                print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
+
             if is_cross_attention:
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
