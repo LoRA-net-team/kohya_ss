@@ -166,7 +166,7 @@ class NetworkTrainer:
                            task_loss=None, attn_loss=None,):
         if task_loss and attn_loss :
             logs = {"loss/task_loss": task_loss.item(),
-                   # "loss/attn_loss": attn_loss.item(),
+                    "loss/attn_loss": attn_loss.item(),
                     "loss/current": current_loss,
                     "loss/average": avr_loss,}
         else :
@@ -964,8 +964,8 @@ class NetworkTrainer:
             if args.logging_dir is not None:
                 if args.heatmap_loss:
                     logs = {"loss/epoch": loss_total / len(loss_list),
-                            "loss/task_loss": task_loss.item(),}
-                            #"loss/attn_loss": attn_loss.item()}
+                            "loss/task_loss": task_loss.item(),
+                            "loss/attn_loss": attn_loss.item()}
                 else:
                     logs = {"loss/epoch": loss_total / len(loss_list),}
                 accelerator.log(logs, step=epoch + 1)
