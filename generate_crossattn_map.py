@@ -2136,6 +2136,13 @@ def register_attention_control(unet, controller):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
+            if not is_cross_attention:
+                self_attn_map = attention_probs.mean(dim=0)
+                print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
+                heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                heat_map_img = Image.fromarray(heat_map)
+                heat_map_img.save(f'{layer_name}.jpg')
+                
             if is_cross_attention:
                 attn = controller.store(attention_probs, layer_name)
             # 2) after value calculating
