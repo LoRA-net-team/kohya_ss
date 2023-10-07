@@ -1237,7 +1237,10 @@ class CrossAttnUpBlock2D(nn.Module):
                 def create_custom_forward(module, return_dict=None):
                     def custom_forward(*inputs):
                         if return_dict is not None:
-                            return module(*inputs, trg_indexs_list=trg_indexs_list, mask=mask,
+                            print(f'in custom forward, trg_indexs_list : {trg_indexs_list}')
+                            return module(*inputs,
+                                          trg_indexs_list=trg_indexs_list,
+                                          mask=mask,
                                           return_dict=return_dict)
                         else:
                             return module(*inputs)
@@ -1514,6 +1517,7 @@ class UNet2DConditionModel(nn.Module):
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
             if downsample_block.has_cross_attention:
+                print(f'in down block, trg_indexs_list: {trg_indexs_list}')
                 sample, res_samples = downsample_block(hidden_states=sample,
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
