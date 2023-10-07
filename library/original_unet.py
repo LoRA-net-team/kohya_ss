@@ -858,10 +858,8 @@ class Transformer2DModel(nn.Module):
             transformer.set_use_sdpa(sdpa)
 
     def forward(self, hidden_states, encoder_hidden_states=None, timestep=None, return_dict: bool = True,
-
                 trg_indexs_list=None,
                 mask=None):
-        print(f'in transformer2dmodel, trg_indexs_list : {trg_indexs_list.shape}')
         # 1. Input
         batch, _, height, weight = hidden_states.shape
         residual = hidden_states
@@ -966,7 +964,9 @@ class CrossAttnDownBlock2D(nn.Module):
                                                                   hidden_states, encoder_hidden_states)[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
-                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states).sample
+                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,
+                                     trg_indexs_list=trg_indexs_list,
+                                     mask=mask,                                     ).sample
 
             output_states += (hidden_states,)
 
@@ -1052,7 +1052,9 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                     hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet), hidden_states, temb)
             else:
                 if attn is not None:
-                    hidden_states = attn(hidden_states, encoder_hidden_states,).sample
+                    hidden_states = attn(hidden_states, encoder_hidden_states,
+                                         trg_indexs_list=trg_indexs_list,
+                                         mask=mask,).sample
                 hidden_states = resnet(hidden_states, temb)
 
         return hidden_states
@@ -1237,7 +1239,6 @@ class CrossAttnUpBlock2D(nn.Module):
                 def create_custom_forward(module, return_dict=None):
                     def custom_forward(*inputs):
                         if return_dict is not None:
-                            print(f'in custom forward, trg_indexs_list : {trg_indexs_list}')
                             return module(*inputs,
                                           trg_indexs_list=trg_indexs_list,
                                           mask=mask,
@@ -1255,7 +1256,9 @@ class CrossAttnUpBlock2D(nn.Module):
                                                                   )[0]
             else:
                 hidden_states = resnet(hidden_states, temb)
-                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states).sample
+                hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,
+                                     trg_indexs_list=trg_indexs_list,
+                                     mask=mask,).sample
 
         if self.upsamplers is not None:
             for upsampler in self.upsamplers:
