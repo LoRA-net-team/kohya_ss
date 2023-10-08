@@ -3269,6 +3269,7 @@ def main(args):
                     trg_indexs.append(trg_index)
             trg_index += 1
         text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+        print(f'trg_indexs : {trg_indexs}')
         return text_embeddings, trg_indexs
 
     print(f' (5.1) target index in the sentence')

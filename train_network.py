@@ -76,8 +76,6 @@ def register_attention_control(unet : nn.Module, controller):
             if not is_cross_attention:
                 if trg_indexs_list is not None:
                     query, key = controller.self_query_key_caching(query, key, layer_name)
-            """
-            """
                 self_attn_map = attention_probs.sum(dim=0)
                 im = (self_attn_map - self_attn_map.min()) / (self_attn_map.max() - self_attn_map.min() + 1e-8)
                 from utils import _convert_heat_map_colors
