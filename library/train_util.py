@@ -104,12 +104,7 @@ try:
 except:
     pass
 
-IMAGE_TRANSFORMS = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5]),
-    ]
-)
+IMAGE_TRANSFORMS = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5]),])
 
 TEXT_ENCODER_OUTPUTS_CACHE_SUFFIX = "_te_outputs.npz"
 
@@ -1075,7 +1070,7 @@ class BaseDataset(torch.utils.data.Dataset):
             np_img = np.array(mas_img.resize((512, 512)))
             torch_img = torch.from_numpy(np_img)
             mask_img = torch.where(torch_img == 0, 0, 1)
-            trg_concept = 'jw'
+            trg_concept = 'haibara'
             trg_concepts.append(trg_concept)
             mask_imgs.append(mask_img)
             subset = self.image_to_subset[image_key]
