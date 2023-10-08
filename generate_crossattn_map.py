@@ -3250,7 +3250,6 @@ def main(args):
             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                 trg_token_id.append(token_id)
         print(f'trg_token_id : {trg_token_id}')
-
         text_input = tokenizer([prompt],
                                padding="max_length",
                                max_length=tokenizer.model_max_length,
@@ -3284,6 +3283,9 @@ def main(args):
         attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
         attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
         attns = attns.squeeze(0)  # timestep, head(con, uncond), pix_len, sen_len
+        print(f'attns.shape : {attns.shape}')
+        # if :
+        # else :
         maps, _ = torch.chunk(attns, chunks=2, dim=1)
         maps = maps.sum(0)  # [8, pix_len, sen_len]
         maps = maps.sum(0)  # [pix_len, sen_len]
