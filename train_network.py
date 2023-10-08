@@ -852,220 +852,219 @@ class NetworkTrainer:
         if is_main_process :
             gradient_dict = {}
             loss_dict = {}
-        for epoch in range(num_train_epochs):
-            accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
-            current_epoch.value = epoch + 1
-            metadata["ss_epoch"] = str(epoch + 1)
-            network.on_epoch_start(text_encoder, unet)
-            for step, batch in enumerate(train_dataloader):
-                current_step.value = global_step
-                with accelerator.accumulate(network):
-                    on_step_start(text_encoder, unet)
-                    with torch.no_grad():
-                        if "latents" in batch and batch["latents"] is not None:
-                            latents = batch["latents"].to(accelerator.device)
+
+        with open(os.path.join(args.output_dir, "attnloss.txt"), "a") as f:
+            for epoch in range(num_train_epochs):
+                accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
+                current_epoch.value = epoch + 1
+                metadata["ss_epoch"] = str(epoch + 1)
+                network.on_epoch_start(text_encoder, unet)
+                for step, batch in enumerate(train_dataloader):
+                    current_step.value = global_step
+                    with accelerator.accumulate(network):
+                        on_step_start(text_encoder, unet)
+                        with torch.no_grad():
+                            if "latents" in batch and batch["latents"] is not None:
+                                latents = batch["latents"].to(accelerator.device)
+                            else:
+                                latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
+                                if torch.any(torch.isnan(latents)):
+                                    accelerator.print("NaN found in latents, replacing with zeros")
+                                    latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
+                            latents = latents * self.vae_scale_factor
+                        b_size = latents.shape[0]
+                        with torch.set_grad_enabled(train_text_encoder):
+                            if args.weighted_captions:
+                                text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder, batch["captions"],accelerator.device,
+                                                                                  args.max_token_length // 75 if args.max_token_length else 1,
+                                                                                  clip_skip=args.clip_skip,)
+                            else:
+                                text_encoder_conds = self.get_text_cond(args,
+                                                                        accelerator,
+                                                                        batch,
+                                                                        tokenizers,
+                                                                        text_encoders,
+                                                                        weight_dtype)
+                        noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler,latents)
+                        # Predict the noise residual
+                        with accelerator.autocast():
+                            # -----------------------------------------------------------------------------------------------------------------------
+                            noise_pred = self.call_unet(args,
+                                                        accelerator,
+                                                        unet,
+                                                        noisy_latents,
+                                                        timesteps,
+                                                        text_encoder_conds,
+                                                        batch,
+                                                        weight_dtype,
+                                                        batch["trg_indexs_list"],
+                                                        batch['mask_imgs'])
+                            # -----------------------------------------------------------------------------------------------------------------------
+                            atten_collection = attention_storer.step_store
+                            attention_storer.reset()
+                            attention_storer.step_store = {}
+
+                            self_query_collection = attention_storer.self_query_store
+                            self_key_collection = attention_storer.self_key_store
+                            cross_key_collection = attention_storer.cross_key_store
+                            attention_storer.self_query_store = {}
+                            attention_storer.self_key_store = {}
+                            attention_storer.cross_key_store = {}
+
+                        if args.v_parameterization:
+                            target = noise_scheduler.get_velocity(latents, noise, timesteps)
                         else:
-                            latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
-                            if torch.any(torch.isnan(latents)):
-                                accelerator.print("NaN found in latents, replacing with zeros")
-                                latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
-                        latents = latents * self.vae_scale_factor
-                    b_size = latents.shape[0]
-                    with torch.set_grad_enabled(train_text_encoder):
-                        if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder, batch["captions"],accelerator.device,
-                                                                              args.max_token_length // 75 if args.max_token_length else 1,
-                                                                              clip_skip=args.clip_skip,)
-                        else:
-                            text_encoder_conds = self.get_text_cond(args,
-                                                                    accelerator,
-                                                                    batch,
-                                                                    tokenizers,
-                                                                    text_encoders,
-                                                                    weight_dtype)
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler,latents)
-                    # Predict the noise residual
-                    with accelerator.autocast():
-                        # -----------------------------------------------------------------------------------------------------------------------
-                        noise_pred = self.call_unet(args,
-                                                    accelerator,
-                                                    unet,
-                                                    noisy_latents,
-                                                    timesteps,
-                                                    text_encoder_conds,
-                                                    batch,
-                                                    weight_dtype,
-                                                    batch["trg_indexs_list"],
-                                                    batch['mask_imgs'])
-                        # -----------------------------------------------------------------------------------------------------------------------
-                        atten_collection = attention_storer.step_store
+                            target = noise
+                        loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                        loss = loss.mean([1, 2, 3])
+                        loss_weights = batch["loss_weights"]  # 各sampleごとのweight
+                        loss = loss * loss_weights
+                        if args.min_snr_gamma:
+                            loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.min_snr_gamma)
+                        if args.scale_v_pred_loss_like_noise_pred:
+                            loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
+                        if args.v_pred_like_loss:
+                            loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
+                        loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
+                        task_loss = loss
+
+                        # ------------------------------------------------------------------------------------
+                        if args.heatmap_loss :
+                            layer_names = atten_collection.keys()
+                            attn_loss = 0
+                            for layer_name in layer_names:
+                                attn_loss = attn_loss + sum(atten_collection[layer_name])
+                                loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
+                                f.write(loss_record)
+                            loss = task_loss + args.attn_loss_ratio * attn_loss
+                            """
+                            self_query_collection = attention_storer.self_query_store
+                            self_key_collection = attention_storer.self_key_store
+                            cross_key_collection
+                            
+                            self_attn_loss = 0
+                            layer_names = cross_key_collection.keys()
+                            for layer_name in layer_names:
+                                net_name = layer_name.split('_attn2')[0]
+                                self_layer_name = f'{net_name}_attn1'
+                                cross_key = cross_key_collection[layer_name][0]
+                                self_query = self_query_collection[self_layer_name][0]
+                                self_key = self_key_collection[self_layer_name][0]
+    
+                                attention_scores_1 = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], cross_key.shape[1],
+                                                                             self_query, cross_key.transpose(-1, -2), beta=0)).softmax(dim=-1)
+                                attention_scores_2 = torch.baddbmm(torch.empty(self_key.shape[0], self_key.shape[1], cross_key.shape[1],
+                                                                               self_key, cross_key.transpose(-1, -2), beta=0)).softmax(dim=-1)
+                                cos_sim = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+                                sim = cos_sim(attention_scores_1,attention_scores_2)
+                                sim = abs(sim.sum())
+                                self_attn_loss = self_attn_loss + 1/sim
+                            
+                                print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
+                                collection_list = len(cross_key_collection[layer_name])
+                                print(f'len of collection list : {collection_list}')
+                            """
+                            #loss = loss + self_attn_loss
+                        accelerator.backward(loss)
+                        if accelerator.sync_gradients and args.max_grad_norm != 0.0:
+                            params_to_clip = network.get_trainable_params()
+                            accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm )
+                        optimizer.step()
+                        lr_scheduler.step()
+                        optimizer.zero_grad(set_to_none=True)
+                    if args.scale_weight_norms:
+                        keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms,
+                                                                                                     accelerator.device)
+                        max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
+                    else:
+                        keys_scaled, mean_norm, maximum_norm = None, None, None
+
+                    # Checks if the accelerator has performed an optimization step behind the scenes
+                    if accelerator.sync_gradients:
+                        progress_bar.update(1)
+                        global_step += 1
+                        self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
                         attention_storer.reset()
                         attention_storer.step_store = {}
-
-                        self_query_collection = attention_storer.self_query_store
-                        self_key_collection = attention_storer.self_key_store
-                        cross_key_collection = attention_storer.cross_key_store
                         attention_storer.self_query_store = {}
                         attention_storer.self_key_store = {}
                         attention_storer.cross_key_store = {}
 
-                    if args.v_parameterization:
-                        target = noise_scheduler.get_velocity(latents, noise, timesteps)
+                        # 指定ステップごとにモデルを保存
+                        if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
+                            accelerator.wait_for_everyone()
+                            if accelerator.is_main_process:
+                                ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
+                                save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
+                                if args.save_state:
+                                    train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
+                                remove_step_no = train_util.get_remove_step_no(args, global_step)
+                                if remove_step_no is not None:
+                                    remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
+                                    remove_model(remove_ckpt_name)
+                    # ------------------------------------------------------------------------------------------------------
+                    # 1) total loss
+                    current_loss = loss.detach().item()
+                    if epoch == 0:
+                        loss_list.append(current_loss)
                     else:
-                        target = noise
-                    loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-                    loss = loss.mean([1, 2, 3])
-                    loss_weights = batch["loss_weights"]  # 各sampleごとのweight
-                    loss = loss * loss_weights
-                    if args.min_snr_gamma:
-                        loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.min_snr_gamma)
-                    if args.scale_v_pred_loss_like_noise_pred:
-                        loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
-                    if args.v_pred_like_loss:
-                        loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
-                    loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-                    task_loss = loss
+                        loss_total -= loss_list[step]
+                        loss_list[step] = current_loss
+                    loss_total += current_loss
+                    avr_loss = loss_total / len(loss_list)
+                    if is_main_process :
+                        loss_dict[global_step] = avr_loss
+                    logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
+                    progress_bar.set_postfix(**logs)
+                    if args.scale_weight_norms:
+                        progress_bar.set_postfix(**{**max_mean_logs, **logs})
+                    # ------------------------------------------------------------------------------------------------------
+                    # 2) total loss
+                    if args.logging_dir is not None:
+                        if args.heatmap_loss :
+                            logs = self.generate_step_logs(args, current_loss, avr_loss,
+                                                           lr_scheduler, keys_scaled, mean_norm, maximum_norm,
+                                                           task_loss, attn_loss)
+                        else :
+                            logs = self.generate_step_logs(args, current_loss, avr_loss,
+                                                           lr_scheduler, keys_scaled, mean_norm, maximum_norm,task_loss)
+                        accelerator.log(logs, step=global_step)
+                        if is_main_process:
+                            wandb.log(logs, step=global_step)
 
-                    # ------------------------------------------------------------------------------------
-                    if args.heatmap_loss :
-                        layer_names = atten_collection.keys()
-                        attn_loss = 0
-                        for layer_name in layer_names:
-                            if args.test_1 :
-                                if 'attention_down_blocks_0_attentions_1' not in layer_name :
-                                    attn_loss = attn_loss + sum(atten_collection[layer_name])
-                            if args.test_2 :
-                                size = abs(sum(atten_collection[layer_name]))
-                                attn_loss = attn_loss + sum(atten_collection[layer_name]) / size
-                        loss = task_loss + args.attn_loss_ratio * attn_loss
-                        """
-                        self_query_collection = attention_storer.self_query_store
-                        self_key_collection = attention_storer.self_key_store
-                        cross_key_collection
-                        
-                        self_attn_loss = 0
-                        layer_names = cross_key_collection.keys()
-                        for layer_name in layer_names:
-                            net_name = layer_name.split('_attn2')[0]
-                            self_layer_name = f'{net_name}_attn1'
-                            cross_key = cross_key_collection[layer_name][0]
-                            self_query = self_query_collection[self_layer_name][0]
-                            self_key = self_key_collection[self_layer_name][0]
-
-                            attention_scores_1 = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], cross_key.shape[1],
-                                                                         self_query, cross_key.transpose(-1, -2), beta=0)).softmax(dim=-1)
-                            attention_scores_2 = torch.baddbmm(torch.empty(self_key.shape[0], self_key.shape[1], cross_key.shape[1],
-                                                                           self_key, cross_key.transpose(-1, -2), beta=0)).softmax(dim=-1)
-                            cos_sim = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-                            sim = cos_sim(attention_scores_1,attention_scores_2)
-                            sim = abs(sim.sum())
-                            self_attn_loss = self_attn_loss + 1/sim
-                        
-                            print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
-                            collection_list = len(cross_key_collection[layer_name])
-                            print(f'len of collection list : {collection_list}')
-                        """
-                        #loss = loss + self_attn_loss
-                    accelerator.backward(loss)
-                    if accelerator.sync_gradients and args.max_grad_norm != 0.0:
-                        params_to_clip = network.get_trainable_params()
-                        accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm )
-                    optimizer.step()
-                    lr_scheduler.step()
-                    optimizer.zero_grad(set_to_none=True)
-                if args.scale_weight_norms:
-                    keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms,
-                                                                                                 accelerator.device)
-                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
-                else:
-                    keys_scaled, mean_norm, maximum_norm = None, None, None
-
-                # Checks if the accelerator has performed an optimization step behind the scenes
-                if accelerator.sync_gradients:
-                    progress_bar.update(1)
-                    global_step += 1
-                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
-                    attention_storer.reset()
-                    attention_storer.step_store = {}
-                    attention_storer.self_query_store = {}
-                    attention_storer.self_key_store = {}
-                    attention_storer.cross_key_store = {}
-                    
-                    # 指定ステップごとにモデルを保存
-                    if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
-                        accelerator.wait_for_everyone()
-                        if accelerator.is_main_process:
-                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
-                            save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
-                            if args.save_state:
-                                train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
-                            remove_step_no = train_util.get_remove_step_no(args, global_step)
-                            if remove_step_no is not None:
-                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
-                                remove_model(remove_ckpt_name)
-                # ------------------------------------------------------------------------------------------------------
-                # 1) total loss
-                current_loss = loss.detach().item()
-                if epoch == 0:
-                    loss_list.append(current_loss)
-                else:
-                    loss_total -= loss_list[step]
-                    loss_list[step] = current_loss
-                loss_total += current_loss
-                avr_loss = loss_total / len(loss_list)
-                if is_main_process :
-                    loss_dict[global_step] = avr_loss
-                logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
-                progress_bar.set_postfix(**logs)
-                if args.scale_weight_norms:
-                    progress_bar.set_postfix(**{**max_mean_logs, **logs})
-                # ------------------------------------------------------------------------------------------------------
-                # 2) total loss
+                    if global_step >= args.max_train_steps:
+                        break
                 if args.logging_dir is not None:
-                    if args.heatmap_loss :
-                        logs = self.generate_step_logs(args, current_loss, avr_loss,
-                                                       lr_scheduler, keys_scaled, mean_norm, maximum_norm,
-                                                       task_loss, attn_loss)
-                    else :
-                        logs = self.generate_step_logs(args, current_loss, avr_loss,
-                                                       lr_scheduler, keys_scaled, mean_norm, maximum_norm,task_loss)
-                    accelerator.log(logs, step=global_step)
-                    if is_main_process:
-                        wandb.log(logs, step=global_step)
+                    if args.heatmap_loss:
+                        logs = {"loss/epoch": loss_total / len(loss_list),
+                                "loss/task_loss": task_loss.item(),
+                                "loss/attn_loss": attn_loss.item()}
+                    else:
+                        logs = {"loss/epoch": loss_total / len(loss_list),}
+                    accelerator.log(logs, step=epoch + 1)
+                accelerator.wait_for_everyone()
+                # 指定エポックごとにモデルを保存
+                if args.save_every_n_epochs is not None:
+                    saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
+                    if is_main_process and saving:
+                        ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
+                        if args.unwrap :
+                            save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
+                        else :
+                            save_model(ckpt_name, network, global_step, epoch + 1)
+                        remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
+                        if remove_epoch_no is not None:
+                            remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
+                            remove_model(remove_ckpt_name)
+                        if args.save_state:
+                            train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
 
-                if global_step >= args.max_train_steps:
-                    break
-            if args.logging_dir is not None:
-                if args.heatmap_loss:
-                    logs = {"loss/epoch": loss_total / len(loss_list),
-                            "loss/task_loss": task_loss.item(),
-                            "loss/attn_loss": attn_loss.item()}
-                else:
-                    logs = {"loss/epoch": loss_total / len(loss_list),}
-                accelerator.log(logs, step=epoch + 1)
-            accelerator.wait_for_everyone()
-            # 指定エポックごとにモデルを保存
-            if args.save_every_n_epochs is not None:
-                saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
-                if is_main_process and saving:
-                    ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-                    if args.unwrap :
-                        save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
-                    else :
-                        save_model(ckpt_name, network, global_step, epoch + 1)
-                    remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
-                    if remove_epoch_no is not None:
-                        remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
-                        remove_model(remove_ckpt_name)
-                    if args.save_state:
-                        train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
-            attention_storer.reset()
-            attention_storer.step_store = {}
-            attention_storer.self_query_store = {}
-            attention_storer.self_key_store = {}
-            attention_storer.cross_key_store = {}
+                self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet, attention_storer=attention_storer)
+                attention_storer.reset()
+                attention_storer.step_store = {}
+                attention_storer.self_query_store = {}
+                attention_storer.self_key_store = {}
+                attention_storer.cross_key_store = {}
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
 
