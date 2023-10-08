@@ -933,9 +933,18 @@ class NetworkTrainer:
                             layer_names = atten_collection.keys()
                             attn_loss = 0
                             for layer_name in layer_names:
-                                attn_loss = attn_loss + sum(atten_collection[layer_name])
-                                loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
-                                f.write(loss_record)
+                                if args.test_1 :
+                                    if not 'attention_down_blocks_0_attentions_1' in layer_name :
+                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
+                                    loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
+                                    f.write(loss_record)
+                                if args.test_2 :
+                                    size = abs(sum(atten_collection[layer_name]))
+                                    loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
+                                    f.write(loss_record)
+                                    attn_loss = attn_loss + sum(atten_collection[layer_name]) / size
+                                    
+
                             loss = task_loss + args.attn_loss_ratio * attn_loss
                             """
                             self_query_collection = attention_storer.self_query_store
