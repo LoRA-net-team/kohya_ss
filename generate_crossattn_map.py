@@ -594,7 +594,6 @@ class PipelineLike:
             (nsfw) content, according to the `safety_checker`.
         """
         num_images_per_prompt = 1  # fixed
-
         if isinstance(prompt, str):
             batch_size = 1
             prompt = [prompt]
@@ -603,12 +602,9 @@ class PipelineLike:
         else:
             raise ValueError(f"`prompt` has to be of type `str` or `list` but is {type(prompt)}")
         reginonal_network = " AND " in prompt[0]
-
-        vae_batch_size = (
-            batch_size
+        vae_batch_size = (batch_size
             if vae_batch_size is None
-            else (int(vae_batch_size) if vae_batch_size >= 1 else max(1, int(batch_size * vae_batch_size)))
-        )
+            else (int(vae_batch_size) if vae_batch_size >= 1 else max(1, int(batch_size * vae_batch_size))))
 
         if strength < 0 or strength > 1:
             raise ValueError(f"The value of strength should in [0.0, 1.0] but is {strength}")
@@ -629,22 +625,20 @@ class PipelineLike:
         # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
         # corresponds to doing no classifier free guidance.
         do_classifier_free_guidance = guidance_scale > 1.0
-
         if not do_classifier_free_guidance and negative_scale is not None:
             print(f"negative_scale is ignored if guidance scalle <= 1.0")
             negative_scale = None
 
         # get unconditional embeddings for classifier free guidance
         if negative_prompt is None:
-            negative_prompt = [""] * batch_size
+            negative_prompt = [""] * batch_size # just empty list
         elif isinstance(negative_prompt, str):
             negative_prompt = [negative_prompt] * batch_size
         if batch_size != len(negative_prompt):
             raise ValueError(
                 f"`negative_prompt`: {negative_prompt} has batch size {len(negative_prompt)}, but `prompt`:"
                 f" {prompt} has batch size {batch_size}. Please make sure that passed `negative_prompt` matches"
-                " the batch size of `prompt`."
-            )
+                " the batch size of `prompt`.")
 
         if not self.token_replacements_XTI:
             text_embeddings, uncond_embeddings, prompt_tokens = get_weighted_text_embeddings(
@@ -715,25 +709,17 @@ class PipelineLike:
             if clip_text_input.shape[1] > self.tokenizer.model_max_length:
                 # TODO 75文字を超えたら警告を出す？
                 print("trim text input", clip_text_input.shape)
-                clip_text_input = torch.cat(
-                    [clip_text_input[:, : self.tokenizer.model_max_length - 1], clip_text_input[:, -1].unsqueeze(1)],
-                    dim=1
-                )
+                clip_text_input = torch.cat([clip_text_input[:, : self.tokenizer.model_max_length - 1], clip_text_input[:, -1].unsqueeze(1)],dim=1)
                 print("trimmed", clip_text_input.shape)
-
             for i, clip_prompt in enumerate(clip_prompts):
                 if clip_prompt is not None:  # clip_promptがあれば上書きする
                     clip_text_input[i] = self.tokenizer(
                         clip_prompt,
                         padding="max_length",
                         max_length=self.tokenizer.model_max_length,
-                        truncation=True,
-                        return_tensors="pt",
-                    ).input_ids.to(self.device)
-
+                        truncation=True,return_tensors="pt",).input_ids.to(self.device)
             text_embeddings_clip = self.clip_model.get_text_features(clip_text_input)
-            text_embeddings_clip = text_embeddings_clip / text_embeddings_clip.norm(p=2, dim=-1,
-                                                                                    keepdim=True)  # prompt複数件でもOK
+            text_embeddings_clip = text_embeddings_clip / text_embeddings_clip.norm(p=2, dim=-1,keepdim=True)  # prompt複数件でもOK
 
         if (
                 self.clip_image_guidance_scale > 0
@@ -743,11 +729,9 @@ class PipelineLike:
         ):
             if isinstance(clip_guide_images, PIL.Image.Image):
                 clip_guide_images = [clip_guide_images]
-
             if self.clip_image_guidance_scale > 0:
                 clip_guide_images = [preprocess_guide_image(im) for im in clip_guide_images]
                 clip_guide_images = torch.cat(clip_guide_images, dim=0)
-
                 clip_guide_images = self.normalize(clip_guide_images).to(self.device).to(text_embeddings.dtype)
                 image_embeddings_clip = self.clip_model.get_image_features(clip_guide_images)
                 image_embeddings_clip = image_embeddings_clip / image_embeddings_clip.norm(p=2, dim=-1, keepdim=True)
@@ -757,7 +741,6 @@ class PipelineLike:
                 size = (width // VGG16_INPUT_RESIZE_DIV, height // VGG16_INPUT_RESIZE_DIV)  # とりあえず1/4に（小さいか?）
                 clip_guide_images = [preprocess_vgg16_guide_image(im, size) for im in clip_guide_images]
                 clip_guide_images = torch.cat(clip_guide_images, dim=0)
-
                 clip_guide_images = self.vgg16_normalize(clip_guide_images).to(self.device).to(text_embeddings.dtype)
                 image_embeddings_vgg16 = self.vgg16_feat_model(clip_guide_images)["feat"]
                 if len(image_embeddings_vgg16) == 1:
@@ -773,7 +756,6 @@ class PipelineLike:
         latents_dtype = text_embeddings.dtype
         init_latents_orig = None
         mask = None
-
         if init_image is None:
             # get the initial random noise unless the user supplied it
 
@@ -911,8 +893,7 @@ class PipelineLike:
 
             # predict the noise residual
             if self.control_nets and self.control_net_enabled:
-                noise_pred = original_control_net.call_unet_and_control_net(
-                    i,
+                noise_pred = original_control_net.call_unet_and_control_net(i,
                     num_latent_input,
                     self.unet,
                     self.control_nets,
@@ -924,7 +905,9 @@ class PipelineLike:
                     text_emb_last,
                 ).sample
             else:
-                noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
+                noise_pred = self.unet(latent_model_input,
+                                       t,
+                                       encoder_hidden_states=text_embeddings).sample
 
             # perform guidance
             if do_classifier_free_guidance:
@@ -3264,7 +3247,9 @@ def main(args):
         # else :
         _, maps = torch.chunk(attns, chunks=2, dim=1) # [50, 8,
         maps = maps.sum(0)  # [8, pix_len, sen_len]
+        print(f'maps.shape : {maps.shape}')
         maps = maps.sum(0)  # [pix_len, sen_len]
+        print(f'maps.shape : {maps.shape}')
         # element of attn_list = [8, pix_len, 77]
         pix_len, sen_len = maps.shape
         res = int(math.sqrt(pix_len))

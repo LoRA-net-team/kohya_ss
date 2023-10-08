@@ -88,7 +88,7 @@ STEP_DIFFUSERS_DIR_NAME = "{}-step{:08d}"
 
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".PNG", ".JPG", ".JPEG", ".WEBP", ".BMP"]
 
-base_mask_base_dir = r'/data7/sooyeon/MyData/haibara_mask'
+base_mask_base_dir = r'/data7/sooyeon/MyData/jungwoo_mask'
 
 try:
     import pillow_avif
@@ -1070,7 +1070,7 @@ class BaseDataset(torch.utils.data.Dataset):
             np_img = np.array(mas_img.resize((512, 512)))
             torch_img = torch.from_numpy(np_img)
             mask_img = torch.where(torch_img == 0, 0, 1)
-            trg_concept = 'haibara'
+            trg_concept = 'jw'
             trg_concepts.append(trg_concept)
             mask_imgs.append(mask_img)
             subset = self.image_to_subset[image_key]
