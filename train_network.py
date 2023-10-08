@@ -72,25 +72,8 @@ def register_attention_control(unet : nn.Module, controller):
                                              query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
-            """
-            if not is_cross_attention:
-                if trg_indexs_list is not None:
-                    query, key = controller.self_query_key_caching(query, key, layer_name)
-                self_attn_map = attention_probs.sum(dim=0)
-                im = (self_attn_map - self_attn_map.min()) / (self_attn_map.max() - self_attn_map.min() + 1e-8)
-                from utils import _convert_heat_map_colors
-                heat_map = _convert_heat_map_colors(im)
-                heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                heat_map_img = Image.fromarray(heat_map)
-
-                # print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
-                # heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                # heat_map_img = Image.fromarray(heat_map)
-                heat_map_img.save(f'training_{layer_name}.jpg')
-            """
             if is_cross_attention:
                 if trg_indexs_list is not None:
-                    #key = controller.cross_key_caching(key, layer_name)
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
@@ -933,47 +916,8 @@ class NetworkTrainer:
                             layer_names = atten_collection.keys()
                             attn_loss = 0
                             for layer_name in layer_names:
-                                if args.test_1 :
-                                    if not 'attention_down_blocks_0_attentions_1' in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-                                    loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
-                                    f.write(loss_record)
-                                elif args.test_2 :
-                                    size = abs(sum(atten_collection[layer_name]))
-                                    loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
-                                    f.write(loss_record)
-                                    attn_loss = attn_loss + sum(atten_collection[layer_name]) / size
-                                else :
-                                    attn_loss = attn_loss + sum(atten_collection[layer_name])
+                                attn_loss = attn_loss + sum(atten_collection[layer_name])
                             loss = task_loss + args.attn_loss_ratio * attn_loss
-                            """
-                            self_query_collection = attention_storer.self_query_store
-                            self_key_collection = attention_storer.self_key_store
-                            cross_key_collection
-                            
-                            self_attn_loss = 0
-                            layer_names = cross_key_collection.keys()
-                            for layer_name in layer_names:
-                                net_name = layer_name.split('_attn2')[0]
-                                self_layer_name = f'{net_name}_attn1'
-                                cross_key = cross_key_collection[layer_name][0]
-                                self_query = self_query_collection[self_layer_name][0]
-                                self_key = self_key_collection[self_layer_name][0]
-    
-                                attention_scores_1 = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], cross_key.shape[1],
-                                                                             self_query, cross_key.transpose(-1, -2), beta=0)).softmax(dim=-1)
-                                attention_scores_2 = torch.baddbmm(torch.empty(self_key.shape[0], self_key.shape[1], cross_key.shape[1],
-                                                                               self_key, cross_key.transpose(-1, -2), beta=0)).softmax(dim=-1)
-                                cos_sim = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-                                sim = cos_sim(attention_scores_1,attention_scores_2)
-                                sim = abs(sim.sum())
-                                self_attn_loss = self_attn_loss + 1/sim
-                            
-                                print(f'net_name : {net_name} | cross_key : {cross_key.shape} | self_query : {self_query.shape} | self_key : {self_key.shape}')
-                                collection_list = len(cross_key_collection[layer_name])
-                                print(f'len of collection list : {collection_list}')
-                            """
-                            #loss = loss + self_attn_loss
                         accelerator.backward(loss)
                         if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                             params_to_clip = network.get_trainable_params()
@@ -1040,7 +984,6 @@ class NetworkTrainer:
                         accelerator.log(logs, step=global_step)
                         if is_main_process:
                             wandb.log(logs, step=global_step)
-
                     if global_step >= args.max_train_steps:
                         break
                 if args.logging_dir is not None:
@@ -1101,58 +1044,33 @@ class NetworkTrainer:
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-
     train_util.add_sd_models_arguments(parser)
     train_util.add_dataset_arguments(parser, True, True, True)
     train_util.add_training_arguments(parser, True)
     train_util.add_optimizer_arguments(parser)
     config_util.add_config_arguments(parser)
     custom_train_functions.add_custom_train_arguments(parser)
-
     parser.add_argument("--no_metadata", action="store_true", help="do not save metadata in output model / メタデータを出力先モデルに保存しない")
-    parser.add_argument(
-        "--save_model_as",
-        type=str,
-        default="safetensors",
-        choices=[None, "ckpt", "pt", "safetensors"],
-        help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）",
-    )
-
+    parser.add_argument("--save_model_as",type=str,default="safetensors",
+                        choices=[None, "ckpt", "pt", "safetensors"],
+                        help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）",)
     parser.add_argument("--unet_lr", type=float, default=None, help="learning rate for U-Net / U-Netの学習率")
     parser.add_argument("--text_encoder_lr", type=float, default=None, help="learning rate for Text Encoder / Text Encoderの学習率")
-
     parser.add_argument("--network_weights", type=str, default=None, help="pretrained weights for network / 学習するネットワークの初期重み")
     parser.add_argument("--network_module", type=str, default=None, help="network module to train / 学習対象のネットワークのモジュール")
-    parser.add_argument(
-        "--network_dim", type=int, default=None, help="network dimensions (depends on each network) / モジュールの次元数（ネットワークにより定義は異なります）"
-    )
-    parser.add_argument(
-        "--network_alpha",
-        type=float,
-        default=1,
-        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version) / LoRaの重み調整のalpha値、デフォルト1（旧バージョンと同じ動作をするにはnetwork_dimと同じ値を指定）",
-    )
-    parser.add_argument(
-        "--network_dropout",
-        type=float,
-        default=None,
-        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons) / 訓練時に毎ステップでニューロンをdropする（0またはNoneはdropoutなし、1は全ニューロンをdropout）",
-    )
-    parser.add_argument(
-        "--network_args", type=str, default=None, nargs="*", help="additional argmuments for network (key=value) / ネットワークへの追加の引数"
-    )
+    parser.add_argument("--network_dim", type=int, default=None, help="network dimensions (depends on each network) / モジュールの次元数（ネットワークにより定義は異なります）")
+    parser.add_argument("--network_alpha",type=float,default=1,
+                        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version) / LoRaの重み調整のalpha値、デフォルト1（旧バージョンと同じ動作をするにはnetwork_dimと同じ値を指定）",)
+    parser.add_argument("--network_dropout",type=float,default=None,
+                        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons) / 訓練時に毎ステップでニューロンをdropする（0またはNoneはdropoutなし、1は全ニューロンをdropout）",)
+    parser.add_argument("--network_args", type=str, default=None, nargs="*", help="additional argmuments for network (key=value) / ネットワークへの追加の引数")
     parser.add_argument("--network_train_unet_only", action="store_true", help="only training U-Net part / U-Net関連部分のみ学習する")
     parser.add_argument(
-        "--network_train_text_encoder_only", action="store_true", help="only training Text Encoder part / Text Encoder関連部分のみ学習する"
-    )
+        "--network_train_text_encoder_only", action="store_true", help="only training Text Encoder part / Text Encoder関連部分のみ学習する")
     parser.add_argument(
-        "--training_comment", type=str, default=None, help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列"
-    )
-    parser.add_argument(
-        "--dim_from_weights",
-        action="store_true",
-        help="automatically determine dim (rank) from network_weights / dim (rank)をnetwork_weightsで指定した重みから自動で決定する",
-    )
+        "--training_comment", type=str, default=None, help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列")
+    parser.add_argument("--dim_from_weights",action="store_true",
+                        help="automatically determine dim (rank) from network_weights / dim (rank)をnetwork_weightsで指定した重みから自動で決定する",)
     parser.add_argument(
         "--scale_weight_norms",
         type=float,
@@ -1189,24 +1107,9 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--unet_blockwise_lr", action = 'store_true')
-    parser.add_argument("--up_lr_weight", type=arg_as_list,
-                        default= [1,1,1,5,5,5,10,10,10,10,10,10])
-    parser.add_argument("--mid_lr_weight", type=float,
-                        default=1)
-    parser.add_argument("--down_lr_weight", type=arg_as_list,
-                        default=[1,1,1,1,1,1,1,1,1,1,1,1])
-    parser.add_argument("--down_blocks_0_norm_weight", type=float,default=2)
-    parser.add_argument("--down_blocks_1_norm_weight", type=float, default=2)
-    parser.add_argument("--down_blocks_2_norm_weight", type=float, default=2)
-    parser.add_argument("--up_blocks_1_norm_weight", type=float, default=4)
-    parser.add_argument("--up_blocks_2_norm_weight", type=float, default=10)
-    parser.add_argument("--up_blocks_3_norm_weight", type=float, default=10)
-    parser.add_argument("--algorithm_test", action = 'store_true')
     parser.add_argument("--trg_token", type=str, default = 'haibara')
     parser.add_argument("--heatmap_loss", action = 'store_true')
     parser.add_argument("--attn_loss_ratio", type = float, default = 1.0)
-    parser.add_argument("--test_1", action='store_true')
-    parser.add_argument("--test_2", action='store_true')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
