@@ -2881,17 +2881,13 @@ def main(args):
             prompts = []
             negative_prompts = []
             start_code = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-            noises = [
-                torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-                for _ in range(steps * scheduler_num_noises_per_step)
-            ]
+            noises = [torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
+                      for _ in range(steps * scheduler_num_noises_per_step)]
             seeds = []
             clip_prompts = []
-
             if init_image is not None:  # img2img?
                 i2i_noises = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
                 init_images = []
-
                 if mask_image is not None:
                     mask_images = []
                 else:
@@ -2910,24 +2906,21 @@ def main(args):
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
-            for i, (
-            _, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(
-                    batch):
+            for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
                 prompts.append(prompt)
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
                 clip_prompts.append(clip_prompt)
-
+                print(f'prompt : {prompt}')
+                print(f'negative_prompt : {negative_prompt}')
                 if init_image is not None:
                     init_images.append(init_image)
                     if i > 0 and all_images_are_same:
                         all_images_are_same = init_images[-2] is init_image
-
                 if mask_image is not None:
                     mask_images.append(mask_image)
                     if i > 0 and all_masks_are_same:
                         all_masks_are_same = mask_images[-2] is mask_image
-
                 if guide_image is not None:
                     if type(guide_image) is list:
                         guide_images.extend(guide_image)
@@ -2940,14 +2933,11 @@ def main(args):
                 # make start code
                 torch.manual_seed(seed)
                 start_code[i] = torch.randn(noise_shape, device=device, dtype=dtype)
-
                 # make each noises
                 for j in range(steps * scheduler_num_noises_per_step):
                     noises[j][i] = torch.randn(noise_shape, device=device, dtype=dtype)
-
                 if i2i_noises is not None:  # img2img noise
                     i2i_noises[i] = torch.randn(noise_shape, device=device, dtype=dtype)
-
             noise_manager.reset_sampler_noises(noises)
 
             # すべての画像が同じなら1枚だけpipeに渡すことでpipe側で処理を高速化する
@@ -2974,14 +2964,12 @@ def main(args):
                     n.set_multiplier(m)
                     if regional_network:
                         n.set_current_generation(batch_size, num_sub_prompts, width, height, shared)
-
                 if not regional_network and network_pre_calc:
                     for n in networks:
                         n.restore_weights()
                     for n in networks:
                         n.pre_calculation()
                     print("pre-calculation... done")
-
             images = pipe(
                 prompts,
                 negative_prompts,
@@ -3041,14 +3029,12 @@ def main(args):
             if not args.no_preview and not highres_1st and args.interactive:
                 try:
                     import cv2
-
                     for prompt, image in zip(prompts, images):
                         cv2.imshow(prompt[:128], np.array(image)[:, :, ::-1])  # プロンプトが長いと死ぬ
                         cv2.waitKey()
                         cv2.destroyAllWindows()
                 except ImportError:
                     print("opencv-python is not installed, cannot preview / opencv-pythonがインストールされていないためプレビューできません")
-
             return images
 
         prompt_index = 0
@@ -3097,31 +3083,26 @@ def main(args):
                                 width = int(m.group(1))
                                 print(f"width: {width}")
                                 continue
-
                             m = re.match(r"h (\d+)", parg, re.IGNORECASE)
                             if m:
                                 height = int(m.group(1))
                                 print(f"height: {height}")
                                 continue
-
                             m = re.match(r"s (\d+)", parg, re.IGNORECASE)
                             if m:  # steps
                                 steps = max(1, min(1000, int(m.group(1))))
                                 print(f"steps: {steps}")
                                 continue
-
                             m = re.match(r"d ([\d,]+)", parg, re.IGNORECASE)
                             if m:  # seed
                                 seeds = [int(d) for d in m.group(1).split(",")]
                                 print(f"seeds: {seeds}")
                                 continue
-
                             m = re.match(r"l ([\d\.]+)", parg, re.IGNORECASE)
                             if m:  # scale
                                 scale = float(m.group(1))
                                 print(f"scale: {scale}")
                                 continue
-
                             m = re.match(r"nl ([\d\.]+|none|None)", parg, re.IGNORECASE)
                             if m:  # negative scale
                                 if m.group(1).lower() == "none":
@@ -3130,25 +3111,21 @@ def main(args):
                                     negative_scale = float(m.group(1))
                                 print(f"negative scale: {negative_scale}")
                                 continue
-
                             m = re.match(r"t ([\d\.]+)", parg, re.IGNORECASE)
                             if m:  # strength
                                 strength = float(m.group(1))
                                 print(f"strength: {strength}")
                                 continue
-
                             m = re.match(r"n (.+)", parg, re.IGNORECASE)
                             if m:  # negative prompt
                                 negative_prompt = m.group(1)
                                 print(f"negative prompt: {negative_prompt}")
                                 continue
-
                             m = re.match(r"c (.+)", parg, re.IGNORECASE)
                             if m:  # clip prompt
                                 clip_prompt = m.group(1)
                                 print(f"clip prompt: {clip_prompt}")
                                 continue
-
                             m = re.match(r"am ([\d\.\-,]+)", parg, re.IGNORECASE)
                             if m:  # network multiplies
                                 network_muls = [float(v) for v in m.group(1).split(",")]
@@ -3156,7 +3133,6 @@ def main(args):
                                     network_muls.append(network_muls[-1])
                                 print(f"network mul: {network_muls}")
                                 continue
-
                         except ValueError as ex:
                             print(f"Exception in parsing / 解析エラー: {parg}")
                             print(ex)
@@ -3286,7 +3262,7 @@ def main(args):
         print(f'attns.shape : {attns.shape}')
         # if :
         # else :
-        maps, _ = torch.chunk(attns, chunks=2, dim=1)
+        _, maps = torch.chunk(attns, chunks=2, dim=1) # [50, 8,
         maps = maps.sum(0)  # [8, pix_len, sen_len]
         maps = maps.sum(0)  # [pix_len, sen_len]
         # element of attn_list = [8, pix_len, 77]
