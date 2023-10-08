@@ -88,7 +88,7 @@ STEP_DIFFUSERS_DIR_NAME = "{}-step{:08d}"
 
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".PNG", ".JPG", ".JPEG", ".WEBP", ".BMP"]
 
-base_mask_base_dir = r'/data7/sooyeon/MyData/jungwoo_mask'
+base_mask_base_dir = r'/data7/sooyeon/MyData/jungwoo_mask_blur'
 
 try:
     import pillow_avif

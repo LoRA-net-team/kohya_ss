@@ -938,13 +938,13 @@ class NetworkTrainer:
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
                                     loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
                                     f.write(loss_record)
-                                if args.test_2 :
+                                elif args.test_2 :
                                     size = abs(sum(atten_collection[layer_name]))
                                     loss_record = f'{layer_name} : {sum(atten_collection[layer_name])}'
                                     f.write(loss_record)
                                     attn_loss = attn_loss + sum(atten_collection[layer_name]) / size
-                                    
-
+                                else :
+                                    attn_loss = attn_loss + sum(atten_collection[layer_name])
                             loss = task_loss + args.attn_loss_ratio * attn_loss
                             """
                             self_query_collection = attention_storer.self_query_store
