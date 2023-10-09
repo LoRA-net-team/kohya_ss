@@ -82,7 +82,13 @@ def register_attention_control(unet : nn.Module, controller):
                         head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
                         for word_idx in batch_trg_index :
+                            # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
+                            word_heat_map_ = word_heat_map.reshape(-1, res, res)
+                            word_heat_map_ = word_heat_map_.mean(dim=0)
+                            word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),size=((512, 512)),mode='bicubic').squeeze()
+                            print(f'word_heat_map_ : {word_heat_map_.shape}')
+
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                             mask_ = F.interpolate(mask_.unsqueeze(0).unsqueeze(0),size=((res, res)), mode='bicubic').squeeze()
                             mask_ = mask_.repeat(head_num, 1,1)
