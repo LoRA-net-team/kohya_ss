@@ -1093,12 +1093,10 @@ class BaseDataset(torch.utils.data.Dataset):
                     del flipped_latents
                 latents = torch.FloatTensor(latents)
                 image = None
-
             else:
                 # 画像を読み込み、必要ならcropする
                 img, face_cx, face_cy, face_w, face_h = self.load_image_with_face_info(subset, image_info.absolute_path)
                 im_h, im_w = img.shape[0:2]
-
                 if self.enable_bucket:
                     img, original_size, crop_ltrb = trim_and_resize_if_required(subset.random_crop, img, image_info.bucket_reso, image_info.resized_size)
                 else:
@@ -1117,21 +1115,16 @@ class BaseDataset(torch.utils.data.Dataset):
 
                     im_h, im_w = img.shape[0:2]
                     assert (im_h == self.height and im_w == self.width), f"image size is small / 画像サイズが小さいようです: {image_info.absolute_path}"
-
                     original_size = [im_w, im_h]
                     crop_ltrb = (0, 0, 0, 0)
-
                 # augmentation
                 aug = self.aug_helper.get_augmentor(subset.color_aug)
                 if aug is not None:
                     img = aug(image=img)["image"]
-
                 if flipped:
                     img = img[:, ::-1, :].copy()  # copy to avoid negative stride problem
-
                 latents = None
                 image = self.image_transforms(img)  # -1.0~1.0のtorch.Tensorになる
-
             images.append(image)
             latents_list.append(latents)
             target_size = (image.shape[2], image.shape[1]) if image is not None else (latents.shape[2] * 8, latents.shape[1] * 8)

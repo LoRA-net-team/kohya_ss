@@ -3254,8 +3254,9 @@ def main(args):
 
         layer_name = layer_name.split('_')[:5]
         a = '_'.join(layer_name)
-        heat_map_dir = os.path.join(args.outdir, f'attention_{a}')
-        torch.save(heat_map, heat_map_dir)
+        np_heat_map = heat_map.cpu().numpy()
+        heat_map_dir = os.path.join(args.outdir, f'attention_{a}.npy')
+        torch.save(np_heat_map, heat_map_dir)
 
 
         if heat_map.dim() == 3:
