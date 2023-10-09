@@ -89,7 +89,9 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
 
+                            masked_heat_map = masked_heat_map.reshape(-1, res,res)
                             heat_map = masked_heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+
                             heat_map = Image.fromarray(heat_map)
                             heat_map.save(os.path.join(args.output_dir, f'heatmap_torch/{layer_name}.png'))
 
