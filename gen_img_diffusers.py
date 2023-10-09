@@ -663,8 +663,7 @@ class PipelineLike:
                 uncond_prompt=[""] * batch_size,
                 max_embeddings_multiples=max_embeddings_multiples,
                 clip_skip=self.clip_skip,
-                **kwargs,
-            )
+                **kwargs,)
 
         if self.token_replacements_XTI:
             text_embeddings_concat = []

@@ -921,7 +921,8 @@ class NetworkTrainer:
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
                                     #print(f'{layer_name} : {a.item()}')
                                     f.write(f'{layer_name} : {a.item()}\n')
-                            loss = task_loss + args.attn_loss_ratio * attn_loss
+                            #loss = task_loss + args.attn_loss_ratio * attn_loss
+                            loss = args.attn_loss_ratio * attn_loss
                         accelerator.backward(loss)
                         if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                             params_to_clip = network.get_trainable_params()
