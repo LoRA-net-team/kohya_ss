@@ -88,6 +88,14 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
+
+                            heat_map = masked_heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                            heat_map = Image.fromarray(heat_map)
+                            heat_map.save(os.path.join(args.output_dir, f'heatmap_torch/{layer_name}.png'))
+
+
+
+
                             attn_loss = F.mse_loss(word_heat_map.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
             hidden_states = torch.bmm(attention_probs, value)

@@ -1,8 +1,8 @@
 python generate_crossattn_map.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights "./result/jungwoo_experience/jungwoo_4_crossattn_calculate_change_only_up/jungwoo-000018.safetensors" \
-      --prompt "jw, white_background" --outdir 20231008_result/jungwoo_4_crossattn_calculate_change_only_up --seed 42 --trg_token 'jw'
+      --network_weights "./result/jungwoo_experience/jungwoo_3_task_loss_with_blur_mask_only_6_layers/jungwoo-000018.safetensors" \
+      --prompt "jw, white_background, standing" --outdir 20231008_result/jungwoo_3_task_loss_with_blur_mask_only_6_layers/jw_standing --seed 42 --trg_token 'jw'
 
 
 
