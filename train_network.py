@@ -88,8 +88,10 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask_.repeat(head_num, 1,1)
                             mask_ = mask_.reshape(-1, res*res)
                             masked_heat_map = word_heat_map * mask_
+                            print(f'masked_heat_map : {masked_heat_map.shape}')
 
-                            masked_heat_map_ = masked_heat_map.reshape(res,res)
+                            masked_heat_map_ = masked_heat_map.reshape(-1, res, res)
+                            masked_heat_map_ = masked_heat_map_.mean(dim=0)
                             masked_heat_map_ = F.interpolate(masked_heat_map_.unsqueeze(0).unsqueeze(0), size=((512, 512)),
                                                   mode='bicubic').squeeze()
 
