@@ -757,11 +757,6 @@ class PipelineLike:
         init_latents_orig = None
         mask = None
         if init_image is None:
-            # get the initial random noise unless the user supplied it
-
-            # Unlike in other pipelines, latents need to be generated in the target device
-            # for 1-to-1 results reproducibility with the CompVis implementation.
-            # However this currently doesn't work in `mps`.
             latents_shape = (
                 batch_size * num_images_per_prompt,
                 self.unet.in_channels,
@@ -795,7 +790,6 @@ class PipelineLike:
             # scale the initial noise by the standard deviation required by the scheduler
             latents = latents * self.scheduler.init_noise_sigma
         else:
-            # image to tensor
             if isinstance(init_image, PIL.Image.Image):
                 init_image = [init_image]
             if isinstance(init_image[0], PIL.Image.Image):
@@ -856,10 +850,8 @@ class PipelineLike:
 
             # add noise to latents using the timesteps
             latents = self.scheduler.add_noise(init_latents, img2img_noise, timesteps)
-
             t_start = max(num_inference_steps - init_timestep + offset, 0)
             timesteps = self.scheduler.timesteps[t_start:].to(self.device)
-
         # prepare extra kwargs for the scheduler step, since not all schedulers have the same signature
         # eta (η) is only used with the DDIMScheduler, it will be ignored for other schedulers.
         # eta corresponds to η in DDIM paper: https://arxiv.org/abs/2010.02502
@@ -993,10 +985,8 @@ class PipelineLike:
             image = torch.cat(images)
 
         image = (image / 2 + 0.5).clamp(0, 1)
-
         # we always cast to float32 as this does not cause significant overhead and is compatible with bfloa16
         image = image.cpu().permute(0, 2, 3, 1).float().numpy()
-
         if self.safety_checker is not None:
             safety_checker_input = self.feature_extractor(self.numpy_to_pil(image), return_tensors="pt").to(self.device)
             image, has_nsfw_concept = self.safety_checker(
@@ -2980,8 +2970,7 @@ def main(args):
             highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
             for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(
-                    zip(images, prompts, negative_prompts, seeds, clip_prompts)
-            ):
+                    zip(images, prompts, negative_prompts, seeds, clip_prompts)):
                 if highres_fix:
                     seed -= 1  # record original seed
                 metadata = PngInfo()
@@ -3037,10 +3026,7 @@ def main(args):
                     break
             else:
                 raw_prompt = prompt_list[prompt_index]
-            # sd-dynamic-prompts like variants:
-            # count is 1 (not dynamic) or images_per_prompt (no enumeration) or arbitrary (enumeration)
             raw_prompts = handle_dynamic_prompt_variants(raw_prompt, args.images_per_prompt)
-            # repeat prompt
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
                 if pi == 0 or len(raw_prompts) > 1:
@@ -3242,14 +3228,9 @@ def main(args):
         attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
         attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
         attns = attns.squeeze(0)  # timestep, head(con, uncond), pix_len, sen_len
-        print(f'attns.shape : {attns.shape}')
-        # if :
-        # else :
         _, maps = torch.chunk(attns, chunks=2, dim=1) # [50, 8,
         maps = maps.sum(0)  # [8, pix_len, sen_len]
-        print(f'maps.shape : {maps.shape}')
         maps = maps.sum(0)  # [pix_len, sen_len]
-        print(f'maps.shape : {maps.shape}')
         # element of attn_list = [8, pix_len, 77]
         pix_len, sen_len = maps.shape
         res = int(math.sqrt(pix_len))
@@ -3264,13 +3245,21 @@ def main(args):
             word_map = global_heat_map[word_index, :, :]
             word_map = expand_image(word_map, 512, 512)
             all_merges.append(word_map)
+        # --------------------------------------------------------------------------------- #
+        # torch type heat map
+        #
         heat_map = torch.stack(all_merges, dim=0)  # global_heat_map = [sen_len, 512,512]
+        layer_name = layer_name.split('_')[:5]
+        a = '_'.join(layer_name)
+        heat_map_dir = os.path.join(args.outdir, f'attention_{a}')
+        torch.save(model.state_dict(), heat_map_dir)
+
+
         if heat_map.dim() == 3:
             heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
         img = image_overlay_heat_map(img=prev_image,
                                      heat_map=heat_map)
-        layer_name = layer_name.split('_')[:5]
-        a = '_'.join(layer_name)
+
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
     """
