@@ -91,11 +91,13 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                             masked_heat_map = word_heat_map_ * mask_
 
+
+
                             heat_map = _convert_heat_map_colors(masked_heat_map)
                             heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                             heat_map_img = Image.fromarray(heat_map)
                             heat_map_img.save(os.path.join(args.output_dir, f'heatmap_{layer_name}.png'))
-
+                            torch.save(masked_heat_map, os.path.join(args.output_dir, f'heatmap_{layer_name}.pth'))
 
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
@@ -891,6 +893,7 @@ class NetworkTrainer:
                                                         weight_dtype,
                                                         batch["trg_indexs_list"],
                                                         batch['mask_imgs'])
+                            time.sleep(100)
                             # -----------------------------------------------------------------------------------------------------------------------
                             atten_collection = attention_storer.step_store
                             attention_storer.reset()
