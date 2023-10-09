@@ -1063,7 +1063,7 @@ class BaseDataset(torch.utils.data.Dataset):
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
             mask_base_dir = base_mask_base_dir
-
+            """
             mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
             mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
@@ -1073,6 +1073,7 @@ class BaseDataset(torch.utils.data.Dataset):
             trg_concept = 'jw'
             trg_concepts.append(trg_concept)
             mask_imgs.append(mask_img)
+            """
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
@@ -1212,7 +1213,7 @@ class BaseDataset(torch.utils.data.Dataset):
                             token_caption2 = self.get_input_ids(caption, self.tokenizers[1])
                         input_ids2_list.append(token_caption2)
         example = {}
-        example["mask_dirs"] = mask_dirs
+        #example["mask_dirs"] = mask_dirs
         example["trg_indexs_list"] = trg_indexs_list
         example["trg_concepts"] = trg_concepts
         example["absolute_paths"] = absolute_paths
