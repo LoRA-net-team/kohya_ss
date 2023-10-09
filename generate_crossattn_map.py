@@ -3252,7 +3252,7 @@ def main(args):
         layer_name = layer_name.split('_')[:5]
         a = '_'.join(layer_name)
         heat_map_dir = os.path.join(args.outdir, f'attention_{a}')
-        torch.save(model.state_dict(), heat_map_dir)
+        torch.save(heat_map, heat_map_dir)
 
 
         if heat_map.dim() == 3:
