@@ -4,21 +4,16 @@ import math
 import os
 from multiprocessing import Value
 import toml
-
 from tqdm import tqdm
 import torch
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
 from transformers import CLIPTokenizer
 from library import model_util
-
 import library.train_util as train_util
 import library.huggingface_util as huggingface_util
 import library.config_util as config_util
-from library.config_util import (
-    ConfigSanitizer,
-    BlueprintGenerator,
-)
+from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
 import library.custom_train_functions as custom_train_functions
 from library.custom_train_functions import (
     apply_snr_weight,
@@ -84,7 +79,6 @@ class TextualInversionTrainer:
     def __init__(self):
         self.vae_scale_factor = 0.18215
         self.is_sdxl = False
-
     def assert_extra_args(self, args, train_dataset_group):
         pass
 
@@ -717,59 +711,34 @@ class TextualInversionTrainer:
             print("model saved.")
 
 
-def setup_parser() -> argparse.ArgumentParser:
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-
     train_util.add_sd_models_arguments(parser)
     train_util.add_dataset_arguments(parser, True, True, False)
     train_util.add_training_arguments(parser, True)
     train_util.add_optimizer_arguments(parser)
     config_util.add_config_arguments(parser)
     custom_train_functions.add_custom_train_arguments(parser, False)
-
-    parser.add_argument(
-        "--save_model_as",
-        type=str,
-        default="pt",
-        choices=[None, "ckpt", "pt", "safetensors"],
-        help="format to save the model (default is .pt) / モデル保存時の形式（デフォルトはpt）",
-    )
-
-    parser.add_argument("--weights", type=str, default=None, help="embedding weights to initialize / 学習するネットワークの初期重み")
-    parser.add_argument(
-        "--num_vectors_per_token", type=int, default=1, help="number of vectors per token / トークンに割り当てるembeddingsの要素数"
-    )
-    parser.add_argument(
-        "--token_string",
-        type=str,
-        default=None,
-        help="token string used in training, must not exist in tokenizer / 学習時に使用されるトークン文字列、tokenizerに存在しない文字であること",
-    )
-    parser.add_argument("--init_word", type=str, default=None, help="words to initialize vector / ベクトルを初期化に使用する単語、複数可")
-    parser.add_argument(
-        "--use_object_template",
-        action="store_true",
-        help="ignore caption and use default templates for object / キャプションは使わずデフォルトの物体用テンプレートで学習する",
-    )
-    parser.add_argument(
-        "--use_style_template",
-        action="store_true",
-        help="ignore caption and use default templates for stype / キャプションは使わずデフォルトのスタイル用テンプレートで学習する",
-    )
-    parser.add_argument(
-        "--no_half_vae",
-        action="store_true",
-        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",
-    )
-
-    return parser
-
-
-if __name__ == "__main__":
-    parser = setup_parser()
-
+    parser.add_argument("--save_model_as",type=str,default="pt",
+                        choices=[None, "ckpt", "pt", "safetensors"],
+                        help="format to save the model (default is .pt) / モデル保存時の形式（デフォルトはpt）",)
+    parser.add_argument("--weights", type=str, default=None,
+                        help="embedding weights to initialize / 学習するネットワークの初期重み")
+    parser.add_argument("--num_vectors_per_token", type=int, default=1, help="number of vectors per token / トークンに割り当てるembeddingsの要素数")
+    parser.add_argument("--token_string",type=str,efault=None,
+                        help="token string used in training, must not exist in tokenizer / 学習時に使用されるトークン文字列、tokenizerに存在しない文字であること",)
+    parser.add_argument("--init_word", type=str, default=None,
+                        help="words to initialize vector / ベクトルを初期化に使用する単語、複数可")
+    parser.add_argument("--use_object_template", action="store_true",
+                        help="ignore caption and use default templates for object / キャプションは使わずデフォルトの物体用テンプレートで学習する",)
+    parser.add_argument("--use_style_template",action="store_true",
+                        help="ignore caption and use default templates for stype / キャプションは使わずデフォルトのスタイル用テンプレートで学習する",)
+    parser.add_argument("--no_half_vae",
+                        action="store_true",
+                        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
-
     trainer = TextualInversionTrainer()
     trainer.train(args)
+
+
