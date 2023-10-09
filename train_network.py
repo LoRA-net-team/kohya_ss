@@ -916,7 +916,7 @@ class NetworkTrainer:
                             layer_names = atten_collection.keys()
                             attn_loss = 0
                             for layer_name in layer_names:
-                                if 'down_blocks_0_attentions_1' in layer_name :
+                                if 'down_blocks_2' in layer_name or 'mid' in layer_name or 'up_blocks_1' in layer_name :
                                     a = sum(atten_collection[layer_name])
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
                                     #print(f'{layer_name} : {a.item()}')
