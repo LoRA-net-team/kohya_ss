@@ -72,6 +72,7 @@ def register_attention_control(unet : nn.Module, controller):
                                              query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+            """
             if is_cross_attention:
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
@@ -97,6 +98,7 @@ def register_attention_control(unet : nn.Module, controller):
                             #torch.save(masked_heat_map, os.path.join(args.output_dir, f'heatmap_{layer_name}.pth'))
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
+            """
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
