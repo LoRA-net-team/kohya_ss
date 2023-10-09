@@ -91,17 +91,13 @@ def register_attention_control(unet : nn.Module, controller):
                             print(f'word_heat_map_ : {word_heat_map_.shape}')
 
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                            masked_heat_map = word_heat_map_ * mask_
+
+                            heat_map = _convert_heat_map_colors(masked_heat_map)
+                            heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                            heat_map_img = Image.fromarray(heat_map)
+                            heat_map_img.save(os.path.join(args.output_dir, f'heat_map_{layer_name}.png'))
                             print(f'mask_ : {mask_.shape}')
-
-                            #masked_heat_map_ = masked_heat_map.reshape(-1, res, res)
-                            masked_heat_map_ = masked_heat_map_.mean(dim=0)
-                            masked_heat_map_ = F.interpolate(masked_heat_map_.unsqueeze(0).unsqueeze(0), size=((512, 512)),
-                                                  mode='bicubic').squeeze()
-
-                            masked_heat_map_ = _convert_heat_map_colors(masked_heat_map_)
-                            masked_heat_map_ = masked_heat_map_.to('cpu').detach().numpy().copy().astype(np.uint8)
-                            Image.fromarray(masked_heat_map_).save(os.path.join(args.output_dir, f'heatmap_torch/{layer_name}.png'))
-
 
 
 
