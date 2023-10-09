@@ -889,7 +889,6 @@ class NetworkTrainer:
                                                         weight_dtype,
                                                         batch["trg_indexs_list"],
                                                         batch['mask_imgs'])
-                            time.sleep(100)
                             # -----------------------------------------------------------------------------------------------------------------------
                             atten_collection = attention_storer.step_store
                             attention_storer.reset()
