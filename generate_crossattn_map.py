@@ -3249,6 +3249,9 @@ def main(args):
         # torch type heat map
         #
         heat_map = torch.stack(all_merges, dim=0)  # global_heat_map = [sen_len, 512,512]
+
+
+
         layer_name = layer_name.split('_')[:5]
         a = '_'.join(layer_name)
         heat_map_dir = os.path.join(args.outdir, f'attention_{a}')
