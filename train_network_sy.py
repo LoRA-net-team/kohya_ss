@@ -919,7 +919,7 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             a = sum(atten_collection[layer_name])
-                            print(f'{layer_name} : {a}')
+                            #print(f'{layer_name} : {a}')
                             attn_loss = attn_loss + a
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
