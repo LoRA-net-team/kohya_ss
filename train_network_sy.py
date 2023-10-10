@@ -913,7 +913,7 @@ class NetworkTrainer:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(
                         args.scale_weight_norms, accelerator.device
                     )
-                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
+                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm }
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
 
