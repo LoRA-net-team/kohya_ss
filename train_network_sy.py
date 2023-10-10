@@ -194,8 +194,17 @@ class NetworkTrainer:
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         return encoder_hidden_states
 
-    def call_unet(self, args, accelerator, unet, noisy_latents, timesteps, text_conds, batch, weight_dtype):
-        noise_pred = unet(noisy_latents, timesteps, text_conds).sample
+    def call_unet(self,
+                  args, accelerator, unet,
+                  noisy_latents, timesteps,
+                  text_conds, batch, weight_dtype,
+                  trg_indexs_list,
+                  mask_imgs):
+        noise_pred = unet(noisy_latents,
+                          timesteps,
+                          text_conds,
+                          trg_indexs_list=trg_indexs_list,
+                          mask_imgs=mask_imgs, ).sample
         return noise_pred
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet):
@@ -865,8 +874,17 @@ class NetworkTrainer:
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(
-                            args, accelerator, unet, noisy_latents, timesteps, text_encoder_conds, batch, weight_dtype)
+                        # -----------------------------------------------------------------------------------------------------------------------
+                        noise_pred = self.call_unet(args,
+                                                    accelerator,
+                                                    unet,
+                                                    noisy_latents,
+                                                    timesteps,
+                                                    text_encoder_conds,
+                                                    batch,
+                                                    weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    batch['mask_imgs'])
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
 
