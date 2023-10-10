@@ -92,14 +92,12 @@ base_mask_base_dir = r'/data7/sooyeon/MyData/jungwoo_mask_blur'
 
 try:
     import pillow_avif
-
     IMAGE_EXTENSIONS.extend([".avif", ".AVIF"])
 except:
     pass
 
 try:
     from jxlpy import JXLImagePlugin
-
     IMAGE_EXTENSIONS.extend([".jxl", ".JXL"])
 except:
     pass
@@ -1063,7 +1061,7 @@ class BaseDataset(torch.utils.data.Dataset):
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
             mask_base_dir = base_mask_base_dir
-            """
+
             mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
             mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
@@ -1073,7 +1071,7 @@ class BaseDataset(torch.utils.data.Dataset):
             trg_concept = 'jw'
             trg_concepts.append(trg_concept)
             mask_imgs.append(mask_img)
-            """
+
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
@@ -1173,7 +1171,7 @@ class BaseDataset(torch.utils.data.Dataset):
                     input_ids_list.append(token_caption)
                     # token_caption
                     #------------------------------------------------------------------------------------------
-                    """
+
                     def generate_text_embedding(caption, tokenizer):
                         cls_token = 49406
                         pad_token = 49407
@@ -1205,7 +1203,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
                     trg_indexs = generate_text_embedding(caption, self.tokenizers[0])
                     trg_indexs_list.append(trg_indexs)
-                    """
+
 
                     #------------------------------------------------------------------------------------------
                     if len(self.tokenizers) > 1:
@@ -1215,7 +1213,7 @@ class BaseDataset(torch.utils.data.Dataset):
                             token_caption2 = self.get_input_ids(caption, self.tokenizers[1])
                         input_ids2_list.append(token_caption2)
         example = {}
-        #example["mask_dirs"] = mask_dirs
+        example["mask_dirs"] = mask_dirs
         example["trg_indexs_list"] = trg_indexs_list
         example["trg_concepts"] = trg_concepts
         example["absolute_paths"] = absolute_paths
