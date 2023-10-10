@@ -62,7 +62,9 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
+                print(f'cross attention in {layer_name} ')
                 if trg_indexs_list is not None:
+                    print(f'cross attention in {layer_name} : {trg_indexs_list}')
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
