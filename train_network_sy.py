@@ -297,6 +297,13 @@ class NetworkTrainer:
         print("preparing accelerator")
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
+        save_base_dir = args.output_dir
+        _, folder_name = os.path.split(save_base_dir)
+        # save config
+        record_save_dir = os.path.join(args.output_dir, "record")
+        os.makedirs(record_save_dir, exist_ok=True)
+        with open(os.path.join(record_save_dir, 'config.json'), 'w') as f:
+            json.dump(vars(args), f, indent=4)
 
         # mixed precisionに対応した型を用意しておき適宜castする
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
