@@ -84,7 +84,7 @@ def register_attention_control(unet : nn.Module, controller):
                             #heat_map_img = Image.fromarray(heat_map)
                             #heat_map_img.save(os.path.join(args.output_dir, f'heatmap_{layer_name}.png'))
                             #torch.save(masked_heat_map, os.path.join(args.output_dir, f'heatmap_{layer_name}.pth'))
-                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                            attn_loss = F.mse_loss(word_heat_map_.sum(), masked_heat_map.sum())
                             controller.store(attn_loss, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
@@ -911,11 +911,8 @@ class NetworkTrainer:
                         loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
-
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-
                     task_loss = loss
-
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss:
                         layer_names = atten_collection.keys()
