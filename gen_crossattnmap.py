@@ -2574,6 +2574,7 @@ def main(args):
         if args.shuffle_prompts:
             random.shuffle(prompt_list)
         def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index=1):
+
             batch_size = len(batch)
             # highres_fixの処理
             if highres_fix and not highres_1st:
@@ -2845,6 +2846,21 @@ def main(args):
                 raw_prompt = prompt_list[prompt_index]
             raw_prompts = handle_dynamic_prompt_variants(raw_prompt, args.images_per_prompt)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             print(f' (15.2) raw_prompts')
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
@@ -2862,7 +2878,8 @@ def main(args):
                     network_muls = None
                     prompt_args = raw_prompt.strip().split(" --")
                     prompt = prompt_args[0]
-                    print(f"prompt {prompt_index + 1}/{len(prompt_list)}: {prompt}")
+                    unique_index = prompt_index + 1
+                    print(f"prompt {unique_index}/{len(prompt_list)}: {prompt}")
                     for parg in prompt_args[1:]:
                         try:
                             m = re.match(r"w (\d+)", parg, re.IGNORECASE)
@@ -2923,6 +2940,7 @@ def main(args):
                         except ValueError as ex:
                             print(f"Exception in parsing / 解析エラー: {parg}")
                             print(ex)
+
                 if seeds is not None:  # given in prompt
                     if len(seeds) > 0:seed = seeds.pop(0)
                 else:
@@ -2941,20 +2959,19 @@ def main(args):
                 # prepare init image, guide image and mask
                 init_image = mask_image = guide_image = None
                 num_sub_prompts = None
-                b1 = BatchData(False,
-                               BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image,clip_prompt, guide_image),
+                b1 = BatchData(False,BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image,clip_prompt, guide_image),
                                BatchDataExt(width, height, steps, scale, negative_scale, strength, tuple(network_muls) if network_muls else None, num_sub_prompts, ), )
-                if len(batch_data) > 0 and batch_data[-1].ext != b1.ext:  # バッチ分割必要？
-
+                if len(batch_data) > 0 and batch_data[-1].ext != b1.ext :
                     process_batch(batch_data, highres_fix)
                     batch_data.clear()
                 batch_data.append(b1)
                 if len(batch_data) == args.batch_size:
-                    print(f' *** process batch *** ')
-                    prev_image = process_batch(batch_data, highres_fix, prompt_index + 1)[0]
+                    print(f' {unique_index} : process batch *** ')
+                    prev_image = process_batch(batch_data, highres_fix, save_index = unique_index )[0]
                     batch_data.clear()
                 global_step += 1
             prompt_index += 1
+
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
