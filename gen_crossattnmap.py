@@ -2770,6 +2770,7 @@ def main(args):
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
                 parent, folder = os.path.split(args.outdir)
                 base_folder = os.path.join(parent, f'{folder}_{save_index + 3}')
+                print(f'base_folder : {base_folder}')
                 os.makedirs(base_folder, exist_ok=True)
                 image.save(os.path.join(base_folder, fln), pnginfo=metadata)
                 prompt_save_dir = os.path.join(base_folder, f'prompt.txt')
