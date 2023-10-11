@@ -13,27 +13,16 @@ import math
 import os
 import random
 import re
-
+from attention_store import AttentionStore
 import diffusers
 import numpy as np
 import torch
 import torchvision
-from diffusers import (
-    AutoencoderKL,
-    DDPMScheduler,
-    EulerAncestralDiscreteScheduler,
-    DPMSolverMultistepScheduler,
-    DPMSolverSinglestepScheduler,
-    LMSDiscreteScheduler,
-    PNDMScheduler,
-    DDIMScheduler,
-    EulerDiscreteScheduler,
-    HeunDiscreteScheduler,
-    KDPM2DiscreteScheduler,
-    KDPM2AncestralDiscreteScheduler,
-    # UNet2DConditionModel,
-    StableDiffusionPipeline,
-)
+from diffusers import (AutoencoderKL,DDPMScheduler,EulerAncestralDiscreteScheduler,
+                       DPMSolverMultistepScheduler,DPMSolverSinglestepScheduler,LMSDiscreteScheduler,
+                       PNDMScheduler,DDIMScheduler,EulerDiscreteScheduler,HeunDiscreteScheduler,
+                       KDPM2DiscreteScheduler,KDPM2AncestralDiscreteScheduler,    # UNet2DConditionModel,
+                       StableDiffusionPipeline,)
 from einops import rearrange
 from tqdm import tqdm
 from torchvision import transforms
@@ -41,7 +30,6 @@ from transformers import CLIPTextModel, CLIPTokenizer, CLIPModel, CLIPTextConfig
 import PIL
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
-
 import library.model_util as model_util
 import library.train_util as train_util
 from networks.lora import LoRANetwork
@@ -49,7 +37,6 @@ import tools.original_control_net as original_control_net
 from tools.original_control_net import ControlNetInfo
 from library.original_unet import UNet2DConditionModel
 from library.original_unet import FlashAttentionFunction
-
 from XTI_hijack import unet_forward_XTI, downblock_forward_XTI, upblock_forward_XTI
 
 # scheduler:
@@ -78,12 +65,6 @@ VGG16_INPUT_RESIZE_DIV = 4
 NUM_CUTOUTS = 4
 USE_CUTOUTS = False
 
-# region モジュール入れ替え部
-"""
-高速化のためのモジュール入れ替え
-"""
-
-
 def replace_unet_modules(unet: diffusers.models.unet_2d_condition.UNet2DConditionModel, mem_eff_attn, xformers, sdpa):
     if mem_eff_attn:
         print("Enable memory efficient attention for U-Net")
@@ -102,7 +83,6 @@ def replace_unet_modules(unet: diffusers.models.unet_2d_condition.UNet2DConditio
         print("Enable SDPA for U-Net")
         unet.set_use_memory_efficient_attention(False, False)
         unet.set_use_sdpa(True)
-
 
 # TODO common train_util.py
 def replace_vae_modules(vae: diffusers.models.AutoencoderKL, mem_eff_attn, xformers, sdpa):
@@ -603,8 +583,9 @@ class PipelineLike:
             raise ValueError(f"`prompt` has to be of type `str` or `list` but is {type(prompt)}")
         reginonal_network = " AND " in prompt[0]
         vae_batch_size = (batch_size
-            if vae_batch_size is None
-            else (int(vae_batch_size) if vae_batch_size >= 1 else max(1, int(batch_size * vae_batch_size))))
+                          if vae_batch_size is None
+                          else (
+            int(vae_batch_size) if vae_batch_size >= 1 else max(1, int(batch_size * vae_batch_size))))
 
         if strength < 0 or strength > 1:
             raise ValueError(f"The value of strength should in [0.0, 1.0] but is {strength}")
@@ -631,7 +612,7 @@ class PipelineLike:
 
         # get unconditional embeddings for classifier free guidance
         if negative_prompt is None:
-            negative_prompt = [""] * batch_size # just empty list
+            negative_prompt = [""] * batch_size  # just empty list
         elif isinstance(negative_prompt, str):
             negative_prompt = [negative_prompt] * batch_size
         if batch_size != len(negative_prompt):
@@ -709,7 +690,9 @@ class PipelineLike:
             if clip_text_input.shape[1] > self.tokenizer.model_max_length:
                 # TODO 75文字を超えたら警告を出す？
                 print("trim text input", clip_text_input.shape)
-                clip_text_input = torch.cat([clip_text_input[:, : self.tokenizer.model_max_length - 1], clip_text_input[:, -1].unsqueeze(1)],dim=1)
+                clip_text_input = torch.cat(
+                    [clip_text_input[:, : self.tokenizer.model_max_length - 1], clip_text_input[:, -1].unsqueeze(1)],
+                    dim=1)
                 print("trimmed", clip_text_input.shape)
             for i, clip_prompt in enumerate(clip_prompts):
                 if clip_prompt is not None:  # clip_promptがあれば上書きする
@@ -717,9 +700,10 @@ class PipelineLike:
                         clip_prompt,
                         padding="max_length",
                         max_length=self.tokenizer.model_max_length,
-                        truncation=True,return_tensors="pt",).input_ids.to(self.device)
+                        truncation=True, return_tensors="pt", ).input_ids.to(self.device)
             text_embeddings_clip = self.clip_model.get_text_features(clip_text_input)
-            text_embeddings_clip = text_embeddings_clip / text_embeddings_clip.norm(p=2, dim=-1,keepdim=True)  # prompt複数件でもOK
+            text_embeddings_clip = text_embeddings_clip / text_embeddings_clip.norm(p=2, dim=-1,
+                                                                                    keepdim=True)  # prompt複数件でもOK
 
         if (
                 self.clip_image_guidance_scale > 0
@@ -886,16 +870,16 @@ class PipelineLike:
             # predict the noise residual
             if self.control_nets and self.control_net_enabled:
                 noise_pred = original_control_net.call_unet_and_control_net(i,
-                    num_latent_input,
-                    self.unet,
-                    self.control_nets,
-                    guided_hints,
-                    i / len(timesteps),
-                    latent_model_input,
-                    t,
-                    text_embeddings,
-                    text_emb_last,
-                ).sample
+                                                                            num_latent_input,
+                                                                            self.unet,
+                                                                            self.control_nets,
+                                                                            guided_hints,
+                                                                            i / len(timesteps),
+                                                                            latent_model_input,
+                                                                            t,
+                                                                            text_embeddings,
+                                                                            text_emb_last,
+                                                                            ).sample
             else:
                 noise_pred = self.unet(latent_model_input,
                                        t,
@@ -1466,7 +1450,7 @@ class PipelineLike:
 
         # バッチサイズが複数だと正しく動くかわからない
         loss = ((
-                            image_embeddings - guide_embeddings) ** 2).mean() * guidance_scale  # MSE style transferでコンテンツの損失はMSEなので
+                        image_embeddings - guide_embeddings) ** 2).mean() * guidance_scale  # MSE style transferでコンテンツの損失はMSEなので
 
         grads = -torch.autograd.grad(loss, latents)[0]
         if isinstance(self.scheduler, LMSDiscreteScheduler):
@@ -2086,8 +2070,8 @@ class BatchData(NamedTuple):
     base: BatchDataBase
     ext: BatchDataExt
 
-def register_attention_control(unet, controller):
 
+def register_attention_control(unet, controller):
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
             is_cross_attention = False
@@ -2104,8 +2088,9 @@ def register_attention_control(unet, controller):
             value = self.reshape_heads_to_batch_dim(value)
             # ----------------------------------------------------------------------------------------------------------------
             # 1) attention score : get_attention_scores
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                                             query, key.transpose(-1, -2),beta=0,alpha=self.scale,)
+            attention_scores = torch.baddbmm(
+                torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
+                query, key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             # ----------------------------------------------------------------------------------------------------------------
@@ -2117,9 +2102,9 @@ def register_attention_control(unet, controller):
                 heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 heat_map_img = Image.fromarray(heat_map)
 
-                #print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
-                #heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                #heat_map_img = Image.fromarray(heat_map)
+                # print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
+                # heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                # heat_map_img = Image.fromarray(heat_map)
                 heat_map_img.save(f'{layer_name}.jpg')
 
             if is_cross_attention:
@@ -2129,6 +2114,7 @@ def register_attention_control(unet, controller):
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
+
         return forward
 
     def register_recr(net_, count, layer_name):
@@ -2150,27 +2136,30 @@ def register_attention_control(unet, controller):
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
+
+
 def main(args):
+
+    print(f'\n step 1. check precision')
     if args.fp16:
         dtype = torch.float16
     elif args.bf16:
         dtype = torch.bfloat16
     else:
         dtype = torch.float32
-
     highres_fix = args.highres_fix_scale is not None
 
+    print(f'\n step 2. check argument')
     if args.v_parameterization and not args.v2:
         print("v_parameterization should be with v2 / v1でv_parameterizationを使用することは想定されていません")
     if args.v2 and args.clip_skip is not None:
         print("v2 with clip_skip will be unexpected / v2でclip_skipを使用することは想定されていません")
 
-    # モデルを読み込む
-    if not os.path.isfile(args.ckpt):  # ファイルがないならパターンで探し、一つだけ該当すればそれを使う
+    print(f'\n step 3. load stable diffusion')
+    if not os.path.isfile(args.ckpt):
         files = glob.glob(args.ckpt)
         if len(files) == 1:
             args.ckpt = files[0]
-
     use_stable_diffusion_format = os.path.isfile(args.ckpt)
     if use_stable_diffusion_format:
         print("load StableDiffusion checkpoint")
@@ -2183,45 +2172,36 @@ def main(args):
         unet = loading_pipe.unet
         tokenizer = loading_pipe.tokenizer
         del loading_pipe
-
-        # Diffusers U-Net to original U-Net
-        original_unet = UNet2DConditionModel(
-            unet.config.sample_size,
-            unet.config.attention_head_dim,
-            unet.config.cross_attention_dim,
-            unet.config.use_linear_projection,
-            unet.config.upcast_attention, )
+        original_unet = UNet2DConditionModel(unet.config.sample_size,unet.config.attention_head_dim,
+                                             unet.config.cross_attention_dim,unet.config.use_linear_projection,
+                                             unet.config.upcast_attention, )
         original_unet.load_state_dict(unet.state_dict())
         unet = original_unet
-    # VAEを読み込む
     if args.vae is not None:
         vae = model_util.load_vae(args.vae, dtype)
         print("additional VAE loaded")
-
     if args.clip_guidance_scale > 0.0 or args.clip_image_guidance_scale:
         print("prepare clip model")
         clip_model = CLIPModel.from_pretrained(CLIP_MODEL_PATH, torch_dtype=dtype)
     else:
         clip_model = None
-
     if args.vgg16_guidance_scale > 0.0:
         print("prepare resnet model")
         vgg16_model = torchvision.models.vgg16(torchvision.models.VGG16_Weights.IMAGENET1K_V1)
     else:
         vgg16_model = None
 
-    # xformers、Hypernetwork対応
+    print(f'\n step 4. xformers')
     if not args.diffusers_xformers:
         mem_eff = not (args.xformers or args.sdpa)
         replace_unet_modules(unet, mem_eff, args.xformers, args.sdpa)
         replace_vae_modules(vae, mem_eff, args.xformers, args.sdpa)
 
-    # tokenizerを読み込む
-    print("loading tokenizer")
+    print(f'\n step 5. loading tokenizer')
     if use_stable_diffusion_format:
         tokenizer = train_util.load_tokenizer(args)
 
-    # schedulerを用意する
+    print(f'\n step 6. scheduler')
     sched_init_args = {}
     scheduler_num_noises_per_step = 1
     if args.sampler == "ddim":
@@ -2259,13 +2239,8 @@ def main(args):
         scheduler_cls = KDPM2AncestralDiscreteScheduler
         scheduler_module = diffusers.schedulers.scheduling_k_dpm_2_ancestral_discrete
         scheduler_num_noises_per_step = 2
-
     if args.v_parameterization:
         sched_init_args["prediction_type"] = "v_prediction"
-
-    # samplerの乱数をあらかじめ指定するための処理
-
-    # replace randn
     class NoiseManager:
         def __init__(self):
             self.sampler_noises = None
@@ -2290,7 +2265,6 @@ def main(args):
 
             self.sampler_noise_index += 1
             return noise
-
     class TorchRandReplacer:
         def __init__(self, noise_manager):
             self.noise_manager = noise_manager
@@ -2301,49 +2275,31 @@ def main(args):
             if hasattr(torch, item):
                 return getattr(torch, item)
             raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, item))
-
     noise_manager = NoiseManager()
     if scheduler_module is not None:
         scheduler_module.torch = TorchRandReplacer(noise_manager)
+    scheduler = scheduler_cls(num_train_timesteps=SCHEDULER_TIMESTEPS,beta_start=SCHEDULER_LINEAR_START,
+                              beta_end=SCHEDULER_LINEAR_END,beta_schedule=SCHEDLER_SCHEDULE,**sched_init_args,)
 
-    scheduler = scheduler_cls(
-        num_train_timesteps=SCHEDULER_TIMESTEPS,
-        beta_start=SCHEDULER_LINEAR_START,
-        beta_end=SCHEDULER_LINEAR_END,
-        beta_schedule=SCHEDLER_SCHEDULE,
-        **sched_init_args,
-    )
-
-    # clip_sample=Trueにする
+    print(f'\n step 7. clip_sample=True')
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
         print("set clip_sample to True")
         scheduler.config.clip_sample = True
 
-    # deviceを決定する
+    print(f'\n step 8. device and stable diffusion to device')
     device = args.device
-
-    # custom pipelineをコピったやつを生成する
     if args.vae_slices:
         from library.slicing_vae import SlicingAutoencoderKL
-
-        sli_vae = SlicingAutoencoderKL(
-            act_fn="silu",
-            block_out_channels=(128, 256, 512, 512),
-            down_block_types=["DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D"],
-            in_channels=3,
-            latent_channels=4,
-            layers_per_block=2,
-            norm_num_groups=32,
-            out_channels=3,
-            sample_size=512,
-            up_block_types=["UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D"],
-            num_slices=args.vae_slices,
-        )
-        sli_vae.load_state_dict(vae.state_dict())  # vaeのパラメータをコピーする
+        sli_vae = SlicingAutoencoderKL(act_fn="silu",  block_out_channels=(128, 256, 512, 512),
+                                       down_block_types=["DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D"],
+                                       in_channels=3, latent_channels=4, layers_per_block=2, norm_num_groups=32,
+                                       out_channels=3,sample_size=512,
+                                       up_block_types=["UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D"],
+                                       num_slices=args.vae_slices,)
+        sli_vae.load_state_dict(vae.state_dict())
         vae = sli_vae
         del sli_vae
     vae.to(dtype).to(device)
-
     text_encoder.to(dtype).to(device)
     unet.to(dtype).to(device)
     if clip_model is not None:
@@ -2351,12 +2307,11 @@ def main(args):
     if vgg16_model is not None:
         vgg16_model.to(dtype).to(device)
 
-    # networkを組み込む
+    print(f'\n step 9. loading lora')
     if args.network_module:
         networks = []
         network_default_muls = []
         network_pre_calc = args.network_pre_calc
-
         for i, network_module in enumerate(args.network_module):
             imported_module = importlib.import_module(network_module)
             network_mul = 1.0 if args.network_mul is None or len(args.network_mul) <= i else args.network_mul[i]
@@ -2364,36 +2319,29 @@ def main(args):
             net_kwargs = {}
             if args.network_args and i < len(args.network_args):
                 network_args = args.network_args[i]
-                # TODO escape special chars
                 network_args = network_args.split(";")
                 for net_arg in network_args:
                     key, value = net_arg.split("=")
                     net_kwargs[key] = value
-
             if args.network_weights and i < len(args.network_weights):
                 network_weight = args.network_weights[i]
-                print("load network weights from:", network_weight)
                 if model_util.is_safetensors(network_weight) and args.network_show_meta:
                     from safetensors.torch import safe_open
                     with safe_open(network_weight, framework="pt") as f:
                         metadata = f.metadata()
                     if metadata is not None:
                         print(f"metadata for: {network_weight}: {metadata}")
-
                 if os.path.splitext(network_weight)[1] == ".safetensors":
                     from safetensors.torch import load_file, safe_open
                     weights_sd = load_file(network_weight)
                 else:
                     weights_sd = torch.load(network_weight, map_location="cpu")
-
                 block_wise = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]
                 for i, block in enumerate(BLOCKS):
                     for layer in weights_sd.keys():
                         if block in layer:
                             block_wise[i] = 1
-                print(f'final block_wise : {block_wise}')
-                network, weights_sd = imported_module.create_network_from_weights(network_mul, network_weight,
-                                                                                  block_wise,
+                network, weights_sd = imported_module.create_network_from_weights(network_mul, network_weight,block_wise,
                                                                                   vae, text_encoder, unet,
                                                                                   for_inference=True, **net_kwargs)
             else:
@@ -2403,15 +2351,9 @@ def main(args):
             mergeable = network.is_mergeable()
             if args.network_merge and not mergeable:
                 print("network is not mergiable. ignore merge option.")
-
             if not args.network_merge or not mergeable:
                 print(f'one lora loading ...')
-                # 1) original network
-                # Check weights_sd
-                # for layer in weights_sd.keys():
-                #    print(f'[{layer}] : {weights_sd[layer].shape}')
                 network.apply_to(text_encoder, unet)
-                # 2) loaded network
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
                 if args.opt_channels_last:
@@ -2431,7 +2373,7 @@ def main(args):
             print(f'layer : {layer}')
             network.state_dict()[layer] = weights_sd[layer]
 
-    # upscalerの指定があれば取得する
+    print(f'\n step 10. upscaler')
     upscaler = None
     if args.highres_fix_upscaler:
         print("import upscaler module:", args.highres_fix_upscaler)
@@ -2441,25 +2383,24 @@ def main(args):
             for net_arg in args.highres_fix_upscaler_args.split(";"):
                 key, value = net_arg.split("=")
                 us_kwargs[key] = value
-        print("create upscaler")
         upscaler = imported_module.create_upscaler(**us_kwargs)
         upscaler.to(dtype).to(device)
 
-    # ControlNetの処理
+    print(f'\n step 11. ControlNet')
     control_nets: List[ControlNetInfo] = []
     if args.control_net_models:
         for i, model in enumerate(args.control_net_models):
             prep_type = None if not args.control_net_preps or len(args.control_net_preps) <= i else \
-            args.control_net_preps[i]
+                args.control_net_preps[i]
             weight = 1.0 if not args.control_net_weights or len(args.control_net_weights) <= i else \
-            args.control_net_weights[i]
+                args.control_net_weights[i]
             ratio = 1.0 if not args.control_net_ratios or len(args.control_net_ratios) <= i else \
-            args.control_net_ratios[i]
-
+                args.control_net_ratios[i]
             ctrl_unet, ctrl_net = original_control_net.load_control_net(args.v2, unet, model)
             prep = original_control_net.load_preprocess(prep_type)
             control_nets.append(ControlNetInfo(ctrl_unet, ctrl_net, prep, weight, ratio))
 
+    print(f'\n step 12. opt_channels_last')
     if args.opt_channels_last:
         print(f"set optimizing: channels last")
         text_encoder.to(memory_format=torch.channels_last)
@@ -2472,108 +2413,63 @@ def main(args):
                 network.to(memory_format=torch.channels_last)
         if vgg16_model is not None:
             vgg16_model.to(memory_format=torch.channels_last)
-
         for cn in control_nets:
             cn.unet.to(memory_format=torch.channels_last)
             cn.net.to(memory_format=torch.channels_last)
 
-    from attention_store import AttentionStore
+    print(f'\n step 13. make pipeline')
     attention_storer = AttentionStore()
     register_attention_control(unet, attention_storer)
-    pipe = PipelineLike(device,vae,
-        text_encoder,
-        tokenizer,
-        unet,
-        scheduler,
-        args.clip_skip,
-        clip_model,
-        args.clip_guidance_scale,
-        args.clip_image_guidance_scale,
-        vgg16_model,
-        args.vgg16_guidance_scale,
-        args.vgg16_guidance_layer,
-    )
+    pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,
+                        clip_model, args.clip_guidance_scale, args.clip_image_guidance_scale,
+                        vgg16_model,args.vgg16_guidance_scale,args.vgg16_guidance_layer,)
     pipe.set_control_nets(control_nets)
-    print("pipeline is ready.")
-
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
-
-    # Extended Textual Inversion および Textual Inversionを処理する
     if args.XTI_embeddings:
         diffusers.models.UNet2DConditionModel.forward = unet_forward_XTI
         diffusers.models.unet_2d_blocks.CrossAttnDownBlock2D.forward = downblock_forward_XTI
         diffusers.models.unet_2d_blocks.CrossAttnUpBlock2D.forward = upblock_forward_XTI
-
     if args.textual_inversion_embeddings:
         token_ids_embeds = []
         for embeds_file in args.textual_inversion_embeddings:
             if model_util.is_safetensors(embeds_file):
                 from safetensors.torch import load_file
-
                 data = load_file(embeds_file)
             else:
                 data = torch.load(embeds_file, map_location="cpu")
-
             if "string_to_param" in data:
                 data = data["string_to_param"]
             embeds = next(iter(data.values()))
-
             if type(embeds) != torch.Tensor:
                 raise ValueError(f"weight file does not contains Tensor / 重みファイルのデータがTensorではありません: {embeds_file}")
-
             num_vectors_per_token = embeds.size()[0]
             token_string = os.path.splitext(os.path.basename(embeds_file))[0]
             token_strings = [token_string] + [f"{token_string}{i + 1}" for i in range(num_vectors_per_token - 1)]
-
             # add new word to tokenizer, count is num_vectors_per_token
             num_added_tokens = tokenizer.add_tokens(token_strings)
-            assert (
-                    num_added_tokens == num_vectors_per_token
-            ), f"tokenizer has same word to token string (filename). please rename the file / 指定した名前（ファイル名）のトークンが既に存在します。ファイルをリネームしてください: {embeds_file}"
-
+            assert (num_added_tokens == num_vectors_per_token), f"tokenizer has same word to token string (filename). please rename the file / 指定した名前（ファイル名）のトークンが既に存在します。ファイルをリネームしてください: {embeds_file}"
             token_ids = tokenizer.convert_tokens_to_ids(token_strings)
             print(f"Textual Inversion embeddings `{token_string}` loaded. Tokens are added: {token_ids}")
             assert (
                     min(token_ids) == token_ids[0] and token_ids[-1] == token_ids[0] + len(token_ids) - 1
             ), f"token ids is not ordered"
             assert len(tokenizer) - 1 == token_ids[-1], f"token ids is not end of tokenize: {len(tokenizer)}"
-
             if num_vectors_per_token > 1:
                 pipe.add_token_replacement(token_ids[0], token_ids)
-
             token_ids_embeds.append((token_ids, embeds))
-
         text_encoder.resize_token_embeddings(len(tokenizer))
         token_embeds = text_encoder.get_input_embeddings().weight.data
         for token_ids, embeds in token_ids_embeds:
             for token_id, embed in zip(token_ids, embeds):
                 token_embeds[token_id] = embed
-
     if args.XTI_embeddings:
-        XTI_layers = [
-            "IN01",
-            "IN02",
-            "IN04",
-            "IN05",
-            "IN07",
-            "IN08",
-            "MID",
-            "OUT03",
-            "OUT04",
-            "OUT05",
-            "OUT06",
-            "OUT07",
-            "OUT08",
-            "OUT09",
-            "OUT10",
-            "OUT11",
-        ]
+        XTI_layers = ["IN01","IN02","IN04","IN05","IN07","IN08","MID",
+                      "OUT03","OUT04","OUT05","OUT06","OUT07","OUT08","OUT09","OUT10","OUT11",]
         token_ids_embeds_XTI = []
         for embeds_file in args.XTI_embeddings:
             if model_util.is_safetensors(embeds_file):
                 from safetensors.torch import load_file
-
                 data = load_file(embeds_file)
             else:
                 data = torch.load(embeds_file, map_location="cpu")
@@ -2581,22 +2477,15 @@ def main(args):
                 raise ValueError("NOT XTI")
             embeds = torch.concat(list(data.values()))
             num_vectors_per_token = data["MID"].size()[0]
-
             token_string = os.path.splitext(os.path.basename(embeds_file))[0]
             token_strings = [token_string] + [f"{token_string}{i + 1}" for i in range(num_vectors_per_token - 1)]
-
             # add new word to tokenizer, count is num_vectors_per_token
             num_added_tokens = tokenizer.add_tokens(token_strings)
-            assert (
-                    num_added_tokens == num_vectors_per_token
-            ), f"tokenizer has same word to token string (filename). please rename the file / 指定した名前（ファイル名）のトークンが既に存在します。ファイルをリネームしてください: {embeds_file}"
-
+            assert (num_added_tokens == num_vectors_per_token), f"tokenizer has same word to token string (filename). please rename the file / 指定した名前（ファイル名）のトークンが既に存在します。ファイルをリネームしてください: {embeds_file}"
             token_ids = tokenizer.convert_tokens_to_ids(token_strings)
             print(f"XTI embeddings `{token_string}` loaded. Tokens are added: {token_ids}")
-
             # if num_vectors_per_token > 1:
             pipe.add_token_replacement(token_ids[0], token_ids)
-
             token_strings_XTI = []
             for layer_name in XTI_layers:
                 token_strings_XTI += [f"{t}_{layer_name}" for t in token_strings]
@@ -2608,16 +2497,14 @@ def main(args):
                 for i, layer_name in enumerate(XTI_layers):
                     t_XTI_dic[layer_name] = t + (i + 1) * num_added_tokens
                 pipe.add_token_replacement_XTI(t, t_XTI_dic)
-
             text_encoder.resize_token_embeddings(len(tokenizer))
             token_embeds = text_encoder.get_input_embeddings().weight.data
             for token_ids, embeds in token_ids_embeds_XTI:
                 for token_id, embed in zip(token_ids, embeds):
                     token_embeds[token_id] = embed
 
-    # promptを取得する
+    print(f'\n step 14. prompt')
     if args.from_file is not None:
-        print(f"reading prompts from {args.from_file}")
         with open(args.from_file, "r", encoding="utf-8") as f:
             prompt_list = f.read().splitlines()
             prompt_list = [d for d in prompt_list if len(d.strip()) > 0]
@@ -2625,143 +2512,30 @@ def main(args):
         prompt_list = [args.prompt]
     else:
         prompt_list = []
-
     if args.interactive:
         args.n_iter = 1
 
-    # img2imgの前処理、画像の読み込みなど
-    def load_images(path):
-        if os.path.isfile(path):
-            paths = [path]
-        else:
-            paths = (
-                    glob.glob(os.path.join(path, "*.png"))
-                    + glob.glob(os.path.join(path, "*.jpg"))
-                    + glob.glob(os.path.join(path, "*.jpeg"))
-                    + glob.glob(os.path.join(path, "*.webp"))
-            )
-            paths.sort()
-
-        images = []
-        for p in paths:
-            image = Image.open(p)
-            if image.mode != "RGB":
-                print(f"convert image to RGB from {image.mode}: {p}")
-                image = image.convert("RGB")
-            images.append(image)
-
-        return images
-
-    def resize_images(imgs, size):
-        resized = []
-        for img in imgs:
-            r_img = img.resize(size, Image.Resampling.LANCZOS)
-            if hasattr(img, "filename"):  # filename属性がない場合があるらしい
-                r_img.filename = img.filename
-            resized.append(r_img)
-        return resized
-
-    if args.image_path is not None:
-        print(f"load image for img2img: {args.image_path}")
-        init_images = load_images(args.image_path)
-        assert len(init_images) > 0, f"No image / 画像がありません: {args.image_path}"
-        print(f"loaded {len(init_images)} images for img2img")
-    else:
-        init_images = None
-
-    if args.mask_path is not None:
-        print(f"load mask for inpainting: {args.mask_path}")
-        mask_images = load_images(args.mask_path)
-        assert len(mask_images) > 0, f"No mask image / マスク画像がありません: {args.image_path}"
-        print(f"loaded {len(mask_images)} mask images for inpainting")
-    else:
-        mask_images = None
-
-    # promptがないとき、画像のPngInfoから取得する
-    if init_images is not None and len(prompt_list) == 0 and not args.interactive:
-        print("get prompts from images' meta data")
-        for img in init_images:
-            if "prompt" in img.text:
-                prompt = img.text["prompt"]
-                if "negative-prompt" in img.text:
-                    prompt += " --n " + img.text["negative-prompt"]
-                prompt_list.append(prompt)
-
-        # プロンプトと画像を一致させるため指定回数だけ繰り返す（画像を増幅する）
-        l = []
-        for im in init_images:
-            l.extend([im] * args.images_per_prompt)
-        init_images = l
-
-        if mask_images is not None:
-            l = []
-            for im in mask_images:
-                l.extend([im] * args.images_per_prompt)
-            mask_images = l
-
-    # 画像サイズにオプション指定があるときはリサイズする
+    print(f'\n step 14. inference argument and seed')
     if args.W is not None and args.H is not None:
-        # highres fix を考慮に入れる
         w, h = args.W, args.H
         if highres_fix:
             w = int(w * args.highres_fix_scale + 0.5)
             h = int(h * args.highres_fix_scale + 0.5)
-
-        if init_images is not None:
-            print(f"resize img2img source images to {w}*{h}")
-            init_images = resize_images(init_images, (w, h))
-        if mask_images is not None:
-            print(f"resize img2img mask images to {w}*{h}")
-            mask_images = resize_images(mask_images, (w, h))
-
     regional_network = False
-    if networks and mask_images:
-        regional_network = True
-        print("use mask as region")
-        size = None
-        for i, network in enumerate(networks):
-            if i < 3:
-                np_mask = np.array(mask_images[0])
-                np_mask = np_mask[:, :, i]
-                size = np_mask.shape
-            else:
-                np_mask = np.full(size, 255, dtype=np.uint8)
-            mask = torch.from_numpy(np_mask.astype(np.float32) / 255.0)
-            network.set_region(i, i == len(networks) - 1, mask)
-        mask_images = None
-
-    prev_image = None  # for VGG16 guided
-    if args.guide_image_path is not None:
-        print(f"load image for CLIP/VGG16/ControlNet guidance: {args.guide_image_path}")
-        guide_images = []
-        for p in args.guide_image_path:
-            guide_images.extend(load_images(p))
-        print(f"loaded {len(guide_images)} guide images for guidance")
-        if len(guide_images) == 0:
-            print(
-                f"No guide image, use previous generated image. / ガイド画像がありません。直前に生成した画像を使います: {args.image_path}")
-            guide_images = None
-    else:
-        guide_images = None
-
-    # seed指定時はseedを決めておく
+    guide_images = None
     if args.seed is not None:
-        # dynamic promptを使うと足りなくなる→images_per_promptを適当に大きくしておいてもらう
         random.seed(args.seed)
-        predefined_seeds = [random.randint(0, 0x7FFFFFFF) for _ in
-                            range(args.n_iter * len(prompt_list) * args.images_per_prompt)]
+        predefined_seeds = [random.randint(0, 0x7FFFFFFF) for _ in range(args.n_iter * len(prompt_list) * args.images_per_prompt)]
         if len(predefined_seeds) == 1:
             predefined_seeds[0] = args.seed
     else:
         predefined_seeds = None
-
-    # デフォルト画像サイズを設定する：img2imgではこれらの値は無視される（またはW*Hにリサイズ済み）
     if args.W is None:
         args.W = 512
     if args.H is None:
         args.H = 512
 
-    # 画像生成のループ
+    print(f'\n step 15. save dir')
     os.makedirs(args.outdir, exist_ok=True)
     max_embeddings_multiples = 1 if args.max_embeddings_multiples is None else args.max_embeddings_multiples
 
@@ -2794,7 +2568,7 @@ def main(args):
                         ext.negative_scale,
                         strength_1st,
                         ext.network_muls,
-                        ext.num_sub_prompts,                   )
+                        ext.num_sub_prompts, )
                     batch_1st.append(BatchData(is_1st_latent, base, ext_1st))
                 pipe.set_enable_control_net(True)  # 1st stageではControlNetを有効にする
                 images_1st = process_batch(batch_1st, True, True)
@@ -2844,7 +2618,7 @@ def main(args):
                     pipe.set_enable_control_net(False)  # オプション指定時、2nd stageではControlNetを無効にする
 
             # このバッチの情報を取り出す
-            (return_latents,(step_first, _, _, _, init_image, mask_image, _, guide_image),
+            (return_latents, (step_first, _, _, _, init_image, mask_image, _, guide_image),
              (width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
             prompts = []
@@ -2875,7 +2649,9 @@ def main(args):
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
-            for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
+            for i, (
+            _, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(
+                    batch):
                 prompts.append(prompt)
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
@@ -2938,30 +2714,31 @@ def main(args):
                         n.pre_calculation()
                     print("pre-calculation... done")
             images = pipe(prompts,
-                negative_prompts,
-                init_images,
-                mask_images,
-                height,
-                width,
-                steps,
-                scale,
-                negative_scale,
-                strength,
-                latents=start_code,
-                output_type="pil",
-                max_embeddings_multiples=max_embeddings_multiples,
-                img2img_noise=i2i_noises,
-                vae_batch_size=args.vae_batch_size,
-                return_latents=return_latents,
-                clip_prompts=clip_prompts,
-                clip_guide_images=guide_images,)[0]
+                          negative_prompts,
+                          init_images,
+                          mask_images,
+                          height,
+                          width,
+                          steps,
+                          scale,
+                          negative_scale,
+                          strength,
+                          latents=start_code,
+                          output_type="pil",
+                          max_embeddings_multiples=max_embeddings_multiples,
+                          img2img_noise=i2i_noises,
+                          vae_batch_size=args.vae_batch_size,
+                          return_latents=return_latents,
+                          clip_prompts=clip_prompts,
+                          clip_guide_images=guide_images, )[0]
             if highres_1st and not args.highres_fix_save_1st:  # return images or latents
                 return images
 
             # save image
             highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate( zip(images, prompts, negative_prompts, seeds, clip_prompts)):
+            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(
+                    zip(images, prompts, negative_prompts, seeds, clip_prompts)):
                 if highres_fix:
                     seed -= 1  # record original seed
                 metadata = PngInfo()
@@ -2987,7 +2764,7 @@ def main(args):
                 else:
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
                 parent, folder = os.path.split(args.outdir)
-                base_folder = os.path.join(parent, f'{folder}_{i+3}')
+                base_folder = os.path.join(parent, f'{folder}_{i + 3}')
                 image.save(os.path.join(base_folder, fln),
                            pnginfo=metadata)
             if not args.no_preview and not highres_1st and args.interactive:
@@ -3005,6 +2782,7 @@ def main(args):
         global_step = 0
         batch_data = []
         while args.interactive or prompt_index < len(prompt_list):
+            print(f' (15.1) raw_prompts')
             if len(prompt_list) == 0:
                 valid = False
                 while not valid:
@@ -3019,6 +2797,8 @@ def main(args):
             else:
                 raw_prompt = prompt_list[prompt_index]
             raw_prompts = handle_dynamic_prompt_variants(raw_prompt, args.images_per_prompt)
+
+            print(f' (15.2) raw_prompts')
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
                 if pi == 0 or len(raw_prompts) > 1:
@@ -3096,73 +2876,29 @@ def main(args):
                         except ValueError as ex:
                             print(f"Exception in parsing / 解析エラー: {parg}")
                             print(ex)
-                # prepare seed
                 if seeds is not None:  # given in prompt
-                    # 数が足りないなら前のをそのまま使う
-                    if len(seeds) > 0:
-                        seed = seeds.pop(0)
+                    if len(seeds) > 0:seed = seeds.pop(0)
                 else:
                     if predefined_seeds is not None:
-                        if len(predefined_seeds) > 0:
-                            seed = predefined_seeds.pop(0)
+                        if len(predefined_seeds) > 0:seed = predefined_seeds.pop(0)
                         else:
                             print("predefined seeds are exhausted")
                             seed = None
                     elif args.iter_same_seed:
                         seeds = iter_seed
-                    else:
-                        seed = None  # 前のを消す
+                    else:seed = None  # 前のを消す
                 if seed is None:
                     seed = random.randint(0, 0x7FFFFFFF)
                 if args.interactive:
                     print(f"seed: {seed}")
                 # prepare init image, guide image and mask
                 init_image = mask_image = guide_image = None
-                # 同一イメージを使うとき、本当はlatentに変換しておくと無駄がないが面倒なのでとりあえず毎回処理する
-                if init_images is not None:
-                    init_image = init_images[global_step % len(init_images)]
-                    # img2imgの場合は、基本的に元画像のサイズで生成する。highres fixの場合はargs.W, args.Hとscaleに従いリサイズ済みなので無視する
-                    # 32単位に丸めたやつにresizeされるので踏襲する
-                    if not highres_fix:
-                        width, height = init_image.size
-                        width = width - width % 32
-                        height = height - height % 32
-                        if width != init_image.size[0] or height != init_image.size[1]:
-                            print(
-                                f"img2img image size is not divisible by 32 so aspect ratio is changed / img2imgの画像サイズが32で割り切れないためリサイズされます。画像が歪みます")
-                if mask_images is not None:
-                    mask_image = mask_images[global_step % len(mask_images)]
-                if guide_images is not None:
-                    if control_nets:  # 複数件の場合あり
-                        c = len(control_nets)
-                        p = global_step % (len(guide_images) // c)
-                        guide_image = guide_images[p * c: p * c + c]
-                    else:
-                        guide_image = guide_images[global_step % len(guide_images)]
-                elif args.clip_image_guidance_scale > 0 or args.vgg16_guidance_scale > 0:
-                    if prev_image is None:
-                        print("Generate 1st image without guide image.")
-                    else:
-                        print("Use previous image as guide image.")
-                        guide_image = prev_image
-                if regional_network:
-                    num_sub_prompts = len(prompt.split(" AND "))
-                    assert (
-                            len(networks) <= num_sub_prompts), "Number of networks must be less than or equal to number of sub prompts."
-                else:
-                    num_sub_prompts = None
+                num_sub_prompts = None
                 b1 = BatchData(False,
-                               BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt,guide_image),
-                               BatchDataExt(width,height,steps,scale,negative_scale,strength,tuple(network_muls) if network_muls else None,num_sub_prompts,),)
-
-
-
-
-
-
-
-
-
+                               BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image,
+                                             clip_prompt, guide_image),
+                               BatchDataExt(width, height, steps, scale, negative_scale, strength,
+                                            tuple(network_muls) if network_muls else None, num_sub_prompts, ), )
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext:  # バッチ分割必要？
                     process_batch(batch_data, highres_fix)
                     batch_data.clear()
@@ -3179,6 +2915,7 @@ def main(args):
     print("done!")
     print(f'\n step 5. generate cross attention map')
     trg_token = args.trg_token
+
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
         cls_token = 49406
         pad_token = 49407
@@ -3228,7 +2965,7 @@ def main(args):
         attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
         attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
         attns = attns.squeeze(0)  # timestep, head(con, uncond), pix_len, sen_len
-        _, maps = torch.chunk(attns, chunks=2, dim=1) # [50, 8,
+        _, maps = torch.chunk(attns, chunks=2, dim=1)  # [50, 8,
         maps = maps.sum(0)  # [8, pix_len, sen_len]
         maps = maps.sum(0)  # [pix_len, sen_len]
         # element of attn_list = [8, pix_len, 77]
@@ -3255,7 +2992,6 @@ def main(args):
         heat_map_dir = os.path.join(args.outdir, f'attention_{a}.npy')
         torch.save(np_heat_map, heat_map_dir)
 
-
         if heat_map.dim() == 3:
             heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
         img = image_overlay_heat_map(img=prev_image,
@@ -3263,19 +2999,6 @@ def main(args):
 
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
-    """
-    print("atten_collection")
-    print("total attention map")
-    print(f'len(total_heat_map) : {len(total_heat_map)}') # 32
-    print(f'total_heat_map first element : {total_heat_map[0].shape}') # 512,512
-    total_heat_map = torch.stack(total_heat_map, dim=0) # 32, 512, 512
-    total_heat_map = total_heat_map.mean(0).squeeze(0)
-    total_heat_img = image_overlay_heat_map(img=prev_image,
-                                           heat_map=total_heat_map)
-    attn_save_dir = os.path.join(args.outdir, f'total_attn.jpg')
-    total_heat_img.save(attn_save_dir)
-    """
-
 
 
 def arg_as_list(s):
@@ -3295,8 +3018,10 @@ if __name__ == "__main__":
                         help="if specified, load prompts from this file / 指定時はプロンプトをファイルから読み込む")
     parser.add_argument("--interactive", action="store_true",
                         help="interactive mode (generates one image) / 対話モード（生成される画像は1枚になります）")
-    parser.add_argument("--no_preview", action="store_true", help="do not show generated image in interactive mode / 対話モードで画像を表示しない")
-    parser.add_argument("--image_path", type=str, default=None, help="image to inpaint or to generate from / img2imgまたはinpaintを行う元画像")
+    parser.add_argument("--no_preview", action="store_true",
+                        help="do not show generated image in interactive mode / 対話モードで画像を表示しない")
+    parser.add_argument("--image_path", type=str, default=None,
+                        help="image to inpaint or to generate from / img2imgまたはinpaintを行う元画像")
     parser.add_argument("--mask_path", type=str, default=None, help="mask in inpainting / inpaint時のマスク")
     parser.add_argument("--strength", type=float, default=None, help="img2img strength / img2img時のstrength")
     parser.add_argument("--images_per_prompt", type=int, default=1,
@@ -3306,47 +3031,50 @@ if __name__ == "__main__":
                         help="sequential output file name / 生成画像のファイル名を連番にする")
     parser.add_argument("--use_original_file_name",
                         action="store_true",
-                        help="prepend original file name in img2img / img2imgで元画像のファイル名を生成画像のファイル名の先頭に付ける",)
+                        help="prepend original file name in img2img / img2imgで元画像のファイル名を生成画像のファイル名の先頭に付ける", )
     parser.add_argument("--n_iter", type=int, default=1, help="sample this often / 繰り返し回数")
     parser.add_argument("--H", type=int, default=None, help="image height, in pixel space / 生成画像高さ")
     parser.add_argument("--W", type=int, default=None, help="image width, in pixel space / 生成画像幅")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size / バッチサイズ")
-    parser.add_argument("--vae_batch_size",type=float,default=None,
-                        help="batch size for VAE, < 1.0 for ratio / VAE処理時のバッチサイズ、1未満の値の場合は通常バッチサイズの比率",)
-    parser.add_argument("--vae_slices",type=int,default=None,
+    parser.add_argument("--vae_batch_size", type=float, default=None,
+                        help="batch size for VAE, < 1.0 for ratio / VAE処理時のバッチサイズ、1未満の値の場合は通常バッチサイズの比率", )
+    parser.add_argument("--vae_slices", type=int, default=None,
                         help="number of slices to split image into for VAE to reduce VRAM usage, None for no splitting (default), slower if specified. 16 or 32 recommended,")
     parser.add_argument("--steps", type=int, default=50, help="number of ddim sampling steps / サンプリングステップ数")
-    parser.add_argument("--sampler",type=str,default="ddim",
-                        choices=["ddim","pndm","lms","euler","euler_a","heun","dpm_2","dpm_2_a","dpmsolver","dpmsolver++","dpmsingle",
-                                 "k_lms","k_euler","k_euler_a","k_dpm_2","k_dpm_2_a",],
-                        help=f"sampler (scheduler) type / サンプラー（スケジューラ）の種類",)
-    parser.add_argument("--scale",type=float,default=7.5,
-                        help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty)) / guidance scale",)
+    parser.add_argument("--sampler", type=str, default="ddim",
+                        choices=["ddim", "pndm", "lms", "euler", "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver",
+                                 "dpmsolver++", "dpmsingle",
+                                 "k_lms", "k_euler", "k_euler_a", "k_dpm_2", "k_dpm_2_a", ],
+                        help=f"sampler (scheduler) type / サンプラー（スケジューラ）の種類", )
+    parser.add_argument("--scale", type=float, default=7.5,
+                        help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty)) / guidance scale", )
     parser.add_argument("--ckpt", type=str, default=None,
                         help="path to checkpoint of model / モデルのcheckpointファイルまたはディレクトリ")
     parser.add_argument("--vae", type=str, default=None,
                         help="path to checkpoint of vae to replace / VAEを入れ替える場合、VAEのcheckpointファイルまたはディレクトリ")
-    parser.add_argument("--tokenizer_cache_dir",type=str,
+    parser.add_argument("--tokenizer_cache_dir", type=str,
                         default=None,
-                        help="directory for caching Tokenizer (for offline training) / Tokenizerをキャッシュするディレクトリ（ネット接続なしでの学習のため）",)
+                        help="directory for caching Tokenizer (for offline training) / Tokenizerをキャッシュするディレクトリ（ネット接続なしでの学習のため）", )
     # parser.add_argument("--replace_clip_l14_336", action='store_true',
     #                     help="Replace CLIP (Text Encoder) to l/14@336 / CLIP(Text Encoder)をl/14@336に入れ替える")
-    parser.add_argument("--seed",type=int,default=None,
-                        help="seed, or seed of seeds in multiple generation / 1枚生成時のseed、または複数枚生成時の乱数seedを決めるためのseed",)
-    parser.add_argument("--iter_same_seed",action="store_true",
-                        help="use same seed for all prompts in iteration if no seed specified / 乱数seedの指定がないとき繰り返し内はすべて同じseedを使う（プロンプト間の差異の比較用）",)
-    parser.add_argument("--shuffle_prompts",action="store_true",
-                        help="shuffle prompts in iteration / 繰り返し内のプロンプトをシャッフルする",)
+    parser.add_argument("--seed", type=int, default=None,
+                        help="seed, or seed of seeds in multiple generation / 1枚生成時のseed、または複数枚生成時の乱数seedを決めるためのseed", )
+    parser.add_argument("--iter_same_seed", action="store_true",
+                        help="use same seed for all prompts in iteration if no seed specified / 乱数seedの指定がないとき繰り返し内はすべて同じseedを使う（プロンプト間の差異の比較用）", )
+    parser.add_argument("--shuffle_prompts", action="store_true",
+                        help="shuffle prompts in iteration / 繰り返し内のプロンプトをシャッフルする", )
     parser.add_argument("--fp16", action="store_true", help="use fp16 / fp16を指定し省メモリ化する")
     parser.add_argument("--bf16", action="store_true", help="use bfloat16 / bfloat16を指定し省メモリ化する")
     parser.add_argument("--xformers", action="store_true", help="use xformers / xformersを使用し高速化する")
     parser.add_argument("--sdpa", action="store_true", help="use sdpa in PyTorch 2 / sdpa")
-    parser.add_argument("--diffusers_xformers",action="store_true",
-                        help="use xformers by diffusers (Hypernetworks doesn't work) / Diffusersでxformersを使用する（Hypernetwork利用不可）",)
-    parser.add_argument("--opt_channels_last", action="store_true",help="set channels last option to model / モデルにchannels lastを指定し最適化する")
+    parser.add_argument("--diffusers_xformers", action="store_true",
+                        help="use xformers by diffusers (Hypernetworks doesn't work) / Diffusersでxformersを使用する（Hypernetwork利用不可）", )
+    parser.add_argument("--opt_channels_last", action="store_true",
+                        help="set channels last option to model / モデルにchannels lastを指定し最適化する")
     parser.add_argument("--network_module", type=str, default=None, nargs="*",
                         help="additional network module to use / 追加ネットワークを使う時そのモジュール名")
-    parser.add_argument("--network_weights", type=str, default=None, nargs="*", help="additional network weights to load / 追加ネットワークの重み")
+    parser.add_argument("--network_weights", type=str, default=None, nargs="*",
+                        help="additional network weights to load / 追加ネットワークの重み")
     parser.add_argument("--network_mul", type=float, default=None, nargs="*",
                         help="additional network multiplier / 追加ネットワークの効果の倍率")
     parser.add_argument("--network_args", type=str, default=None, nargs="*",
@@ -3355,96 +3083,51 @@ if __name__ == "__main__":
                         help="show metadata of network model / ネットワークモデルのメタデータを表示する")
     parser.add_argument("--network_merge", action="store_true",
                         help="merge network weights to original model / ネットワークの重みをマージする")
-    parser.add_argument("--network_pre_calc", action="store_true", help="pre-calculate network for generation / ネットワークのあらかじめ計算して生成する")
-    parser.add_argument("--textual_inversion_embeddings",type=str,default=None,nargs="*",
-                        help="Embeddings files of Textual Inversion / Textual Inversionのembeddings",)
+    parser.add_argument("--network_pre_calc", action="store_true",
+                        help="pre-calculate network for generation / ネットワークのあらかじめ計算して生成する")
+    parser.add_argument("--textual_inversion_embeddings", type=str, default=None, nargs="*",
+                        help="Embeddings files of Textual Inversion / Textual Inversionのembeddings", )
     parser.add_argument("--XTI_embeddings", type=str, default=None, nargs="*",
-                        help="Embeddings files of Extended Textual Inversion / Extended Textual Inversionのembeddings",)
+                        help="Embeddings files of Extended Textual Inversion / Extended Textual Inversionのembeddings", )
     parser.add_argument("--clip_skip", type=int, default=None,
                         help="layer number from bottom to use in CLIP / CLIPの後ろからn層目の出力を使う")
     parser.add_argument("--max_embeddings_multiples", type=int, default=None,
-                        help="max embeding multiples, max token length is 75 * multiples / トークン長をデフォルトの何倍とするか 75*この値 がトークン長となる",)
+                        help="max embeding multiples, max token length is 75 * multiples / トークン長をデフォルトの何倍とするか 75*この値 がトークン長となる", )
     parser.add_argument("--clip_guidance_scale", type=float, default=0.0,
-                        help="enable CLIP guided SD, scale for guidance (DDIM, PNDM, LMS samplers only) / CLIP guided SDを有効にしてこのscaleを適用する（サンプラーはDDIM、PNDM、LMSのみ）",)
-    parser.add_argument("--clip_image_guidance_scale",type=float,default=0.0,
-                        help="enable CLIP guided SD by image, scale for guidance / 画像によるCLIP guided SDを有効にしてこのscaleを適用する",)
-    parser.add_argument(
-        "--vgg16_guidance_scale",
-        type=float,
-        default=0.0,
-        help="enable VGG16 guided SD by image, scale for guidance / 画像によるVGG16 guided SDを有効にしてこのscaleを適用する",
-    )
-    parser.add_argument(
-        "--vgg16_guidance_layer",
-        type=int,
-        default=20,
-        help="layer of VGG16 to calculate contents guide (1~30, 20 for conv4_2) / VGG16のcontents guideに使うレイヤー番号 (1~30、20はconv4_2)",
-    )
-    parser.add_argument(
-        "--guide_image_path", type=str, default=None, nargs="*", help="image to CLIP guidance / CLIP guided SDでガイドに使う画像"
-    )
-    parser.add_argument(
-        "--highres_fix_scale",
-        type=float,
-        default=None,
-        help="enable highres fix, reso scale for 1st stage / highres fixを有効にして最初の解像度をこのscaleにする",
-    )
-    parser.add_argument(
-        "--highres_fix_steps", type=int, default=28, help="1st stage steps for highres fix / highres fixの最初のステージのステップ数"
-    )
-    parser.add_argument(
-        "--highres_fix_strength",
-        type=float,
-        default=None,
-        help="1st stage img2img strength for highres fix / highres fixの最初のステージのimg2img時のstrength、省略時はstrengthと同じ",
-    )
-    parser.add_argument(
-        "--highres_fix_save_1st", action="store_true",
-        help="save 1st stage images for highres fix / highres fixの最初のステージの画像を保存する"
-    )
-    parser.add_argument(
-        "--highres_fix_latents_upscaling",
-        action="store_true",
-        help="use latents upscaling for highres fix / highres fixでlatentで拡大する",
-    )
-    parser.add_argument(
-        "--highres_fix_upscaler", type=str, default=None,
-        help="upscaler module for highres fix / highres fixで使うupscalerのモジュール名"
-    )
-    parser.add_argument(
-        "--highres_fix_upscaler_args",
-        type=str,
-        default=None,
-        help="additional argmuments for upscaler (key=value) / upscalerへの追加の引数",
-    )
-    parser.add_argument(
-        "--highres_fix_disable_control_net",
-        action="store_true",
-        help="disable ControlNet for highres fix / highres fixでControlNetを使わない",
-    )
-
-    parser.add_argument(
-        "--negative_scale", type=float, default=None,
-        help="set another guidance scale for negative prompt / ネガティブプロンプトのscaleを指定する"
-    )
-
-    parser.add_argument(
-        "--control_net_models", type=str, default=None, nargs="*", help="ControlNet models to use / 使用するControlNetのモデル名"
-    )
-    parser.add_argument(
-        "--control_net_preps", type=str, default=None, nargs="*",
-        help="ControlNet preprocess to use / 使用するControlNetのプリプロセス名"
-    )
+                        help="enable CLIP guided SD, scale for guidance (DDIM, PNDM, LMS samplers only) / CLIP guided SDを有効にしてこのscaleを適用する（サンプラーはDDIM、PNDM、LMSのみ）", )
+    parser.add_argument("--clip_image_guidance_scale", type=float, default=0.0,
+                        help="enable CLIP guided SD by image, scale for guidance / 画像によるCLIP guided SDを有効にしてこのscaleを適用する", )
+    parser.add_argument("--vgg16_guidance_scale",type=float,default=0.0,
+                        help="enable VGG16 guided SD by image, scale for guidance / 画像によるVGG16 guided SDを有効にしてこのscaleを適用する",)
+    parser.add_argument("--vgg16_guidance_layer",type=int,default=20,
+                        help="layer of VGG16 to calculate contents guide (1~30, 20 for conv4_2) / VGG16のcontents guideに使うレイヤー番号 (1~30、20はconv4_2)",)
+    parser.add_argument("--guide_image_path", type=str, default=None, nargs="*", help="image to CLIP guidance / CLIP guided SDでガイドに使う画像")
+    parser.add_argument("--highres_fix_scale",type=float,default=None,
+                        help="enable highres fix, reso scale for 1st stage / highres fixを有効にして最初の解像度をこのscaleにする",)
+    parser.add_argument("--highres_fix_steps", type=int, default=28, help="1st stage steps for highres fix / highres fixの最初のステージのステップ数")
+    parser.add_argument("--highres_fix_strength",type=float,       default=None,
+                        help="1st stage img2img strength for highres fix / highres fixの最初のステージのimg2img時のstrength、省略時はstrengthと同じ",    )
+    parser.add_argument("--highres_fix_save_1st", action="store_true",
+                        help="save 1st stage images for highres fix / highres fixの最初のステージの画像を保存する")
+    parser.add_argument("--highres_fix_latents_upscaling",action="store_true",
+                        help="use latents upscaling for highres fix / highres fixでlatentで拡大する",)
+    parser.add_argument("--highres_fix_upscaler", type=str, default=None,
+                        help="upscaler module for highres fix / highres fixで使うupscalerのモジュール名")
+    parser.add_argument("--highres_fix_upscaler_args",   type=str,        default=None,
+                        help="additional argmuments for upscaler (key=value) / upscalerへの追加の引数",)
+    parser.add_argument("--highres_fix_disable_control_net",
+                        action="store_true",
+                        help="disable ControlNet for highres fix / highres fixでControlNetを使わない",)
+    parser.add_argument("--negative_scale", type=float, default=None,
+                        help="set another guidance scale for negative prompt / ネガティブプロンプトのscaleを指定する")
+    parser.add_argument("--control_net_models", type=str, default=None, nargs="*", help="ControlNet models to use / 使用するControlNetのモデル名")
+    parser.add_argument("--control_net_preps", type=str, default=None, nargs="*",
+                        help="ControlNet preprocess to use / 使用するControlNetのプリプロセス名")
     parser.add_argument("--control_net_weights", type=float, default=None, nargs="*",
                         help="ControlNet weights / ControlNetの重み")
-    parser.add_argument(
-        "--control_net_ratios",
-        type=float,
-        default=None,
-        nargs="*",
-        help="ControlNet guidance ratio for steps / ControlNetでガイドするステップ比率",
-    )
+    parser.add_argument("--control_net_ratios",type=float,default=None,
+                        nargs="*",help="ControlNet guidance ratio for steps / ControlNetでガイドするステップ比率",)
     parser.add_argument("--device", default='cuda')
-    parser.add_argument("--trg_token", type = str)
+    parser.add_argument("--trg_token", type=str)
     args = parser.parse_args()
     main(args)
