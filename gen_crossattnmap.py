@@ -2769,7 +2769,7 @@ def main(args):
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
                 parent, folder = os.path.split(args.outdir)
                 os.makedirs(parent, exist_ok=True)
-                base_folder = os.path.join(parent, f'{folder}_{save_index + 3}')
+                base_folder = os.path.join(parent, f'{folder}_{save_index}')
                 print(f'base_folder : {base_folder}')
                 os.makedirs(base_folder, exist_ok=True)
                 image.save(os.path.join(base_folder, fln), pnginfo=metadata)
@@ -2807,7 +2807,8 @@ def main(args):
                     layer_name = layer_name.split('_')[:5]
                     a = '_'.join(layer_name)
                     np_heat_map = heat_map.cpu().numpy()
-                    heat_map_dir = os.path.join(args.outdir, f'attention_{a}.npy')
+                    heat_map_dir = os.path.join(base_folder, f'attention_{a}.npy')
+                    np_heat_map.save(heat_map_dir)
                     torch.save(np_heat_map, heat_map_dir)
                     if heat_map.dim() == 3:
                         heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
