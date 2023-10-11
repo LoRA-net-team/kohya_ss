@@ -104,9 +104,9 @@ class TextualInversionTrainer:
         return noise_pred
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, prompt_replacement):
-        train_util.sample_images(
-            accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, prompt_replacement
-        )
+        print(f'in sample images functino')
+        train_util.sample_images(accelerator, args, epoch, global_step, device,
+                                 vae, tokenizer, text_encoder, unet, prompt_replacement)
 
     def save_weights(self, file, updated_embs, save_dtype, metadata):
         state_dict = {"emb_params": updated_embs[0]}
