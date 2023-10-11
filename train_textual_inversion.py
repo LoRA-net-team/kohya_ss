@@ -725,7 +725,7 @@ if __name__ == "__main__":
     parser.add_argument("--weights", type=str, default=None,
                         help="embedding weights to initialize / 学習するネットワークの初期重み")
     parser.add_argument("--num_vectors_per_token", type=int, default=1, help="number of vectors per token / トークンに割り当てるembeddingsの要素数")
-    parser.add_argument("--token_string",type=str,efault=None,
+    parser.add_argument("--token_string",type=str,default=None,
                         help="token string used in training, must not exist in tokenizer / 学習時に使用されるトークン文字列、tokenizerに存在しない文字であること",)
     parser.add_argument("--init_word", type=str, default=None,
                         help="words to initialize vector / ベクトルを初期化に使用する単語、複数可")
@@ -740,5 +740,4 @@ if __name__ == "__main__":
     args = train_util.read_config_from_file(args, parser)
     trainer = TextualInversionTrainer()
     trainer.train(args)
-
 
