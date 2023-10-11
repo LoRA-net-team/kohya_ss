@@ -510,7 +510,6 @@ class TextualInversionTrainer:
                             updated_embs_list = []
                             for text_encoder, token_ids in zip(text_encoders, token_ids_list):
                                 updated_embs = (accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[token_ids].data.detach().clone())
-                                print(f'token_ids: {token_ids} : updated_embs : {updated_embs.shape}')
                                 updated_embs_list.append(updated_embs)
                             # ----------------------------------------------------------------------------------------------------------------------------
                             # saving model
@@ -549,6 +548,7 @@ class TextualInversionTrainer:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
                 if accelerator.is_main_process and saving:
                     ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
+                    print(f'token_ids: {token_ids} : updated_embs : {updated_embs.shape}')
                     save_model(ckpt_name, updated_embs_list, epoch + 1, global_step)
                     remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
                     if remove_epoch_no is not None:
@@ -612,7 +612,8 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_pro
             --resolution "512,512" \
             --max_train_steps 2880 \
             --lr_warmup_steps 144 --lr_scheduler cosine_with_restarts \
-            --optimizer_type AdamW
+            --optimizer_type AdamW \
+            --save_every_n_epochs 1
             
             
 """
