@@ -2573,7 +2573,7 @@ def main(args):
         # shuffle prompt list
         if args.shuffle_prompts:
             random.shuffle(prompt_list)
-        def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index):
+        def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index=1):
             batch_size = len(batch)
             # highres_fixの処理
             if highres_fix and not highres_1st:
