@@ -2772,7 +2772,9 @@ def main(args):
                 base_folder = os.path.join(parent, f'{folder}_{save_index + 3}')
                 os.makedirs(base_folder, exist_ok=True)
                 image.save(os.path.join(base_folder, fln), pnginfo=metadata)
-
+                prompt_save_dir = os.path.join(base_folder, f'prompt.txt')
+                with open(prompt_save_dir, 'w') as f:
+                    f.write(prompt)
                 # ------------------------------------------------------------------------------------------------
                 print(f'save attn map')
                 print(f'prompt : {prompt}')
