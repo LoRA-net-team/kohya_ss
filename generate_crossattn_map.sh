@@ -3,9 +3,7 @@ CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --network_module networks.lora \
       --network_weights './result/jungwoo_experience/jungwoo_3_base/jungwoo-000013.safetensors' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo_inference.txt'
-
-
-      --prompt "jw, male_focused, center, smiling, wearing_shirt" --outdir 20231011_result/jungwoo_3_base/jw_2 --seed 42 --trg_token 'jw'
+      --outdir 20231011_result/jungwoo_3_base/jw --seed 42 --trg_token 'jw'
 
 
 

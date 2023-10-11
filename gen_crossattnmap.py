@@ -2716,13 +2716,18 @@ def main(args):
                           vae_batch_size=args.vae_batch_size,
                           return_latents=return_latents,
                           clip_prompts=clip_prompts,
-                          clip_guide_images=guide_images, )[0]
+                          clip_guide_images=guide_images,)[0]
             if highres_1st and not args.highres_fix_save_1st:  # return images or latents
                 return images
+
             print(f'save image')
             highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(zip(images, prompts, negative_prompts, seeds, clip_prompts)):
+            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(zip(images,
+                                                                                         prompts,
+                                                                                         negative_prompts,
+                                                                                         seeds,
+                                                                                         clip_prompts)):
                 if highres_fix:
                     seed -= 1  # record original seed
                 metadata = PngInfo()
@@ -2746,8 +2751,10 @@ def main(args):
                     fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
                 else:
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
+                # 20231011_result/jungwoo_3_base/jw_3
                 parent, folder = os.path.split(args.outdir)
                 base_folder = os.path.join(parent, f'{folder}_{i + 3}')
+                print(f'base_folder : {base_folder}')
                 os.makedirs(base_folder, exist_ok=True)
                 image.save(os.path.join(base_folder, fln), pnginfo=metadata)
 
