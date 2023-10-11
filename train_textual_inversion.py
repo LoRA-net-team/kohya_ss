@@ -104,7 +104,6 @@ class TextualInversionTrainer:
         return noise_pred
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, prompt_replacement):
-        print(f'in sample images functino')
         train_util.sample_images(accelerator, args, epoch, global_step, device,
                                  vae, tokenizer, text_encoder, unet, prompt_replacement)
 
@@ -554,7 +553,6 @@ class TextualInversionTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-            print(f'generating sample images ... ')
             self.sample_images(accelerator,
                                args,
                                epoch + 1,
