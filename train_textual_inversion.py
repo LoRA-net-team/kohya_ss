@@ -612,8 +612,7 @@ if __name__ == "__main__":
 accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_process_port 22378 train_textual_inversion.py \
             --output_name jungwoo --use_object_template --seed 42 \
             --pretrained_model_name_or_path /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
-            --init_word boy --num_vectors_per_token 1 \
-            --token_string jungwoo \
+            --token_string jungwoo --init_word boy --num_vectors_per_token 1 \
             --train_data_dir /data7/sooyeon/MyData/jungwoo \
             --resolution "512,512" \
             --max_train_steps 2880 \

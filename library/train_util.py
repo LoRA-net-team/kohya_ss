@@ -4469,12 +4469,11 @@ def sample_images_common(
 
     if args.v_parameterization:
         sched_init_args["prediction_type"] = "v_prediction"
-    scheduler = scheduler_cls(
-        num_train_timesteps=SCHEDULER_TIMESTEPS,
-        beta_start=SCHEDULER_LINEAR_START,
-        beta_end=SCHEDULER_LINEAR_END,
-        beta_schedule=SCHEDLER_SCHEDULE,
-        **sched_init_args,)
+    scheduler = scheduler_cls(num_train_timesteps=SCHEDULER_TIMESTEPS,
+                              beta_start=SCHEDULER_LINEAR_START,
+                              beta_end=SCHEDULER_LINEAR_END,
+                              beta_schedule=SCHEDLER_SCHEDULE,
+                              **sched_init_args,)
     # clip_sample=Trueにする
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
         scheduler.config.clip_sample = True
@@ -4521,37 +4520,30 @@ def sample_images_common(
                         if m:
                             width = int(m.group(1))
                             continue
-
                         m = re.match(r"h (\d+)", parg, re.IGNORECASE)
                         if m:
                             height = int(m.group(1))
                             continue
-
                         m = re.match(r"d (\d+)", parg, re.IGNORECASE)
                         if m:
                             seed = int(m.group(1))
                             continue
-
                         m = re.match(r"s (\d+)", parg, re.IGNORECASE)
                         if m:  # steps
                             sample_steps = max(1, min(1000, int(m.group(1))))
                             continue
-
                         m = re.match(r"l ([\d\.]+)", parg, re.IGNORECASE)
                         if m:  # scale
                             scale = float(m.group(1))
                             continue
-
                         m = re.match(r"n (.+)", parg, re.IGNORECASE)
                         if m:  # negative prompt
                             negative_prompt = m.group(1)
                             continue
-
                         m = re.match(r"cn (.+)", parg, re.IGNORECASE)
                         if m:  # negative prompt
                             controlnet_image = m.group(1)
                             continue
-
                     except ValueError as ex:
                         print(f"Exception in parsing / 解析エラー: {parg}")
                         print(ex)
@@ -4574,9 +4566,8 @@ def sample_images_common(
             print(f"sample_steps: {sample_steps}")
             print(f"scale: {scale}")
             with accelerator.autocast():
-                latents = pipeline(
-                    prompt=prompt,
-                    height=height,
+                latents = pipeline(prompt=prompt,
+                                   height=height,
                     width=width,
                     num_inference_steps=sample_steps,
                     guidance_scale=scale,
@@ -4586,7 +4577,6 @@ def sample_images_common(
             image = pipeline.latents_to_image(latents)[0]
             if attention_storer :
                 attention_storer.reset()
-
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
             num_suffix = f"e{epoch:06d}" if epoch is not None else f"{steps:06d}"
             seed_suffix = "" if seed is None else f"_{seed}"

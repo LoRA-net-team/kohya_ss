@@ -276,34 +276,10 @@ def get_weighted_text_embeddings(
     no_boseos_middle: Optional[bool] = False,
     skip_parsing: Optional[bool] = False,
     skip_weighting: Optional[bool] = False,
-    clip_skip=None,
-):
-    r"""
-    Prompts can be assigned with local weights using brackets. For example,
-    prompt 'A (very beautiful) masterpiece' highlights the words 'very beautiful',
-    and the embedding tokens corresponding to the words get multiplied by a constant, 1.1.
+    clip_skip=None,):
 
-    Also, to regularize of the embedding, the weighted embedding would be scaled to preserve the original mean.
-
-    Args:
-        pipe (`StableDiffusionPipeline`):
-            Pipe to provide access to the tokenizer and the text encoder.
-        prompt (`str` or `List[str]`):
-            The prompt or prompts to guide the image generation.
-        uncond_prompt (`str` or `List[str]`):
-            The unconditional prompt or prompts for guide the image generation. If unconditional prompt
-            is provided, the embeddings of prompt and uncond_prompt are concatenated.
-        max_embeddings_multiples (`int`, *optional*, defaults to `3`):
-            The max multiple length of prompt embeddings compared to the max output length of text encoder.
-        no_boseos_middle (`bool`, *optional*, defaults to `False`):
-            If the length of text token is multiples of the capacity of text encoder, whether reserve the starting and
-            ending token in each of the chunk in the middle.
-        skip_parsing (`bool`, *optional*, defaults to `False`):
-            Skip the parsing of brackets.
-        skip_weighting (`bool`, *optional*, defaults to `False`):
-            Skip the weighting. When the parsing is skipped, it is forced True.
-    """
     max_length = (pipe.tokenizer.model_max_length - 2) * max_embeddings_multiples + 2
+
     if isinstance(prompt, str):
         prompt = [prompt]
 
@@ -313,17 +289,16 @@ def get_weighted_text_embeddings(
             if isinstance(uncond_prompt, str):
                 uncond_prompt = [uncond_prompt]
             uncond_tokens, uncond_weights = get_prompts_with_weights(pipe, uncond_prompt, max_length - 2)
+
     else:
         prompt_tokens = [token[1:-1] for token in pipe.tokenizer(prompt, max_length=max_length, truncation=True).input_ids]
         prompt_weights = [[1.0] * len(token) for token in prompt_tokens]
         if uncond_prompt is not None:
             if isinstance(uncond_prompt, str):
                 uncond_prompt = [uncond_prompt]
-            uncond_tokens = [
-                token[1:-1] for token in pipe.tokenizer(uncond_prompt, max_length=max_length, truncation=True).input_ids
-            ]
+            uncond_tokens = [token[1:-1] for token in pipe.tokenizer(uncond_prompt, max_length=max_length, truncation=True).input_ids]
             uncond_weights = [[1.0] * len(token) for token in uncond_tokens]
-
+    print(f'prompt tokens : {prompt_tokens}')
     # round up the longest length of tokens to a multiple of (model_max_length - 2)
     max_length = max([len(token) for token in prompt_tokens])
     if uncond_prompt is not None:
@@ -534,28 +509,6 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
         )
         self.clip_skip = clip_skip
         self.__init__additional__()
-
-    # else:
-    #     def __init__(
-    #         self,
-    #         vae: AutoencoderKL,
-    #         text_encoder: CLIPTextModel,
-    #         tokenizer: CLIPTokenizer,
-    #         unet: UNet2DConditionModel,
-    #         scheduler: SchedulerMixin,
-    #         safety_checker: StableDiffusionSafetyChecker,
-    #         feature_extractor: CLIPFeatureExtractor,
-    #     ):
-    #         super().__init__(
-    #             vae=vae,
-    #             text_encoder=text_encoder,
-    #             tokenizer=tokenizer,
-    #             unet=unet,
-    #             scheduler=scheduler,
-    #             safety_checker=safety_checker,
-    #             feature_extractor=feature_extractor,
-    #         )
-    #         self.__init__additional__()
 
     def __init__additional__(self):
         if not hasattr(self, "vae_scale_factor"):
