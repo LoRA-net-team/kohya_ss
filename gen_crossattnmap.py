@@ -18,6 +18,7 @@ import diffusers
 import numpy as np
 import torch
 import torchvision
+from utils import expand_image, image_overlay_heat_map
 from diffusers import (AutoencoderKL,DDPMScheduler,EulerAncestralDiscreteScheduler,
                        DPMSolverMultistepScheduler,DPMSolverSinglestepScheduler,LMSDiscreteScheduler,
                        PNDMScheduler,DDIMScheduler,EulerDiscreteScheduler,HeunDiscreteScheduler,
@@ -2138,6 +2139,32 @@ def register_attention_control(unet, controller):
     controller.num_att_layers = cross_att_count
 
 
+def generate_text_embedding(args, prompt, tokenizer, text_encoder, device):
+    cls_token = 49406
+    pad_token = 49407
+    trg_token = args.trg_token
+    token_input = tokenizer([trg_token], padding="max_length", max_length=tokenizer.model_max_length,
+                            truncation=True, return_tensors="pt", )
+    token_ids = token_input.input_ids[0]
+    token_attns = token_input.attention_mask[0]
+    trg_token_id = []
+    for token_id, token_attn in zip(token_ids, token_attns):
+        if token_id != cls_token and token_id != pad_token and token_attn == 1:
+            trg_token_id.append(token_id)
+    text_input = tokenizer([prompt], padding="max_length", max_length=tokenizer.model_max_length,
+                           truncation=True, return_tensors="pt", )
+    trg_indexs = []
+    trg_index = 0
+    token_ids = text_input.input_ids[0]
+    attns = text_input.attention_mask[0]
+    for token_id, attn in zip(token_ids, attns):
+        for id in trg_token_id:
+            if token_id == id:
+                trg_indexs.append(trg_index)
+        trg_index += 1
+    text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+    return text_embeddings, trg_indexs
+
 def main(args):
 
     print(f'\n step 1. check precision')
@@ -2546,7 +2573,7 @@ def main(args):
         # shuffle prompt list
         if args.shuffle_prompts:
             random.shuffle(prompt_list)
-        def process_batch(batch: List[BatchData], highres_fix, highres_1st=False):
+        def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index):
             batch_size = len(batch)
             # highres_fixの処理
             if highres_fix and not highres_1st:
@@ -2751,58 +2778,16 @@ def main(args):
                     fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
                 else:
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
-                # 20231011_result/jungwoo_3_base/jw_3
                 parent, folder = os.path.split(args.outdir)
-                base_folder = os.path.join(parent, f'{folder}_{i + 3}')
-                print(f'base_folder : {base_folder}')
+                base_folder = os.path.join(parent, f'{folder}_{save_index + 3}')
                 os.makedirs(base_folder, exist_ok=True)
                 image.save(os.path.join(base_folder, fln), pnginfo=metadata)
 
                 # ------------------------------------------------------------------------------------------------
-                # save attn map
-                trg_token = args.trg_token
-
-                def generate_text_embedding(prompt, tokenizer, text_encoder, device):
-                    cls_token = 49406
-                    pad_token = 49407
-                    trg_token = args.trg_token
-                    token_input = tokenizer([trg_token],
-                                            padding="max_length",
-                                            max_length=tokenizer.model_max_length,
-                                            truncation=True,
-                                            return_tensors="pt", )
-                    token_ids = token_input.input_ids[0]
-                    token_attns = token_input.attention_mask[0]
-                    trg_token_id = []
-                    for token_id, token_attn in zip(token_ids, token_attns):
-                        if token_id != cls_token and token_id != pad_token and token_attn == 1:
-                            trg_token_id.append(token_id)
-                    print(f'trg_token_id : {trg_token_id}')
-                    text_input = tokenizer([prompt],
-                                           padding="max_length",
-                                           max_length=tokenizer.model_max_length,
-                                           truncation=True,
-                                           return_tensors="pt", )
-                    cls_token = 49406
-                    pad_token = 49407
-                    trg_indexs = []
-                    trg_index = 0
-                    token_ids = text_input.input_ids[0]
-                    print(f'token_ids : {token_ids}')
-                    attns = text_input.attention_mask[0]
-                    for token_id, attn in zip(token_ids, attns):
-                        for id in trg_token_id:
-                            if token_id == id:
-                                trg_indexs.append(trg_index)
-                        trg_index += 1
-                    text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
-                    print(f'trg_indexs : {trg_indexs}')
-                    return text_embeddings, trg_indexs
-                text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
-
-                print(f' (5.2) collected crossattention map ')
+                print(f'save attn map')
+                print(f'prompt : {prompt}')
+                text_embeddings, trg_indexs = generate_text_embedding(args, prompt, tokenizer, text_encoder, device)
                 atten_collection = attention_storer.step_store
-                from utils import expand_image, image_overlay_heat_map
                 layer_names = atten_collection.keys()
                 total_heat_map = []
                 for layer_name in layer_names:
@@ -2817,10 +2802,6 @@ def main(args):
                     res = int(math.sqrt(pix_len))
                     maps = maps.permute(1, 0)  # [sen_len, pix_len]
                     global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-
-                    # for heat_map in attn_list :
-                    #    heat_map = heat_map.unsqueeze(1)
-                    #    all_merges.append(F.interpolate(heat_map, size=(64,64), mode='bicubic').clamp_(min=0))
                     all_merges = []
                     for word_index in trg_indexs:
                         word_map = global_heat_map[word_index, :, :]
@@ -2835,16 +2816,11 @@ def main(args):
                     np_heat_map = heat_map.cpu().numpy()
                     heat_map_dir = os.path.join(args.outdir, f'attention_{a}.npy')
                     torch.save(np_heat_map, heat_map_dir)
-
                     if heat_map.dim() == 3:
                         heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
-                    img = image_overlay_heat_map(img=prev_image,
-                                                 heat_map=heat_map)
-
+                    img = image_overlay_heat_map(img=image, heat_map=heat_map)
                     attn_save_dir = os.path.join(base_folder, f'attention_{a}.jpg')
                     img.save(attn_save_dir)
-
-
             if not args.no_preview and not highres_1st and args.interactive:
                 try:
                     import cv2
@@ -2982,109 +2958,19 @@ def main(args):
                 batch_data.append(b1)
                 if len(batch_data) == args.batch_size:
                     print(f' *** process batch *** ')
-                    prev_image = process_batch(batch_data, highres_fix)[0]
+                    prev_image = process_batch(batch_data, highres_fix, prompt_index + 1)[0]
                     batch_data.clear()
                 global_step += 1
             prompt_index += 1
         if len(batch_data) > 0:
             process_batch(batch_data, highres_fix)
             batch_data.clear()
-
     print("done!")
-    """
-    print(f'\n step 5. generate cross attention map')
-    trg_token = args.trg_token
-
-    def generate_text_embedding(prompt, tokenizer, text_encoder, device):
-        cls_token = 49406
-        pad_token = 49407
-        trg_token = args.trg_token
-        token_input = tokenizer([trg_token],
-                                padding="max_length",
-                                max_length=tokenizer.model_max_length,
-                                truncation=True,
-                                return_tensors="pt", )
-        token_ids = token_input.input_ids[0]
-        token_attns = token_input.attention_mask[0]
-        trg_token_id = []
-        for token_id, token_attn in zip(token_ids, token_attns):
-            if token_id != cls_token and token_id != pad_token and token_attn == 1:
-                trg_token_id.append(token_id)
-        print(f'trg_token_id : {trg_token_id}')
-        text_input = tokenizer([prompt],
-                               padding="max_length",
-                               max_length=tokenizer.model_max_length,
-                               truncation=True,
-                               return_tensors="pt", )
-        cls_token = 49406
-        pad_token = 49407
-        trg_indexs = []
-        trg_index = 0
-        token_ids = text_input.input_ids[0]
-        print(f'token_ids : {token_ids}')
-        attns = text_input.attention_mask[0]
-        for token_id, attn in zip(token_ids, attns):
-            for id in trg_token_id:
-                if token_id == id:
-                    trg_indexs.append(trg_index)
-            trg_index += 1
-        text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
-        print(f'trg_indexs : {trg_indexs}')
-        return text_embeddings, trg_indexs
-
-    print(f' (5.1) target index in the sentence')
-    text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
-
-    print(f' (5.2) collected crossattention map ')
-    atten_collection = attention_storer.step_store
-    from utils import expand_image, image_overlay_heat_map
-    layer_names = atten_collection.keys()
-    total_heat_map = []
-    for layer_name in layer_names:
-        attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
-        attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
-        attns = attns.squeeze(0)  # timestep, head(con, uncond), pix_len, sen_len
-        _, maps = torch.chunk(attns, chunks=2, dim=1)  # [50, 8,
-        maps = maps.sum(0)  # [8, pix_len, sen_len]
-        maps = maps.sum(0)  # [pix_len, sen_len]
-        # element of attn_list = [8, pix_len, 77]
-        pix_len, sen_len = maps.shape
-        res = int(math.sqrt(pix_len))
-        maps = maps.permute(1, 0)  # [sen_len, pix_len]
-        global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
-
-        # for heat_map in attn_list :
-        #    heat_map = heat_map.unsqueeze(1)
-        #    all_merges.append(F.interpolate(heat_map, size=(64,64), mode='bicubic').clamp_(min=0))
-        all_merges = []
-        for word_index in trg_indexs:
-            word_map = global_heat_map[word_index, :, :]
-            word_map = expand_image(word_map, 512, 512)
-            all_merges.append(word_map)
-        # --------------------------------------------------------------------------------- #
-        # torch type heat map
-        #
-        heat_map = torch.stack(all_merges, dim=0)  # global_heat_map = [sen_len, 512,512]
-        layer_name = layer_name.split('_')[:5]
-        a = '_'.join(layer_name)
-        np_heat_map = heat_map.cpu().numpy()
-        heat_map_dir = os.path.join(args.outdir, f'attention_{a}.npy')
-        torch.save(np_heat_map, heat_map_dir)
-
-        if heat_map.dim() == 3:
-            heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
-        img = image_overlay_heat_map(img=prev_image,
-                                     heat_map=heat_map)
-
-        attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
-        img.save(attn_save_dir)
-    """
 
 def arg_as_list(s):
     import ast
     v = ast.literal_eval(s)
     return v
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -3108,8 +2994,7 @@ if __name__ == "__main__":
     parser.add_argument("--outdir", type=str, default="outputs", help="dir to write results to / 生成画像の出力先")
     parser.add_argument("--sequential_file_name", action="store_true",
                         help="sequential output file name / 生成画像のファイル名を連番にする")
-    parser.add_argument("--use_original_file_name",
-                        action="store_true",
+    parser.add_argument("--use_original_file_name", action="store_true",
                         help="prepend original file name in img2img / img2imgで元画像のファイル名を生成画像のファイル名の先頭に付ける", )
     parser.add_argument("--n_iter", type=int, default=1, help="sample this often / 繰り返し回数")
     parser.add_argument("--H", type=int, default=None, help="image height, in pixel space / 生成画像高さ")
@@ -3122,8 +3007,7 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=50, help="number of ddim sampling steps / サンプリングステップ数")
     parser.add_argument("--sampler", type=str, default="ddim",
                         choices=["ddim", "pndm", "lms", "euler", "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver",
-                                 "dpmsolver++", "dpmsingle",
-                                 "k_lms", "k_euler", "k_euler_a", "k_dpm_2", "k_dpm_2_a", ],
+                                 "dpmsolver++", "dpmsingle", "k_lms", "k_euler", "k_euler_a", "k_dpm_2", "k_dpm_2_a", ],
                         help=f"sampler (scheduler) type / サンプラー（スケジューラ）の種類", )
     parser.add_argument("--scale", type=float, default=7.5,
                         help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty)) / guidance scale", )
@@ -3131,11 +3015,8 @@ if __name__ == "__main__":
                         help="path to checkpoint of model / モデルのcheckpointファイルまたはディレクトリ")
     parser.add_argument("--vae", type=str, default=None,
                         help="path to checkpoint of vae to replace / VAEを入れ替える場合、VAEのcheckpointファイルまたはディレクトリ")
-    parser.add_argument("--tokenizer_cache_dir", type=str,
-                        default=None,
+    parser.add_argument("--tokenizer_cache_dir", type=str, default=None,
                         help="directory for caching Tokenizer (for offline training) / Tokenizerをキャッシュするディレクトリ（ネット接続なしでの学習のため）", )
-    # parser.add_argument("--replace_clip_l14_336", action='store_true',
-    #                     help="Replace CLIP (Text Encoder) to l/14@336 / CLIP(Text Encoder)をl/14@336に入れ替える")
     parser.add_argument("--seed", type=int, default=None,
                         help="seed, or seed of seeds in multiple generation / 1枚生成時のseed、または複数枚生成時の乱数seedを決めるためのseed", )
     parser.add_argument("--iter_same_seed", action="store_true",
@@ -3194,8 +3075,7 @@ if __name__ == "__main__":
                         help="upscaler module for highres fix / highres fixで使うupscalerのモジュール名")
     parser.add_argument("--highres_fix_upscaler_args",   type=str,        default=None,
                         help="additional argmuments for upscaler (key=value) / upscalerへの追加の引数",)
-    parser.add_argument("--highres_fix_disable_control_net",
-                        action="store_true",
+    parser.add_argument("--highres_fix_disable_control_net", action="store_true",
                         help="disable ControlNet for highres fix / highres fixでControlNetを使わない",)
     parser.add_argument("--negative_scale", type=float, default=None,
                         help="set another guidance scale for negative prompt / ネガティブプロンプトのscaleを指定する")
