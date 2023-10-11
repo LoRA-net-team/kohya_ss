@@ -4412,11 +4412,9 @@ def sample_images_common(
     """
     StableDiffusionLongPromptWeightingPipelineの改造版を使うようにしたので、clip skipおよびプロンプトの重みづけに対応した
     """
-    print(f'in traing util, sample images ...')
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
     if args.sample_every_n_epochs is not None:
-        print(f'args.sample_every_n_epochs : {args.sample_every_n_epochs}')
         # sample_every_n_steps は無視する
         if epoch is None or epoch % args.sample_every_n_epochs != 0:
             return

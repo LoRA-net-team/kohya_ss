@@ -621,7 +621,7 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_pro
             --max_train_steps 2880 \
             --lr_warmup_steps 144 --lr_scheduler cosine_with_restarts \
             --optimizer_type AdamW \
-            --save_every_n_epochs 1 \
+            --save_every_n_epochs 1 --sample_every_n_epochs 1\
             --output_dir ./result/jungwoo_experience/textual_inversion_test \
             --sample_prompts /data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo2.txt
             
