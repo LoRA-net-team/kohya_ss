@@ -2895,11 +2895,10 @@ def main(args):
                 init_image = mask_image = guide_image = None
                 num_sub_prompts = None
                 b1 = BatchData(False,
-                               BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image,
-                                             clip_prompt, guide_image),
-                               BatchDataExt(width, height, steps, scale, negative_scale, strength,
-                                            tuple(network_muls) if network_muls else None, num_sub_prompts, ), )
+                               BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image,clip_prompt, guide_image),
+                               BatchDataExt(width, height, steps, scale, negative_scale, strength, tuple(network_muls) if network_muls else None, num_sub_prompts, ), )
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext:  # バッチ分割必要？
+                    print(f' *** process batch *** ')
                     process_batch(batch_data, highres_fix)
                     batch_data.clear()
                 batch_data.append(b1)

@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=2 python generate_crossattn_map.py \
+CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
       --network_weights './result/jungwoo_experience/jungwoo_3_base/jungwoo-000013.safetensors' \
