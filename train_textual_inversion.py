@@ -339,44 +339,36 @@ class TextualInversionTrainer:
 
         print(f'\n step 15. lr scheduler')
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
-        """
+
+        print(f'\n step 16. text encoder checking')
         # acceleratorがなんかよろしくやってくれるらしい
         if len(text_encoders) == 1:
             text_encoder_or_list, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                text_encoder_or_list, optimizer, train_dataloader, lr_scheduler
-            )
+                text_encoder_or_list, optimizer, train_dataloader, lr_scheduler)
             # transform DDP after prepare
             text_encoder_or_list, unet = train_util.transform_if_model_is_DDP(text_encoder_or_list, unet)
-
         elif len(text_encoders) == 2:
             text_encoder1, text_encoder2, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                text_encoders[0], text_encoders[1], optimizer, train_dataloader, lr_scheduler
-            )
+                text_encoders[0], text_encoders[1], optimizer, train_dataloader, lr_scheduler)
             # transform DDP after prepare
             text_encoder1, text_encoder2, unet = train_util.transform_if_model_is_DDP(text_encoder1, text_encoder2, unet)
-
             text_encoder_or_list = text_encoders = [text_encoder1, text_encoder2]
-
         else:
             raise NotImplementedError()
-
         index_no_updates_list = []
         orig_embeds_params_list = []
         for tokenizer, token_ids, text_encoder in zip(tokenizers, token_ids_list, text_encoders):
             index_no_updates = torch.arange(len(tokenizer)) < token_ids[0]
             index_no_updates_list.append(index_no_updates)
-
             # accelerator.print(len(index_no_updates), torch.sum(index_no_updates))
             orig_embeds_params = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight.data.detach().clone()
             orig_embeds_params_list.append(orig_embeds_params)
-
             # Freeze all parameters except for the token embeddings in text encoder
             text_encoder.requires_grad_(True)
             text_encoder.text_model.encoder.requires_grad_(False)
             text_encoder.text_model.final_layer_norm.requires_grad_(False)
             text_encoder.text_model.embeddings.position_embedding.requires_grad_(False)
             # text_encoder.text_model.embeddings.token_embedding.requires_grad_(True)
-
         unet.requires_grad_(False)
         unet.to(accelerator.device, dtype=weight_dtype)
         if args.gradient_checkpointing:  # according to TI example in Diffusers, train is required
@@ -399,15 +391,14 @@ class TextualInversionTrainer:
             for text_encoder in text_encoders:
                 text_encoder.to(weight_dtype)
 
-        # resumeする
+        print(f'\n step 17. resume or not')
         train_util.resume_from_local_or_hf_if_specified(accelerator, args)
 
-        # epoch数を計算する
+        print(f'\n step 18. epoch')
         num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
         num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
-
         # 学習する
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
         accelerator.print("running training / 学習開始")
@@ -416,28 +407,22 @@ class TextualInversionTrainer:
         accelerator.print(f"  num batches per epoch / 1epochのバッチ数: {len(train_dataloader)}")
         accelerator.print(f"  num epochs / epoch数: {num_train_epochs}")
         accelerator.print(f"  batch size per device / バッチサイズ: {args.train_batch_size}")
-        accelerator.print(
-            f"  total train batch size (with parallel & distributed & accumulation) / 総バッチサイズ（並列学習、勾配合計含む）: {total_batch_size}"
-        )
+        accelerator.print(f"  total train batch size (with parallel & distributed & accumulation) : {total_batch_size}")
         accelerator.print(f"  gradient ccumulation steps / 勾配を合計するステップ数 = {args.gradient_accumulation_steps}")
         accelerator.print(f"  total optimization steps / 学習ステップ数: {args.max_train_steps}")
-
         progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
         global_step = 0
-
-        noise_scheduler = DDPMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
-        )
+        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+                                        num_train_timesteps=1000, clip_sample=False)
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
-
         if accelerator.is_main_process:
             init_kwargs = {}
             if args.log_tracker_config is not None:
                 init_kwargs = toml.load(args.log_tracker_config)
-            accelerator.init_trackers(
-                "textual_inversion" if args.log_tracker_name is None else args.log_tracker_name, init_kwargs=init_kwargs)
+            accelerator.init_trackers("textual_inversion" if args.log_tracker_name is None else args.log_tracker_name,
+                                      init_kwargs=init_kwargs)
 
         # function for saving/removing
         def save_model(ckpt_name, embs_list, steps, epoch_no, force_sync_upload=False):
@@ -458,16 +443,13 @@ class TextualInversionTrainer:
                 accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
                 os.remove(old_ckpt_file)
 
-        # training loop
+        print(f'\n step 19. training loop')
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-
             for text_encoder in text_encoders:
                 text_encoder.train()
-
             loss_total = 0
-
             for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(text_encoders[0]):
@@ -475,86 +457,62 @@ class TextualInversionTrainer:
                         if "latents" in batch and batch["latents"] is not None:
                             latents = batch["latents"].to(accelerator.device)
                         else:
-                            # latentに変換
                             latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
                         latents = latents * self.vae_scale_factor
-
                     # Get the text embedding for conditioning
                     text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
-
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(
-                        args, noise_scheduler, latents
-                    )
-
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler,
+                                                                                                       latents)
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(
-                            args, accelerator, unet, noisy_latents, timesteps, text_encoder_conds, batch, weight_dtype
-                        )
-
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, text_encoder_conds,
+                                                    batch, weight_dtype)
                     if args.v_parameterization:
-                        # v-parameterization training
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
-
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
-
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
                     loss = loss * loss_weights
-
                     if args.min_snr_gamma:
                         loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.min_snr_gamma)
                     if args.scale_v_pred_loss_like_noise_pred:
                         loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
-
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = text_encoder.get_input_embeddings().parameters()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
-
                     # Let's make sure we don't update any embedding weights besides the newly added token
                     with torch.no_grad():
-                        for text_encoder, orig_embeds_params, index_no_updates in zip(
-                            text_encoders, orig_embeds_params_list, index_no_updates_list
-                        ):
-                            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[
-                                index_no_updates
-                            ] = orig_embeds_params[index_no_updates]
-
+                        for text_encoder, orig_embeds_params, index_no_updates in zip(text_encoders,
+                                                                                      orig_embeds_params_list, index_no_updates_list):
+                            print(f'index_no_updates: {index_no_updates}')
+                            # preserve text embedding other index
+                            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[index_no_updates] = orig_embeds_params[index_no_updates]
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
                     self.sample_images(accelerator,args,None,global_step,accelerator.device,
                                        vae,tokenizer_or_list,text_encoder_or_list,unet,prompt_replacement,)
-
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
                         if accelerator.is_main_process:
                             updated_embs_list = []
                             for text_encoder, token_ids in zip(text_encoders, token_ids_list):
-                                updated_embs = (
-                                    accelerator.unwrap_model(text_encoder)
-                                    .get_input_embeddings()
-                                    .weight[token_ids]
-                                    .data.detach()
-                                    .clone()
-                                )
+                                print(f'token_ids: {token_ids}')
+                                updated_embs = (accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[token_ids].data.detach().clone())
                                 updated_embs_list.append(updated_embs)
-
                             ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
                             save_model(ckpt_name, updated_embs_list, global_step, epoch)
 
@@ -637,7 +595,7 @@ class TextualInversionTrainer:
             save_model(ckpt_name, updated_embs_list, global_step, num_train_epochs, force_sync_upload=True)
 
             print("model saved.")
-    """
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -678,7 +636,6 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_pro
             --token_string jungwoo \
             --train_data_dir /data7/sooyeon/MyData/jungwoo \
             --resolution "512,512" \
-            --class_token boy \
             --max_train_steps 2880 \
             --lr_warmup_steps 144 --lr_scheduler cosine_with_restarts \
             --optimizer_type AdamW
