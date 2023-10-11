@@ -2618,8 +2618,7 @@ def main(args):
                     pipe.set_enable_control_net(False)  # オプション指定時、2nd stageではControlNetを無効にする
 
             # このバッチの情報を取り出す
-            (return_latents, (step_first, _, _, _, init_image, mask_image, _, guide_image),
-             (width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
+            (return_latents, (step_first, _, _, _, init_image, mask_image, _, guide_image),(width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
             prompts = []
             negative_prompts = []
@@ -2639,19 +2638,14 @@ def main(args):
                 i2i_noises = None
                 init_images = None
                 mask_images = None
-
             if guide_image is not None:  # CLIP image guided?
                 guide_images = []
             else:
                 guide_images = None
-
-            # バッチ内の位置に関わらず同じ乱数を使うためにここで乱数を生成しておく。あわせてimage/maskがbatch内で同一かチェックする
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
-            for i, (
-            _, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(
-                    batch):
+            for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
                 prompts.append(prompt)
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
@@ -2674,24 +2668,17 @@ def main(args):
                         guide_images.append(guide_image)
                         if i > 0 and all_guide_images_are_same:
                             all_guide_images_are_same = guide_images[-2] is guide_image
-                # make start code
                 torch.manual_seed(seed)
                 start_code[i] = torch.randn(noise_shape, device=device, dtype=dtype)
-                # make each noises
                 for j in range(steps * scheduler_num_noises_per_step):
                     noises[j][i] = torch.randn(noise_shape, device=device, dtype=dtype)
                 if i2i_noises is not None:  # img2img noise
                     i2i_noises[i] = torch.randn(noise_shape, device=device, dtype=dtype)
             noise_manager.reset_sampler_noises(noises)
-            # すべての画像が同じなら1枚だけpipeに渡すことでpipe側で処理を高速化する
-            if init_images is not None and all_images_are_same:
-                init_images = init_images[0]
-            if mask_images is not None and all_masks_are_same:
-                mask_images = mask_images[0]
-            if guide_images is not None and all_guide_images_are_same:
-                guide_images = guide_images[0]
+            if init_images is not None and all_images_are_same: init_images = init_images[0]
+            if mask_images is not None and all_masks_are_same:mask_images = mask_images[0]
+            if guide_images is not None and all_guide_images_are_same:guide_images = guide_images[0]
 
-            # ControlNet使用時はguide imageをリサイズする
             if control_nets:
                 # TODO resampleのメソッド
                 guide_images = guide_images if type(guide_images) == list else [guide_images]
@@ -2701,7 +2688,6 @@ def main(args):
 
             # generate
             if networks:
-                # 追加ネットワークの処理
                 shared = {}
                 for n, m in zip(networks, network_muls if network_muls else network_default_muls):
                     n.set_multiplier(m)
@@ -2733,12 +2719,10 @@ def main(args):
                           clip_guide_images=guide_images, )[0]
             if highres_1st and not args.highres_fix_save_1st:  # return images or latents
                 return images
-
-            # save image
+            print(f'save image')
             highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(
-                    zip(images, prompts, negative_prompts, seeds, clip_prompts)):
+            for i, (image, prompt, negative_prompts, seed, clip_prompt) in enumerate(zip(images, prompts, negative_prompts, seeds, clip_prompts)):
                 if highres_fix:
                     seed -= 1  # record original seed
                 metadata = PngInfo()
@@ -2753,7 +2737,6 @@ def main(args):
                     metadata.add_text("negative-scale", str(negative_scale))
                 if clip_prompt is not None:
                     metadata.add_text("clip-prompt", clip_prompt)
-
                 if args.use_original_file_name and init_images is not None:
                     if type(init_images) is list:
                         fln = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".png"
@@ -2765,8 +2748,96 @@ def main(args):
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
                 parent, folder = os.path.split(args.outdir)
                 base_folder = os.path.join(parent, f'{folder}_{i + 3}')
-                image.save(os.path.join(base_folder, fln),
-                           pnginfo=metadata)
+                os.makedirs(base_folder, exist_ok=True)
+                image.save(os.path.join(base_folder, fln), pnginfo=metadata)
+
+                # ------------------------------------------------------------------------------------------------
+                # save attn map
+                trg_token = args.trg_token
+
+                def generate_text_embedding(prompt, tokenizer, text_encoder, device):
+                    cls_token = 49406
+                    pad_token = 49407
+                    trg_token = args.trg_token
+                    token_input = tokenizer([trg_token],
+                                            padding="max_length",
+                                            max_length=tokenizer.model_max_length,
+                                            truncation=True,
+                                            return_tensors="pt", )
+                    token_ids = token_input.input_ids[0]
+                    token_attns = token_input.attention_mask[0]
+                    trg_token_id = []
+                    for token_id, token_attn in zip(token_ids, token_attns):
+                        if token_id != cls_token and token_id != pad_token and token_attn == 1:
+                            trg_token_id.append(token_id)
+                    print(f'trg_token_id : {trg_token_id}')
+                    text_input = tokenizer([prompt],
+                                           padding="max_length",
+                                           max_length=tokenizer.model_max_length,
+                                           truncation=True,
+                                           return_tensors="pt", )
+                    cls_token = 49406
+                    pad_token = 49407
+                    trg_indexs = []
+                    trg_index = 0
+                    token_ids = text_input.input_ids[0]
+                    print(f'token_ids : {token_ids}')
+                    attns = text_input.attention_mask[0]
+                    for token_id, attn in zip(token_ids, attns):
+                        for id in trg_token_id:
+                            if token_id == id:
+                                trg_indexs.append(trg_index)
+                        trg_index += 1
+                    text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+                    print(f'trg_indexs : {trg_indexs}')
+                    return text_embeddings, trg_indexs
+                text_embeddings, trg_indexs = generate_text_embedding(prompt, tokenizer, text_encoder, device)
+
+                print(f' (5.2) collected crossattention map ')
+                atten_collection = attention_storer.step_store
+                from utils import expand_image, image_overlay_heat_map
+                layer_names = atten_collection.keys()
+                total_heat_map = []
+                for layer_name in layer_names:
+                    attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
+                    attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
+                    attns = attns.squeeze(0)  # timestep, head(con, uncond), pix_len, sen_len
+                    _, maps = torch.chunk(attns, chunks=2, dim=1)  # [50, 8,
+                    maps = maps.sum(0)  # [8, pix_len, sen_len]
+                    maps = maps.sum(0)  # [pix_len, sen_len]
+                    # element of attn_list = [8, pix_len, 77]
+                    pix_len, sen_len = maps.shape
+                    res = int(math.sqrt(pix_len))
+                    maps = maps.permute(1, 0)  # [sen_len, pix_len]
+                    global_heat_map = maps.reshape(sen_len, res, res)  # [sen_len, res, res]
+
+                    # for heat_map in attn_list :
+                    #    heat_map = heat_map.unsqueeze(1)
+                    #    all_merges.append(F.interpolate(heat_map, size=(64,64), mode='bicubic').clamp_(min=0))
+                    all_merges = []
+                    for word_index in trg_indexs:
+                        word_map = global_heat_map[word_index, :, :]
+                        word_map = expand_image(word_map, 512, 512)
+                        all_merges.append(word_map)
+                    # --------------------------------------------------------------------------------- #
+                    # torch type heat map
+                    #
+                    heat_map = torch.stack(all_merges, dim=0)  # global_heat_map = [sen_len, 512,512]
+                    layer_name = layer_name.split('_')[:5]
+                    a = '_'.join(layer_name)
+                    np_heat_map = heat_map.cpu().numpy()
+                    heat_map_dir = os.path.join(args.outdir, f'attention_{a}.npy')
+                    torch.save(np_heat_map, heat_map_dir)
+
+                    if heat_map.dim() == 3:
+                        heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
+                    img = image_overlay_heat_map(img=prev_image,
+                                                 heat_map=heat_map)
+
+                    attn_save_dir = os.path.join(base_folder, f'attention_{a}.jpg')
+                    img.save(attn_save_dir)
+
+
             if not args.no_preview and not highres_1st and args.interactive:
                 try:
                     import cv2
@@ -2913,6 +2984,7 @@ def main(args):
             batch_data.clear()
 
     print("done!")
+    """
     print(f'\n step 5. generate cross attention map')
     trg_token = args.trg_token
 
@@ -2999,7 +3071,7 @@ def main(args):
 
         attn_save_dir = os.path.join(args.outdir, f'attention_{a}.jpg')
         img.save(attn_save_dir)
-
+    """
 
 def arg_as_list(s):
     import ast
