@@ -2672,6 +2672,8 @@ def main(args):
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
+
+
             for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
                 prompts.append(prompt)
                 negative_prompts.append(negative_prompt)
@@ -2701,18 +2703,17 @@ def main(args):
                     noises[j][i] = torch.randn(noise_shape, device=device, dtype=dtype)
                 if i2i_noises is not None:  # img2img noise
                     i2i_noises[i] = torch.randn(noise_shape, device=device, dtype=dtype)
+
             noise_manager.reset_sampler_noises(noises)
             if init_images is not None and all_images_are_same: init_images = init_images[0]
             if mask_images is not None and all_masks_are_same:mask_images = mask_images[0]
             if guide_images is not None and all_guide_images_are_same:guide_images = guide_images[0]
-
             if control_nets:
                 # TODO resampleのメソッド
                 guide_images = guide_images if type(guide_images) == list else [guide_images]
                 guide_images = [i.resize((width, height), resample=PIL.Image.LANCZOS) for i in guide_images]
                 if len(guide_images) == 1:
                     guide_images = guide_images[0]
-
             # generate
             if networks:
                 shared = {}
@@ -2726,26 +2727,15 @@ def main(args):
                     for n in networks:
                         n.pre_calculation()
                     print("pre-calculation... done")
-            images = pipe(prompts,
-                          negative_prompts,
-                          init_images,
-                          mask_images,
-                          height,
-                          width,
-                          steps,
-                          scale,
-                          negative_scale,
-                          strength,
-                          latents=start_code,
-                          output_type="pil",
-                          max_embeddings_multiples=max_embeddings_multiples,
-                          img2img_noise=i2i_noises,
-                          vae_batch_size=args.vae_batch_size,
-                          return_latents=return_latents,
-                          clip_prompts=clip_prompts,
-                          clip_guide_images=guide_images,)[0]
-            if highres_1st and not args.highres_fix_save_1st:  # return images or latents
-                return images
+
+            print(' (15.3) generating image')
+            images = pipe(prompts,negative_prompts,init_images,mask_images,height,width,steps,scale,negative_scale,
+                          strength,latents=start_code,output_type="pil",max_embeddings_multiples=max_embeddings_multiples,
+                          img2img_noise=i2i_noises,vae_batch_size=args.vae_batch_size,return_latents=return_latents,
+                          clip_prompts=clip_prompts,clip_guide_images=guide_images,)[0]
+
+            #if highres_1st and not args.highres_fix_save_1st:  # return images or latents
+            #    return images
 
             print(f'save image')
             highres_prefix = ("0" if highres_1st else "1") if highres_fix else ""
