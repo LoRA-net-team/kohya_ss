@@ -914,7 +914,8 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             a = sum(atten_collection[layer_name])
-                            #print(f'{layer_name} : {a}')
+                            if 'down_blocks_0_attentions_1' in layer_name or 'down_blocks_1_attentions_0' in layer_name or 'up_blocks_3_attentions_0' in layer_name:
+                                a = a * 10
                             attn_loss = attn_loss + a
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
