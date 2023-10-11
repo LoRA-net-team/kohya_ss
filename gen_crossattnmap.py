@@ -2781,6 +2781,7 @@ def main(args):
                 print(f'prompt : {prompt}')
                 text_embeddings, trg_indexs = generate_text_embedding(args, prompt, tokenizer, text_encoder, device)
                 atten_collection = attention_storer.step_store
+                attention_storer.step_store = {}
                 layer_names = atten_collection.keys()
                 total_heat_map = []
                 for layer_name in layer_names:
