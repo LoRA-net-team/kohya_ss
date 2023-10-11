@@ -495,7 +495,6 @@ class TextualInversionTrainer:
                     with torch.no_grad():
                         for text_encoder, orig_embeds_params, index_no_updates in zip(text_encoders,
                                                                                       orig_embeds_params_list, index_no_updates_list):
-                            print(f'index_no_updates: {index_no_updates}')
                             # preserve text embedding other index
                             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[index_no_updates] = orig_embeds_params[index_no_updates]
                 # Checks if the accelerator has performed an optimization step behind the scenes
@@ -510,79 +509,55 @@ class TextualInversionTrainer:
                         if accelerator.is_main_process:
                             updated_embs_list = []
                             for text_encoder, token_ids in zip(text_encoders, token_ids_list):
-                                print(f'token_ids: {token_ids}')
                                 updated_embs = (accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[token_ids].data.detach().clone())
+                                print(f'token_ids: {token_ids} : updated_embs : {updated_embs.shape}')
                                 updated_embs_list.append(updated_embs)
+                            # ----------------------------------------------------------------------------------------------------------------------------
+                            # saving model
                             ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
-                            save_model(ckpt_name, updated_embs_list, global_step, epoch)
-
+                            save_model(ckpt_name,
+                                       updated_embs_list,
+                                       global_step,
+                                       epoch)
                             if args.save_state:
                                 train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
-
                             remove_step_no = train_util.get_remove_step_no(args, global_step)
                             if remove_step_no is not None:
                                 remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
                                 remove_model(remove_ckpt_name)
-
                 current_loss = loss.detach().item()
                 if args.logging_dir is not None:
                     logs = {"loss": current_loss, "lr": float(lr_scheduler.get_last_lr()[0])}
-                    if (
-                        args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower()
-                    ):  # tracking d*lr value
-                        logs["lr/d*lr"] = (
-                            lr_scheduler.optimizers[0].param_groups[0]["d"] * lr_scheduler.optimizers[0].param_groups[0]["lr"]
-                        )
+                    if (args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower()):  # tracking d*lr value
+                        logs["lr/d*lr"] = (lr_scheduler.optimizers[0].param_groups[0]["d"] * lr_scheduler.optimizers[0].param_groups[0]["lr"])
                     accelerator.log(logs, step=global_step)
-
                 loss_total += current_loss
                 avr_loss = loss_total / (step + 1)
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 progress_bar.set_postfix(**logs)
-
                 if global_step >= args.max_train_steps:
                     break
-
             if args.logging_dir is not None:
                 logs = {"loss/epoch": loss_total / len(train_dataloader)}
                 accelerator.log(logs, step=epoch + 1)
-
             accelerator.wait_for_everyone()
-
             updated_embs_list = []
             for text_encoder, token_ids in zip(text_encoders, token_ids_list):
                 updated_embs = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[token_ids].data.detach().clone()
                 updated_embs_list.append(updated_embs)
-
             if args.save_every_n_epochs is not None:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
                 if accelerator.is_main_process and saving:
                     ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                     save_model(ckpt_name, updated_embs_list, epoch + 1, global_step)
-
                     remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
                     if remove_epoch_no is not None:
                         remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
                         remove_model(remove_ckpt_name)
-
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-
-            self.sample_images(
-                accelerator,
-                args,
-                epoch + 1,
-                global_step,
-                accelerator.device,
-                vae,
-                tokenizer_or_list,
-                text_encoder_or_list,
-                unet,
-                prompt_replacement,
-            )
-
-            # end of epoch
-
+            self.sample_images(accelerator,args,epoch + 1,global_step,accelerator.device,
+                               vae,tokenizer_or_list,text_encoder_or_list,unet,prompt_replacement,)
         is_main_process = accelerator.is_main_process
         if is_main_process:
             text_encoder = accelerator.unwrap_model(text_encoder)
@@ -593,7 +568,6 @@ class TextualInversionTrainer:
         if is_main_process:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, updated_embs_list, global_step, num_train_epochs, force_sync_upload=True)
-
             print("model saved.")
 
 
