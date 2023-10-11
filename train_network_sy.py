@@ -915,7 +915,10 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             a = sum(atten_collection[layer_name])
                             if 'down_blocks_0_attentions_1' in layer_name or 'down_blocks_1_attentions_0' in layer_name or 'up_blocks_3_attentions_0' in layer_name:
-                                a = a * 10
+                                if args.test_1 :
+                                    a = a * 10
+                                elif args.test_2 :
+                                    a = a * 0
                             attn_loss = attn_loss + a
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
@@ -1105,6 +1108,8 @@ if __name__ == "__main__":
     parser.add_argument("--trg_token", type=str, default='haibara')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
+    parser.add_argument("--test_1", action='store_true')
+    parser.add_argument("--test_2", action='store_true')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
