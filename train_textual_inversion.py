@@ -150,40 +150,41 @@ class TextualInversionTrainer:
         return [emb]
 
     def train(self, args):
+
+        print(f'\n step 1. output name')
         if args.output_name is None:
             args.output_name = args.token_string
+
+        print(f'\n step 2. check caption template')
         use_template = args.use_object_template or args.use_style_template
 
+        print(f'\n step 3. argument check')
         train_util.verify_training_args(args)
         train_util.prepare_dataset_args(args, True)
-
         cache_latents = args.cache_latents
-
+        print(f' (3.1) seed')
         if args.seed is not None:
             set_seed(args.seed)
-
+        print(f' (3.2) loading tokenizer')
         tokenizer_or_list = self.load_tokenizer(args)  # list of tokenizer or tokenizer
         tokenizers = tokenizer_or_list if isinstance(tokenizer_or_list, list) else [tokenizer_or_list]
 
         # acceleratorを準備する
-        print("prepare accelerator")
+        print(f'\n step 4. prepare accelerator')
         accelerator = train_util.prepare_accelerator(args)
 
-        # mixed precisionに対応した型を用意しておき適宜castする
+        print(f'\n step 5. precision')
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
 
-        # モデルを読み込む
+        print(f'\n step 6. model loading')
         model_version, text_encoder_or_list, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = [text_encoder_or_list] if not isinstance(text_encoder_or_list, list) else text_encoder_or_list
-
         if len(text_encoders) > 1 and args.gradient_accumulation_steps > 1:
-            accelerator.print(
-                "accelerate doesn't seem to support gradient_accumulation_steps for multiple models (text encoders) / "
-                + "accelerateでは複数のモデル（テキストエンコーダー）のgradient_accumulation_stepsはサポートされていないようです"
-            )
+            accelerator.print("accelerate doesn't seem to support gradient_accumulation_steps for multiple models (text encoders) / "
+                              + "accelerateでは複数のモデル（テキストエンコーダー）のgradient_accumulation_stepsはサポートされていないようです")
 
-        # Convert the init_word to token_id
+        print(f'\n step 7. convert the init_word to token_id')
         init_token_ids_list = []
         if args.init_word is not None:
             for i, tokenizer in enumerate(tokenizers):
@@ -191,55 +192,42 @@ class TextualInversionTrainer:
                 if len(init_token_ids) > 1 and len(init_token_ids) != args.num_vectors_per_token:
                     accelerator.print(
                         f"token length for init words is not same to num_vectors_per_token, init words is repeated or truncated / "
-                        + f"初期化単語のトークン長がnum_vectors_per_tokenと合わないため、繰り返しまたは切り捨てが発生します:  tokenizer {i+1}, length {len(init_token_ids)}"
-                    )
+                        + f"初期化単語のトークン長がnum_vectors_per_tokenと合わないため、繰り返しまたは切り捨てが発生します:  tokenizer {i+1}, length {len(init_token_ids)}")
                 init_token_ids_list.append(init_token_ids)
         else:
             init_token_ids_list = [None] * len(tokenizers)
-
-        # tokenizerに新しい単語を追加する。追加する単語の数はnum_vectors_per_token
-        # token_stringが hoge の場合、"hoge", "hoge1", "hoge2", ... が追加される
-        # add new word to tokenizer, count is num_vectors_per_token
-        # if token_string is hoge, "hoge", "hoge1", "hoge2", ... are added
-
         self.assert_token_string(args.token_string, tokenizers)
 
+        print(f'\n step 8. convert the init_word to token_id')
         token_strings = [args.token_string] + [f"{args.token_string}{i+1}" for i in range(args.num_vectors_per_token - 1)]
+        print(f'  token_strings : {token_strings}')
         token_ids_list = []
         token_embeds_list = []
         for i, (tokenizer, text_encoder, init_token_ids) in enumerate(zip(tokenizers, text_encoders, init_token_ids_list)):
             num_added_tokens = tokenizer.add_tokens(token_strings)
-            assert (
-                num_added_tokens == args.num_vectors_per_token
-            ), f"tokenizer has same word to token string. please use another one / 指定したargs.token_stringは既に存在します。別の単語を使ってください: tokenizer {i+1}, {args.token_string}"
-
+            assert (num_added_tokens == args.num_vectors_per_token), f"tokenizer has same word to token string. please use another one / 指定したargs.token_stringは既に存在します。別の単語を使ってください: tokenizer {i+1}, {args.token_string}"
             token_ids = tokenizer.convert_tokens_to_ids(token_strings)
             accelerator.print(f"tokens are added for tokenizer {i+1}: {token_ids}")
-            assert (
-                min(token_ids) == token_ids[0] and token_ids[-1] == token_ids[0] + len(token_ids) - 1
+            assert (min(token_ids) == token_ids[0] and token_ids[-1] == token_ids[0] + len(token_ids) - 1
             ), f"token ids is not ordered : tokenizer {i+1}, {token_ids}"
-            assert (
-                len(tokenizer) - 1 == token_ids[-1]
-            ), f"token ids is not end of tokenize: tokenizer {i+1}, {token_ids}, {len(tokenizer)}"
+            assert (len(tokenizer) - 1 == token_ids[-1]), f"token ids is not end of tokenize: tokenizer {i+1}, {token_ids}, {len(tokenizer)}"
             token_ids_list.append(token_ids)
-
             # Resize the token embeddings as we are adding new special tokens to the tokenizer
             text_encoder.resize_token_embeddings(len(tokenizer))
-
             # Initialise the newly added placeholder token with the embeddings of the initializer token
             token_embeds = text_encoder.get_input_embeddings().weight.data
             if init_token_ids is not None:
                 for i, token_id in enumerate(token_ids):
                     token_embeds[token_id] = token_embeds[init_token_ids[i % len(init_token_ids)]]
-                    # accelerator.print(token_id, token_embeds[token_id].mean(), token_embeds[token_id].min())
             token_embeds_list.append(token_embeds)
 
         # load weights
+        print(f'\n step 9. retraining from pretrained weights')
         if args.weights is not None:
             embeddings_list = self.load_weights(args.weights)
             assert len(token_ids) == len(
                 embeddings_list[0]
-            ), f"num_vectors_per_token is mismatch for weights / 指定した重みとnum_vectors_per_tokenの値が異なります: {len(embeddings)}"
+            ), f"num_vectors_per_token is mismatch for weights / 指定した重みとnum_vectors_per_tokenの値が異なります: {len(embeddings_list)}"
             # accelerator.print(token_ids, embeddings.size())
             for token_ids, embeddings, token_embeds in zip(token_ids_list, embeddings_list, token_embeds_list):
                 for token_id, embedding in zip(token_ids, embeddings):
@@ -247,9 +235,10 @@ class TextualInversionTrainer:
                     # accelerator.print(token_id, token_embeds[token_id].mean(), token_embeds[token_id].min())
             accelerator.print(f"weighs loaded")
 
+        print(f'\n step 10. make random token embedding ... ')
         accelerator.print(f"create embeddings for {args.num_vectors_per_token} tokens, for {args.token_string}")
 
-        # データセットを準備する
+        print(f'\n step 11. dataset')
         if args.dataset_class is None:
             blueprint_generator = BlueprintGenerator(ConfigSanitizer(True, True, False, False))
             if args.dataset_config is not None:
@@ -259,44 +248,22 @@ class TextualInversionTrainer:
                 if any(getattr(args, attr) is not None for attr in ignored):
                     accelerator.print(
                         "ignore following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(
-                            ", ".join(ignored)
-                        )
-                    )
+                            ", ".join(ignored)))
             else:
                 use_dreambooth_method = args.in_json is None
                 if use_dreambooth_method:
                     accelerator.print("Use DreamBooth method.")
-                    user_config = {
-                        "datasets": [
-                            {
-                                "subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(
-                                    args.train_data_dir, args.reg_data_dir
-                                )
-                            }
-                        ]
-                    }
+                    user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(
+                        args.train_data_dir, args.reg_data_dir)}]}
                 else:
                     print("Train with captions.")
-                    user_config = {
-                        "datasets": [
-                            {
-                                "subsets": [
-                                    {
-                                        "image_dir": args.train_data_dir,
-                                        "metadata_file": args.in_json,
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-
+                    user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,"metadata_file": args.in_json,}]}]}
             blueprint = blueprint_generator.generate(user_config, args, tokenizer=tokenizer_or_list)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer_or_list)
-
         self.assert_extra_args(args, train_dataset_group)
-
+        """
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
@@ -493,8 +460,7 @@ class TextualInversionTrainer:
             if args.log_tracker_config is not None:
                 init_kwargs = toml.load(args.log_tracker_config)
             accelerator.init_trackers(
-                "textual_inversion" if args.log_tracker_name is None else args.log_tracker_name, init_kwargs=init_kwargs
-            )
+                "textual_inversion" if args.log_tracker_name is None else args.log_tracker_name, init_kwargs=init_kwargs)
 
         # function for saving/removing
         def save_model(ckpt_name, embs_list, steps, epoch_no, force_sync_upload=False):
@@ -594,19 +560,8 @@ class TextualInversionTrainer:
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
-
-                    self.sample_images(
-                        accelerator,
-                        args,
-                        None,
-                        global_step,
-                        accelerator.device,
-                        vae,
-                        tokenizer_or_list,
-                        text_encoder_or_list,
-                        unet,
-                        prompt_replacement,
-                    )
+                    self.sample_images(accelerator,args,None,global_step,accelerator.device,
+                                       vae,tokenizer_or_list,text_encoder_or_list,unet,prompt_replacement,)
 
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
@@ -696,20 +651,16 @@ class TextualInversionTrainer:
         is_main_process = accelerator.is_main_process
         if is_main_process:
             text_encoder = accelerator.unwrap_model(text_encoder)
-
         accelerator.end_training()
-
         if args.save_state and is_main_process:
             train_util.save_state_on_train_end(args, accelerator)
-
         updated_embs = text_encoder.get_input_embeddings().weight[token_ids].data.detach().clone()
-
         if is_main_process:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, updated_embs_list, global_step, num_train_epochs, force_sync_upload=True)
 
             print("model saved.")
-
+    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -741,3 +692,32 @@ if __name__ == "__main__":
     trainer = TextualInversionTrainer()
     trainer.train(args)
 
+
+"""
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_process_port 22378 train_textual_inversion.py \
+            --output_name jungwoo --use_object_template --seed 42 \
+            --pretrained_model_name_or_path /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
+            --init_word boy --num_vectors_per_token 1 \
+            --token_string jungwoo \
+            --train_data_dir /data7/sooyeon/MyData/jungwoo \
+            
+                  
+            
+            --shuffle_caption --caption_extension ".txt" \
+            --random_crop --resolution "768,768" --enable_bucket --bucket_no_upscale \
+            --save_every_n_epochs 1 --train_batch_size 2 --max_token_length 225 --xformers \
+            --max_train_steps 2880 \
+            --persistent_data_loader_workers \
+            --sample_every_n_epochs 1 \
+            --network_module networks.lora \
+            
+            --lr_warmup_steps 144 --unet_lr 0.0001 --text_encoder_lr 0.00005 --network_dim 32 --network_alpha 4.0 \
+            --logging_dir ./result/logs \
+            --noise_offset 0.0357 --optimizer_type AdamW --learning_rate 0.0003 \
+            --lr_scheduler cosine_with_restarts \
+            --output_dir ./result/jungwoo_experience/jungwoo_3_blur_mask_10_mean  
+            --sample_prompts /data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo.txt \
+            --trg_token jw \
+            --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
+            --process_title parksooyeon --wandb_init_name jungwoo_attnmap --heatmap_loss --attn_loss_ratio 10
+"""

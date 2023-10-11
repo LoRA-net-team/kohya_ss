@@ -3344,6 +3344,9 @@ if __name__ == "__main__":
     parser.add_argument("--device", default='cuda')
     args = parser.parse_args()
     main(args)
-#python gen_img_diffusers_textual_inversion.py \
-#       --textual_inversion_embeddings result/jungwoo_experience/jungwoo_textual_inversion/jungwoo-000016.pt \
-#       --
+"""
+python gen_img_diffusers_textual_inversion.py \
+       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
+       --textual_inversion_embeddings result/jungwoo_experience/jungwoo_textual_inversion/jungwoo-000016.pt \
+       --prompt "jungwoo, smiling"
+"""
