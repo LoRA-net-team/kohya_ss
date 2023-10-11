@@ -977,28 +977,15 @@ class LoRANetwork(torch.nn.Module):
                                     skipped.append(lora_name)
                                 continue
                             if block_wise == None :
-                                UNET_TEXT_PART = 'attentions_0'
-                                if is_unet and UNET_TEXT_PART in lora_name :
-                                    if 'to_k' in lora_name or 'to_v' in lora_name  :
-                                        lora = module_class(lora_name,
-                                                            child_module,
-                                                            self.multiplier,
-                                                            dim,
-                                                            alpha,
-                                                            dropout=dropout,
-                                                            rank_dropout=rank_dropout,
-                                                            module_dropout=module_dropout,)
-                                        loras.append(lora)
-                                elif not is_unet :
-                                    lora = module_class(lora_name,
-                                                        child_module,
-                                                        self.multiplier,
-                                                        dim,
-                                                        alpha,
-                                                        dropout=dropout,
-                                                        rank_dropout=rank_dropout,
-                                                        module_dropout=module_dropout, )
-                                    loras.append(lora)
+                                lora = module_class(lora_name,
+                                                    child_module,
+                                                    self.multiplier,
+                                                    dim,
+                                                    alpha,
+                                                    dropout=dropout,
+                                                    rank_dropout=rank_dropout,
+                                                    module_dropout=module_dropout,)
+                                loras.append(lora)
 
                             else :
                                 for i, block in enumerate(BLOCKS) :
