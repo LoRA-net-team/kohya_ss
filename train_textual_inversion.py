@@ -459,13 +459,9 @@ class TextualInversionTrainer:
                         else:
                             latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
                         latents = latents * self.vae_scale_factor
-                    # Get the text embedding for conditioning
                     text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
-                    # Sample noise, sample a random timestep for each image, and add noise to the latents,
-                    # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler,
                                                                                                        latents)
-                    # Predict the noise residual
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, text_encoder_conds,
                                                     batch, weight_dtype)
@@ -548,16 +544,28 @@ class TextualInversionTrainer:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
                 if accelerator.is_main_process and saving:
                     ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-                    print(f'token_ids: {token_ids} : updated_embs : {updated_embs.shape}')
-                    save_model(ckpt_name, updated_embs_list, epoch + 1, global_step)
+                    save_model(ckpt_name,
+                               updated_embs_list,
+                               epoch + 1,
+                               global_step)
                     remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
                     if remove_epoch_no is not None:
                         remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-            self.sample_images(accelerator,args,epoch + 1,global_step,accelerator.device,
-                               vae,tokenizer_or_list,text_encoder_or_list,unet,prompt_replacement,)
+            print(f'generating sample images ... ')
+            self.sample_images(accelerator,
+                               args,
+                               epoch + 1,
+                               global_step,
+                               accelerator.device,
+                               vae,
+                               tokenizer_or_list,
+                               text_encoder_or_list,
+                               unet,
+                               prompt_replacement,)
+
         is_main_process = accelerator.is_main_process
         if is_main_process:
             text_encoder = accelerator.unwrap_model(text_encoder)
@@ -613,8 +621,9 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_pro
             --max_train_steps 2880 \
             --lr_warmup_steps 144 --lr_scheduler cosine_with_restarts \
             --optimizer_type AdamW \
-            --save_every_n_epochs 1
-            
+            --save_every_n_epochs 1 \
+            --output_dir ./result/jungwoo_experience/textual_inversion_test \
+            --sample_prompts /data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo2.txt
             
 """
 """            
@@ -627,8 +636,8 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_pro
             --sample_every_n_epochs 1 \
             --logging_dir ./result/logs \
             --noise_offset 0.0357 --optimizer_type AdamW --learning_rate 0.0003 \
-            --output_dir ./result/jungwoo_experience/jungwoo_3_blur_mask_10_mean  
-            --sample_prompts /data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo.txt \
+              
+            
             --trg_token jw \
             --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
             --process_title parksooyeon --wandb_init_name jungwoo_attnmap --heatmap_loss --attn_loss_ratio 10
