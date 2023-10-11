@@ -2673,8 +2673,6 @@ def main(args):
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
-
-
             for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
                 prompts.append(prompt)
                 negative_prompts.append(negative_prompt)
@@ -2770,6 +2768,7 @@ def main(args):
                 else:
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
                 parent, folder = os.path.split(args.outdir)
+                os.makedirs(parent, exist_ok=True)
                 base_folder = os.path.join(parent, f'{folder}_{save_index + 3}')
                 print(f'base_folder : {base_folder}')
                 os.makedirs(base_folder, exist_ok=True)
