@@ -2808,8 +2808,7 @@ def main(args):
                     a = '_'.join(layer_name)
                     np_heat_map = heat_map.cpu().numpy()
                     heat_map_dir = os.path.join(base_folder, f'attention_{a}.npy')
-                    np_heat_map.save(heat_map_dir)
-                    torch.save(np_heat_map, heat_map_dir)
+                    np.save(heat_map_dir, np_heat_map)
                     if heat_map.dim() == 3:
                         heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
                     img = image_overlay_heat_map(img=image, heat_map=heat_map)
