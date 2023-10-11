@@ -246,8 +246,7 @@ class TextualInversionTrainer:
                 user_config = config_util.load_user_config(args.dataset_config)
                 ignored = ["train_data_dir", "reg_data_dir", "in_json"]
                 if any(getattr(args, attr) is not None for attr in ignored):
-                    accelerator.print(
-                        "ignore following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(
+                    accelerator.print("ignore following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(
                             ", ".join(ignored)))
             else:
                 use_dreambooth_method = args.in_json is None
@@ -263,13 +262,12 @@ class TextualInversionTrainer:
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer_or_list)
         self.assert_extra_args(args, train_dataset_group)
-        """
+
+        print(f'\n step 12. training')
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
         collater = train_util.collater_class(current_epoch, current_step, ds_for_collater)
-
-        # make captions: tokenstring tokenstring1 tokenstring2 ...tokenstringn という文字列に書き換える超乱暴な実装
         if use_template:
             accelerator.print(f"use template for training captions. is object: {args.use_object_template}")
             templates = imagenet_templates_small if args.use_object_template else imagenet_style_templates_small
@@ -278,33 +276,26 @@ class TextualInversionTrainer:
             for tmpl in templates:
                 captions.append(tmpl.format(replace_to))
             train_dataset_group.add_replacement("", captions)
-
-            # サンプル生成用
             if args.num_vectors_per_token > 1:
                 prompt_replacement = (args.token_string, replace_to)
             else:
                 prompt_replacement = None
         else:
-            # サンプル生成用
             if args.num_vectors_per_token > 1:
                 replace_to = " ".join(token_strings)
                 train_dataset_group.add_replacement(args.token_string, replace_to)
                 prompt_replacement = (args.token_string, replace_to)
             else:
                 prompt_replacement = None
-
         if args.debug_dataset:
             train_util.debug_dataset(train_dataset_group, show_input_ids=True)
             return
         if len(train_dataset_group) == 0:
             accelerator.print("No data found. Please verify arguments / 画像がありません。引数指定を確認してください")
             return
-
         if cache_latents:
-            assert (
-                train_dataset_group.is_latent_cacheable()
-            ), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
-
+            assert (train_dataset_group.is_latent_cacheable()
+                    ), "when caching latents, either color_aug or random_crop cannot be used"
         # モデルに xformers とか memory efficient attention を組み込む
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
@@ -321,7 +312,6 @@ class TextualInversionTrainer:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
-
             accelerator.wait_for_everyone()
 
         if args.gradient_checkpointing:
@@ -329,40 +319,27 @@ class TextualInversionTrainer:
             for text_encoder in text_encoders:
                 text_encoder.gradient_checkpointing_enable()
 
-        # 学習に必要なクラスを準備する
+        print(f'\n step 13. optimizer and data loader')
         accelerator.print("prepare optimizer, data loader etc.")
         trainable_params = []
         for text_encoder in text_encoders:
             trainable_params += text_encoder.get_input_embeddings().parameters()
         _, _, optimizer = train_util.get_optimizer(args, trainable_params)
-
-        # dataloaderを準備する
-        # DataLoaderのプロセス数：0はメインプロセスになる
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-        train_dataloader = torch.utils.data.DataLoader(
-            train_dataset_group,
-            batch_size=1,
-            shuffle=True,
-            collate_fn=collater,
-            num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers,
-        )
-
-        # 学習ステップ数を計算する
+        train_dataloader = torch.utils.data.DataLoader(train_dataset_group, batch_size=1, shuffle=True,
+                                                       collate_fn=collater, num_workers=n_workers,
+                                                       persistent_workers=args.persistent_data_loader_workers,)
+        print(f'\n step 14. training iteration')
         if args.max_train_epochs is not None:
             args.max_train_steps = args.max_train_epochs * math.ceil(
-                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps
-            )
+                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
             accelerator.print(
-                f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}"
-            )
-
-        # データセット側にも学習ステップを送信
+                f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
         train_dataset_group.set_max_train_steps(args.max_train_steps)
 
-        # lr schedulerを用意する
+        print(f'\n step 15. lr scheduler')
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
-
+        """
         # acceleratorがなんかよろしくやってくれるらしい
         if len(text_encoders) == 1:
             text_encoder_or_list, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
@@ -700,21 +677,24 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_pro
             --init_word boy --num_vectors_per_token 1 \
             --token_string jungwoo \
             --train_data_dir /data7/sooyeon/MyData/jungwoo \
-            
-                  
-            
-            --shuffle_caption --caption_extension ".txt" \
-            --random_crop --resolution "768,768" --enable_bucket --bucket_no_upscale \
-            --save_every_n_epochs 1 --train_batch_size 2 --max_token_length 225 --xformers \
+            --resolution "512,512" \
+            --class_token boy \
             --max_train_steps 2880 \
+            --lr_warmup_steps 144 --lr_scheduler cosine_with_restarts \
+            --optimizer_type AdamW
+            
+            
+"""
+"""            
+            --shuffle_caption
+            --caption_extension ".txt" \
+            --enable_bucket
+            --bucket_no_upscale \
+            --save_every_n_epochs 1 --train_batch_size 2 --max_token_length 225 --xformers \
             --persistent_data_loader_workers \
             --sample_every_n_epochs 1 \
-            --network_module networks.lora \
-            
-            --lr_warmup_steps 144 --unet_lr 0.0001 --text_encoder_lr 0.00005 --network_dim 32 --network_alpha 4.0 \
             --logging_dir ./result/logs \
             --noise_offset 0.0357 --optimizer_type AdamW --learning_rate 0.0003 \
-            --lr_scheduler cosine_with_restarts \
             --output_dir ./result/jungwoo_experience/jungwoo_3_blur_mask_10_mean  
             --sample_prompts /data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo.txt \
             --trg_token jw \
