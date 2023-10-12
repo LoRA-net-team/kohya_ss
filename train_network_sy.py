@@ -921,7 +921,7 @@ class NetworkTrainer:
                                     a = a * 100
                                 else :
                                     a = a
-                            print(f'{layer_name} : attn_loss : {a}')
+                            #print(f'{layer_name} : attn_loss : {a}')
                             attn_loss = attn_loss + a
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
