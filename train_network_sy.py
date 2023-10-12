@@ -241,6 +241,9 @@ class NetworkTrainer:
                     user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,
                                                               "metadata_file": args.in_json,}]}]}
             print(f'User config: {user_config}')
+            # blueprint_generator = BlueprintGenerator
+            print('start of generate function ...')
+
             blueprint = blueprint_generator.generate(user_config,
                                                      args,
                                                      tokenizer=tokenizer)

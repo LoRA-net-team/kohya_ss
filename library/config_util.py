@@ -343,6 +343,7 @@ class BlueprintGenerator:
     dataset_blueprints = []
     for dataset_config in sanitized_user_config.get("datasets", []):
       subsets = dataset_config.get("subsets", [])
+
       is_dreambooth = all(["metadata_file" not in subset for subset in subsets])
       is_controlnet = all(["conditioning_data_dir" in subset for subset in subsets])
       if is_controlnet:
@@ -355,6 +356,7 @@ class BlueprintGenerator:
         subset_params_klass = FineTuningSubsetParams
         dataset_params_klass = FineTuningDatasetParams
       subset_blueprints = []
+
       for subset_config in subsets:
         params = self.generate_params_by_fallbacks(subset_params_klass,
                                                    [subset_config,

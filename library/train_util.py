@@ -70,7 +70,6 @@ from library.original_unet import UNet2DConditionModel
 # Tokenizer: checkpointから読み込むのではなくあらかじめ提供されているものを使う
 TOKENIZER_PATH = "openai/clip-vit-large-patch14"
 V2_STABLE_DIFFUSION_PATH = "stabilityai/stable-diffusion-2"  # ここからtokenizerだけ使う v2とv2.1はtokenizer仕様は同じ
-
 # checkpointファイル名
 EPOCH_STATE_NAME = "{}-{:06d}-state"
 EPOCH_FILE_NAME = "{}-{:06d}"
@@ -78,7 +77,6 @@ EPOCH_DIFFUSERS_DIR_NAME = "{}-{:06d}"
 LAST_STATE_NAME = "{}-state"
 DEFAULT_EPOCH_NAME = "epoch"
 DEFAULT_LAST_OUTPUT_NAME = "last"
-
 DEFAULT_STEP_NAME = "at"
 STEP_STATE_NAME = "{}-step{:08d}-state"
 STEP_FILE_NAME = "{}-step{:08d}"
@@ -88,7 +86,6 @@ STEP_DIFFUSERS_DIR_NAME = "{}-step{:08d}"
 
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".PNG", ".JPG", ".JPEG", ".WEBP", ".BMP"]
 
-base_mask_base_dir = r'/data7/sooyeon/MyData/jungwoo_mask_blur'
 
 try:
     import pillow_avif
@@ -319,7 +316,6 @@ class AugHelper:
     def get_augmentor(self, use_color_aug: bool):  # -> Optional[Callable[[np.ndarray], Dict[str, np.ndarray]]]:
         return self.color_aug if use_color_aug else None
 
-
 class BaseSubset:
     def __init__(
         self,
@@ -357,7 +353,6 @@ class BaseSubset:
         self.token_warmup_step = token_warmup_step  # N（N<1ならN*max_train_steps）ステップ目でタグの数が最大になる
 
         self.img_count = 0
-
 
 class DreamBoothSubset(BaseSubset):
     def __init__(
@@ -412,7 +407,6 @@ class DreamBoothSubset(BaseSubset):
             return NotImplemented
         return self.image_dir == other.image_dir
 
-
 class FineTuningSubset(BaseSubset):
     def __init__(
         self,
@@ -459,7 +453,6 @@ class FineTuningSubset(BaseSubset):
         if not isinstance(other, FineTuningSubset):
             return NotImplemented
         return self.metadata_file == other.metadata_file
-
 
 class ControlNetSubset(BaseSubset):
     def __init__(
@@ -512,7 +505,6 @@ class ControlNetSubset(BaseSubset):
             return NotImplemented
         return self.image_dir == other.image_dir and self.conditioning_data_dir == other.conditioning_data_dir
 
-
 class BaseDataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -522,9 +514,7 @@ class BaseDataset(torch.utils.data.Dataset):
         debug_dataset: bool,
     ) -> None:
         super().__init__()
-
         self.tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
-
         self.max_token_length = max_token_length
         # width/height is used when enable_bucket==False
         self.width, self.height = (None, None) if resolution is None else resolution
@@ -965,7 +955,6 @@ class BaseDataset(torch.utils.data.Dataset):
 
     def load_image_with_face_info(self, subset: BaseSubset, image_path: str):
         img = load_image(image_path)
-
         face_cx = face_cy = face_w = face_h = 0
         if subset.face_crop_aug_range is not None:
             tokens = os.path.splitext(os.path.basename(image_path))[0].split("_")
@@ -1029,7 +1018,6 @@ class BaseDataset(torch.utils.data.Dataset):
         return self._length
 
     def __getitem__(self, index):
-
         bucket = self.bucket_manager.buckets[self.buckets_indices[index].bucket_index]
         bucket_batch_size = self.buckets_indices[index].bucket_batch_size
         image_index = self.buckets_indices[index].batch_index * bucket_batch_size
@@ -1061,7 +1049,6 @@ class BaseDataset(torch.utils.data.Dataset):
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
             mask_base_dir = base_mask_base_dir
-
             mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
             mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
@@ -1322,7 +1309,6 @@ class BaseDataset(torch.utils.data.Dataset):
         example["bucket_reso"] = bucket_reso
         return example
 
-
 class DreamBoothDataset(BaseDataset):
     def __init__(
         self,
@@ -1374,7 +1360,6 @@ class DreamBoothDataset(BaseDataset):
             if len(tokens) >= 5:
                 base_name_face_det = "_".join(tokens[:-4])
             cap_paths = [base_name + caption_extension, base_name_face_det + caption_extension]
-
             caption = None
             for cap_path in cap_paths:
                 if os.path.isfile(cap_path):
@@ -1393,7 +1378,6 @@ class DreamBoothDataset(BaseDataset):
             if not os.path.isdir(subset.image_dir):
                 print(f"not directory: {subset.image_dir}")
                 return [], []
-
             img_paths = glob_images(subset.image_dir, "*")
             print(f"found directory {subset.image_dir} contains {len(img_paths)} image files")
 
@@ -1403,9 +1387,7 @@ class DreamBoothDataset(BaseDataset):
             for img_path in img_paths:
                 cap_for_img = read_caption(img_path, subset.caption_extension)
                 if cap_for_img is None and subset.class_tokens is None:
-                    print(
-                        f"neither caption file nor class tokens are found. use empty caption for {img_path} / キャプションファイルもclass tokenも見つかりませんでした。空のキャプションを使用します: {img_path}"
-                    )
+                    print(f"neither caption file nor class tokens are found. use empty caption for {img_path} / キャプションファイルもclass tokenも見つかりませんでした。空のキャプションを使用します: {img_path}")
                     captions.append("")
                     missing_captions.append(img_path)
                 else:
@@ -1421,32 +1403,26 @@ class DreamBoothDataset(BaseDataset):
                 number_of_missing_captions = len(missing_captions)
                 number_of_missing_captions_to_show = 5
                 remaining_missing_captions = number_of_missing_captions - number_of_missing_captions_to_show
-
-                print(
-                    f"No caption file found for {number_of_missing_captions} images. Training will continue without captions for these images. If class token exists, it will be used. / {number_of_missing_captions}枚の画像にキャプションファイルが見つかりませんでした。これらの画像についてはキャプションなしで学習を続行します。class tokenが存在する場合はそれを使います。"
-                )
+                print(f"No caption file found for {number_of_missing_captions} images. Training will continue without captions for these images. If class token exists, it will be used. / {number_of_missing_captions}枚の画像にキャプションファイルが見つかりませんでした。これらの画像についてはキャプションなしで学習を続行します。class tokenが存在する場合はそれを使います。")
                 for i, missing_caption in enumerate(missing_captions):
                     if i >= number_of_missing_captions_to_show:
                         print(missing_caption + f"... and {remaining_missing_captions} more")
                         break
                     print(missing_caption)
             return img_paths, captions
-
         print("prepare images.")
+
         num_train_images = 0
         num_reg_images = 0
         reg_infos: List[ImageInfo] = []
         for subset in subsets:
             if subset.num_repeats < 1:
                 print(
-                    f"ignore subset with image_dir='{subset.image_dir}': num_repeats is less than 1 / num_repeatsが1を下回っているためサブセットを無視します: {subset.num_repeats}"
-                )
+                    f"ignore subset with image_dir='{subset.image_dir}': num_repeats is less than 1 / num_repeatsが1を下回っているためサブセットを無視します: {subset.num_repeats}")
                 continue
 
             if subset in self.subsets:
-                print(
-                    f"ignore duplicated subset with image_dir='{subset.image_dir}': use the first one / 既にサブセットが登録されているため、重複した後発のサブセットを無視します"
-                )
+                print(f"ignore duplicated subset with image_dir='{subset.image_dir}': use the first one / 既にサブセットが登録されているため、重複した後発のサブセットを無視します")
                 continue
 
             img_paths, captions = load_dreambooth_dir(subset)
@@ -1493,7 +1469,6 @@ class DreamBoothDataset(BaseDataset):
                         break
                 first_loop = False
         self.num_reg_images = num_reg_images
-
 
 class FineTuningDataset(BaseDataset):
     def __init__(
@@ -1698,7 +1673,6 @@ class FineTuningDataset(BaseDataset):
 
         return npz_file_norm, npz_file_flip
 
-
 class ControlNetDataset(BaseDataset):
     def __init__(
         self,
@@ -1853,18 +1827,14 @@ class ControlNetDataset(BaseDataset):
 
         return example
 
-
 # behave as Dataset mock
 class DatasetGroup(torch.utils.data.ConcatDataset):
     def __init__(self, datasets: Sequence[Union[DreamBoothDataset, FineTuningDataset]]):
         self.datasets: List[Union[DreamBoothDataset, FineTuningDataset]]
-
         super().__init__(datasets)
-
         self.image_data = {}
         self.num_train_images = 0
         self.num_reg_images = 0
-
         # simply concat together
         # TODO: handling image_data key duplication among dataset
         #   In practical, this is not the big issue because image_data is accessed from outside of dataset only for debug_dataset.
@@ -2157,9 +2127,7 @@ def load_image(image_path):
 
 
 # 画像を読み込む。戻り値はnumpy.ndarray,(original width, original height),(crop left, crop top, crop right, crop bottom)
-def trim_and_resize_if_required(
-    random_crop: bool, image: Image.Image, reso, resized_size: Tuple[int, int]
-) -> Tuple[np.ndarray, Tuple[int, int], Tuple[int, int, int, int]]:
+def trim_and_resize_if_required(random_crop: bool, image: Image.Image, reso, resized_size: Tuple[int, int]) -> Tuple[np.ndarray, Tuple[int, int], Tuple[int, int, int, int]]:
     image_height, image_width = image.shape[0:2]
     original_size = (image_width, image_height)  # size before resize
 
@@ -2403,59 +2371,7 @@ def get_git_revision_hash() -> str:
         return "(unknown)"
 
 
-# def replace_unet_modules(unet: diffusers.models.unet_2d_condition.UNet2DConditionModel, mem_eff_attn, xformers):
-#     replace_attentions_for_hypernetwork()
-#     # unet is not used currently, but it is here for future use
-#     unet.enable_xformers_memory_efficient_attention()
-#     return
-#     if mem_eff_attn:
-#         unet.set_attn_processor(FlashAttnProcessor())
-#     elif xformers:
-#         unet.enable_xformers_memory_efficient_attention()
 
-
-# def replace_unet_cross_attn_to_xformers():
-#     print("CrossAttention.forward has been replaced to enable xformers.")
-#     try:
-#         import xformers.ops
-#     except ImportError:
-#         raise ImportError("No xformers / xformersがインストールされていないようです")
-
-#     def forward_xformers(self, x, context=None, mask=None):
-#         h = self.heads
-#         q_in = self.to_q(x)
-
-#         context = default(context, x)
-#         context = context.to(x.dtype)
-
-#         if hasattr(self, "hypernetwork") and self.hypernetwork is not None:
-#             context_k, context_v = self.hypernetwork.forward(x, context)
-#             context_k = context_k.to(x.dtype)
-#             context_v = context_v.to(x.dtype)
-#         else:
-#             context_k = context
-#             context_v = context
-
-#         k_in = self.to_k(context_k)
-#         v_in = self.to_v(context_v)
-
-#         q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b n h d", h=h), (q_in, k_in, v_in))
-#         del q_in, k_in, v_in
-
-#         q = q.contiguous()
-#         k = k.contiguous()
-#         v = v.contiguous()
-#         out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None)  # 最適なのを選んでくれる
-
-#         out = rearrange(out, "b n h d -> b n (h d)", h=h)
-
-#         # diffusers 0.7.0~
-#         out = self.to_out[0](out)
-#         out = self.to_out[1](out)
-#         return out
-
-
-#     diffusers.models.attention.CrossAttention.forward = forward_xformers
 def replace_unet_modules(unet: UNet2DConditionModel, mem_eff_attn, xformers, sdpa):
     if mem_eff_attn:
         print("Enable memory efficient attention for U-Net")
@@ -2472,67 +2388,8 @@ def replace_unet_modules(unet: UNet2DConditionModel, mem_eff_attn, xformers, sdp
         print("Enable SDPA for U-Net")
         unet.set_use_sdpa(True)
 
-
-"""
-def replace_vae_modules(vae: diffusers.models.AutoencoderKL, mem_eff_attn, xformers):
-    # vae is not used currently, but it is here for future use
-    if mem_eff_attn:
-        replace_vae_attn_to_memory_efficient()
-    elif xformers:
-        # とりあえずDiffusersのxformersを使う。AttentionがあるのはMidBlockのみ
-        print("Use Diffusers xformers for VAE")
-        vae.encoder.mid_block.attentions[0].set_use_memory_efficient_attention_xformers(True)
-        vae.decoder.mid_block.attentions[0].set_use_memory_efficient_attention_xformers(True)
-
-
-def replace_vae_attn_to_memory_efficient():
-    print("AttentionBlock.forward has been replaced to FlashAttention (not xformers)")
-    flash_func = FlashAttentionFunction
-
-    def forward_flash_attn(self, hidden_states):
-        print("forward_flash_attn")
-        q_bucket_size = 512
-        k_bucket_size = 1024
-
-        residual = hidden_states
-        batch, channel, height, width = hidden_states.shape
-
-        # norm
-        hidden_states = self.group_norm(hidden_states)
-
-        hidden_states = hidden_states.view(batch, channel, height * width).transpose(1, 2)
-
-        # proj to q, k, v
-        query_proj = self.query(hidden_states)
-        key_proj = self.key(hidden_states)
-        value_proj = self.value(hidden_states)
-
-        query_proj, key_proj, value_proj = map(
-            lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.num_heads), (query_proj, key_proj, value_proj)
-        )
-
-        out = flash_func.apply(query_proj, key_proj, value_proj, None, False, q_bucket_size, k_bucket_size)
-
-        out = rearrange(out, "b h n d -> b n (h d)")
-
-        # compute next hidden_states
-        hidden_states = self.proj_attn(hidden_states)
-        hidden_states = hidden_states.transpose(-1, -2).reshape(batch, channel, height, width)
-
-        # res connect and rescale
-        hidden_states = (hidden_states + residual) / self.rescale_output_factor
-        return hidden_states
-
-    diffusers.models.attention.AttentionBlock.forward = forward_flash_attn
-"""
-
-
 # endregion
-
-
 # region arguments
-
-
 def load_metadata_from_safetensors(safetensors_file: str) -> dict:
     """r
     This method locks the file. see https://github.com/huggingface/safetensors/issues/164
@@ -3094,9 +2951,7 @@ def verify_training_args(args: argparse.Namespace):
         )
 
 
-def add_dataset_arguments(
-    parser: argparse.ArgumentParser, support_dreambooth: bool, support_caption: bool, support_caption_dropout: bool
-):
+def add_dataset_arguments(parser: argparse.ArgumentParser, support_dreambooth: bool, support_caption: bool, support_caption_dropout: bool):
     # dataset common
     parser.add_argument("--train_data_dir", type=str, default=None, help="directory for train images / 学習画像データのディレクトリ")
     parser.add_argument(
@@ -3312,9 +3167,7 @@ def read_config_from_file(args: argparse.Namespace, parser: argparse.ArgumentPar
 
 
 # endregion
-
 # region utils
-
 
 def resume_from_local_or_hf_if_specified(accelerator, args):
     if not args.resume:
