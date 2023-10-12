@@ -235,13 +235,11 @@ class NetworkTrainer:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
                     user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir,
-                                                                                                                      args.reg_data_dir,
-                                                                                                                      args.train_mask_dir,)}]}
+                                                                                                                      args.reg_data_dir,)}]}
                 else:
                     print("Training with captions.")
                     user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,
-                                                              "metadata_file": args.in_json,
-                                                              "mask_dir": args.train_mask_dir,}]}]}
+                                                              "metadata_file": args.in_json,}]}]}
             print(f'User config: {user_config}')
             blueprint = blueprint_generator.generate(user_config,
                                                      args,
