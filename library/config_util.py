@@ -393,7 +393,6 @@ class BlueprintGenerator:
 
 def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlueprint):
   datasets: List[Union[DreamBoothDataset, FineTuningDataset, ControlNetDataset]] = []
-
   for dataset_blueprint in dataset_group_blueprint.datasets:
     if dataset_blueprint.is_controlnet:
       subset_klass = ControlNetSubset
@@ -410,18 +409,14 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
     dataset = dataset_klass(subsets=subsets,
                             **asdict(dataset_blueprint.params))
     datasets.append(dataset)
-  # print info
   info = ""
   for i, dataset in enumerate(datasets):
     is_dreambooth = isinstance(dataset, DreamBoothDataset)
     is_controlnet = isinstance(dataset, ControlNetDataset)
-    info += dedent(f"""\
-      [Dataset {i}]
+    info += dedent(f"""[Dataset {i}]
         batch_size: {dataset.batch_size}
         resolution: {(dataset.width, dataset.height)}
-        enable_bucket: {dataset.enable_bucket}
-    """)
-
+        enable_bucket: {dataset.enable_bucket}""")
     if dataset.enable_bucket:
       info += indent(dedent(f"""\
         min_bucket_reso: {dataset.min_bucket_reso}
@@ -431,7 +426,6 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
       \n"""), "  ")
     else:
       info += "\n"
-
     for j, subset in enumerate(dataset.subsets):
       info += indent(dedent(f"""\
         [Subset {j} of Dataset {i}]
@@ -453,7 +447,6 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           token_warmup_step: {subset.token_warmup_step},
           train_mask_dir: "{subset.train_mask_dir}"
       """), "  ")
-
       if is_dreambooth:
         info += indent(dedent(f"""\
           is_reg: {subset.is_reg}
@@ -461,17 +454,13 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           caption_extension: {subset.caption_extension}
         \n"""), "    ")
       elif not is_controlnet:
-        info += indent(dedent(f"""\
-          metadata_file: {subset.metadata_file}
-        \n"""), "    ")
+        info += indent(dedent(f"""metadata_file: {subset.metadata_file}\n"""), "    ")
   print(info)
-
   seed = random.randint(0, 2**31) # actual seed is seed + epoch_no
   for i, dataset in enumerate(datasets):
     print(f"[Dataset {i}]")
     dataset.make_buckets()
     dataset.set_seed(seed)
-
   return DatasetGroup(datasets)
 
 

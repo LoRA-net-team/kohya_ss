@@ -105,7 +105,7 @@ TEXT_ENCODER_OUTPUTS_CACHE_SUFFIX = "_te_outputs.npz"
 
 
 class ImageInfo:
-    def __init__(self, image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str) -> None:
+    def __init__(self, image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str, mask_dir:str) -> None:
         self.image_key: str = image_key
         self.num_repeats: int = num_repeats
         self.caption: str = caption
@@ -126,6 +126,7 @@ class ImageInfo:
         self.text_encoder_outputs1: Optional[torch.Tensor] = None
         self.text_encoder_outputs2: Optional[torch.Tensor] = None
         self.text_encoder_pool2: Optional[torch.Tensor] = None
+        self.mask_dir: str = mask_dir
 
 
 class BucketManager:
@@ -525,7 +526,6 @@ class BaseDataset(torch.utils.data.Dataset):
         self.tag_frequency = {}
         self.XTI_layers = None
         self.token_strings = None
-
         self.enable_bucket = False
         self.bucket_manager: BucketManager = None  # not initialized
         self.min_bucket_reso = None
@@ -533,23 +533,16 @@ class BaseDataset(torch.utils.data.Dataset):
         self.bucket_reso_steps = None
         self.bucket_no_upscale = None
         self.bucket_info = None  # for metadata
-
         self.tokenizer_max_length = self.tokenizers[0].model_max_length if max_token_length is None else max_token_length + 2
-
         self.current_epoch: int = 0  # インスタンスがepochごとに新しく作られるようなので外側から渡さないとダメ
-
         self.current_step: int = 0
         self.max_train_steps: int = 0
         self.seed: int = 0
-
         # augmentation
         self.aug_helper = AugHelper()
-
         self.image_transforms = IMAGE_TRANSFORMS
-
         self.image_data: Dict[str, ImageInfo] = {}
         self.image_to_subset: Dict[str, Union[DreamBoothSubset, FineTuningSubset]] = {}
-
         self.replacements = {}
 
         # caching
@@ -1047,7 +1040,7 @@ class BaseDataset(torch.utils.data.Dataset):
             absolute_paths.append(absolute_path)
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
-            mask_base_dir = base_mask_base_dir
+            mask_base_dir = self.image_data[train_mask_dir]
             mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
             mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
@@ -1377,6 +1370,7 @@ class DreamBoothDataset(BaseDataset):
             if not os.path.isdir(subset.image_dir):
                 print(f"not directory: {subset.image_dir}")
                 return [], []
+            train_mask_dir = subset.train_mask_dir
             img_paths = glob_images(subset.image_dir, "*")
             print(f"found directory {subset.image_dir} contains {len(img_paths)} image files")
 
@@ -1408,7 +1402,7 @@ class DreamBoothDataset(BaseDataset):
                         print(missing_caption + f"... and {remaining_missing_captions} more")
                         break
                     print(missing_caption)
-            return img_paths, captions
+            return img_paths, captions, train_mask_dir
         print("prepare images.")
 
         num_train_images = 0
@@ -1424,18 +1418,25 @@ class DreamBoothDataset(BaseDataset):
                 print(f"ignore duplicated subset with image_dir='{subset.image_dir}': use the first one / 既にサブセットが登録されているため、重複した後発のサブセットを無視します")
                 continue
 
-            img_paths, captions = load_dreambooth_dir(subset)
+            img_paths, captions, train_mask_dir = load_dreambooth_dir(subset)
             if len(img_paths) < 1:
                 print(f"ignore subset with image_dir='{subset.image_dir}': no images found / 画像が見つからないためサブセットを無視します")
                 continue
-
             if subset.is_reg:
                 num_reg_images += subset.num_repeats * len(img_paths)
             else:
                 num_train_images += subset.num_repeats * len(img_paths)
 
             for img_path, caption in zip(img_paths, captions):
-                info = ImageInfo(img_path, subset.num_repeats, caption, subset.is_reg, img_path)
+                parent, neat_path = os.path.split(img_path)
+                name, _ = os.path.splitext(neat_path)
+                mask_path = os.path.join(train_mask_dir,f'{name}_binary_mask.png')
+                info = ImageInfo(img_path,
+                                 subset.num_repeats,
+                                 caption,
+                                 subset.is_reg,
+                                 img_path,
+                                 mask_path)
                 if subset.is_reg:
                     reg_infos.append(info)
                 else:
