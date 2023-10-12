@@ -327,7 +327,7 @@ class BlueprintGenerator:
     sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
     print(f'sanitized_user_config : {sanitized_user_config}')
     sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
-    
+
 
 
     optname_map = self.sanitizer.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME
@@ -353,13 +353,15 @@ class BlueprintGenerator:
       subset_blueprints = []
 
       for subset_config in subsets:
-        print(f' ** subset_config : {subset_config}')
+        subset_config['train_mask_dir'] = argparse_namespace.train_mask_dir
+        #print(f' ** subset_config : {subset_config}')
         params = self.generate_params_by_fallbacks(subset_params_klass,
-                                                   [subset_config,
+                                                   [subset_config, # subset_config
                                                     dataset_config,
                                                     general_config,
                                                     argparse_config,
                                                     runtime_params])
+        print(f'params : {params}')
         subset_blueprints.append(SubsetBlueprint(params))
 
       params = self.generate_params_by_fallbacks(dataset_params_klass,
@@ -375,9 +377,7 @@ class BlueprintGenerator:
     search_value = BlueprintGenerator.search_value
     default_params = asdict(param_klass())
     param_names = default_params.keys()
-
     params = {name: search_value(name_map.get(name, name), fallbacks, default_params.get(name)) for name in param_names}
-
     return param_klass(**params)
 
   @staticmethod
