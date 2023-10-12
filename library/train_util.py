@@ -1038,7 +1038,7 @@ class BaseDataset(torch.utils.data.Dataset):
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
             #mask_base_dir = self.image_data[train_mask_dir]
-            mask_dir = image_info['train_mask_dir']
+            mask_dir = image_info['mask_dir']
             mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
             np_img = np.array(mas_img.resize((512, 512)))
