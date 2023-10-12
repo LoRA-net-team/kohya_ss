@@ -325,9 +325,9 @@ class BlueprintGenerator:
 
     train_mask_dir = argparse_namespace.train_mask_dir
     sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
-
+    print(f'sanitized_user_config : {sanitized_user_config}')
     sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
-    print(f'sanitized_argparse_namespace : {sanitized_argparse_namespace}')
+    
 
 
     optname_map = self.sanitizer.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME
@@ -338,7 +338,7 @@ class BlueprintGenerator:
     dataset_blueprints = []
     for dataset_config in sanitized_user_config.get("datasets", []):
       subsets = dataset_config.get("subsets", [])
-      print(f' *** subsets : {subsets}')
+      print(f' ** subsets : {subsets}')
       is_dreambooth = all(["metadata_file" not in subset for subset in subsets])
       is_controlnet = all(["conditioning_data_dir" in subset for subset in subsets])
       if is_controlnet:
