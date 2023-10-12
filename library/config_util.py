@@ -405,17 +405,11 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
       subset_klass = FineTuningSubset
       dataset_klass = FineTuningDataset
     # ------------------------------------------------------------------------------------------------------------------
-    print(f'dataset_group_blueprint : {dataset_group_blueprint}')
-
     # DreamBoothSubset(dataset_group_blueprint.params)
     subsets = [subset_klass(**asdict(subset_blueprint.params)) for subset_blueprint in dataset_blueprint.subsets]
-
-
     dataset = dataset_klass(subsets=subsets,
                             **asdict(dataset_blueprint.params))
-
     datasets.append(dataset)
-
   # print info
   info = ""
   for i, dataset in enumerate(datasets):
@@ -457,6 +451,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           random_crop: {subset.random_crop}
           token_warmup_min: {subset.token_warmup_min},
           token_warmup_step: {subset.token_warmup_step},
+          train_mask_dir: "{subset.train_mask_dir}"
       """), "  ")
 
       if is_dreambooth:
@@ -469,11 +464,8 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
         info += indent(dedent(f"""\
           metadata_file: {subset.metadata_file}
         \n"""), "    ")
-
   print(info)
 
-  # make buckets first because it determines the length of dataset
-  # and set the same seed for all datasets
   seed = random.randint(0, 2**31) # actual seed is seed + epoch_no
   for i, dataset in enumerate(datasets):
     print(f"[Dataset {i}]")
