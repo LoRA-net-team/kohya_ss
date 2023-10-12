@@ -334,7 +334,7 @@ class BaseSubset:
         caption_suffix: Optional[str],
         token_warmup_min: int,
         token_warmup_step: Union[float, int],
-    ) -> None:
+        train_mask_dir) -> None:
         self.image_dir = image_dir
         self.num_repeats = num_repeats
         self.shuffle_caption = shuffle_caption
@@ -351,9 +351,8 @@ class BaseSubset:
 
         self.token_warmup_min = token_warmup_min  # step=0におけるタグの数
         self.token_warmup_step = token_warmup_step  # N（N<1ならN*max_train_steps）ステップ目でタグの数が最大になる
-
         self.img_count = 0
-
+        self.train_mask_dir = train_mask_dir
 class DreamBoothSubset(BaseSubset):
     def __init__(
         self,
@@ -375,7 +374,7 @@ class DreamBoothSubset(BaseSubset):
         caption_suffix,
         token_warmup_min,
         token_warmup_step,
-    ) -> None:
+        train_mask_dir,) -> None:
         assert image_dir is not None, "image_dir must be specified / image_dirは指定が必須です"
 
         super().__init__(
@@ -394,7 +393,7 @@ class DreamBoothSubset(BaseSubset):
             caption_suffix,
             token_warmup_min,
             token_warmup_step,
-        )
+            train_mask_dir)
 
         self.is_reg = is_reg
         self.class_tokens = class_tokens
