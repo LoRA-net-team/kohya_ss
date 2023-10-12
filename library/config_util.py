@@ -133,39 +133,30 @@ class ConfigSanitizer:
       return ConfigSanitizer.__validate_and_convert_twodim(klass, value)
 
   # subset schema
-  SUBSET_ASCENDABLE_SCHEMA = {
-    "color_aug": bool,
-    "face_crop_aug_range": functools.partial(__validate_and_convert_twodim.__func__, float),
-    "flip_aug": bool,
-    "num_repeats": int,
-    "random_crop": bool,
-    "shuffle_caption": bool,
-    "keep_tokens": int,
-    "token_warmup_min": int,
-    "token_warmup_step": Any(float,int),
-    "caption_prefix": str,
-    "caption_suffix": str,
-  }
+  SUBSET_ASCENDABLE_SCHEMA = {"color_aug": bool,
+                              "face_crop_aug_range": functools.partial(__validate_and_convert_twodim.__func__, float),
+                              "flip_aug": bool,
+                              "num_repeats": int,
+                              "random_crop": bool,
+                              "shuffle_caption": bool,
+                              "keep_tokens": int,
+                              "token_warmup_min": int,
+                              "token_warmup_step": Any(float,int),
+                              "caption_prefix": str,
+                              "caption_suffix": str,}
   # DO means DropOut
-  DO_SUBSET_ASCENDABLE_SCHEMA = {
-    "caption_dropout_every_n_epochs": int,
-    "caption_dropout_rate": Any(float, int),
-    "caption_tag_dropout_rate": Any(float, int),
-  }
+  DO_SUBSET_ASCENDABLE_SCHEMA = {"caption_dropout_every_n_epochs": int,
+                                 "caption_dropout_rate": Any(float, int),
+                                 "caption_tag_dropout_rate": Any(float, int),}
   # DB means DreamBooth
-  DB_SUBSET_ASCENDABLE_SCHEMA = {
-    "caption_extension": str,
-    "class_tokens": str,
-  }
-  DB_SUBSET_DISTINCT_SCHEMA = {
-    Required("image_dir"): str,
-    "is_reg": bool,
-  }
+  DB_SUBSET_ASCENDABLE_SCHEMA = {"caption_extension": str,
+                                 "class_tokens": str,}
+  DB_SUBSET_DISTINCT_SCHEMA = {Required("image_dir"): str,
+                               "is_reg": bool,}
+                               #""}
   # FT means FineTuning
-  FT_SUBSET_DISTINCT_SCHEMA = {
-    Required("metadata_file"): str,
-    "image_dir": str,
-  }
+  FT_SUBSET_DISTINCT_SCHEMA = {Required("metadata_file"): str,
+                               "image_dir": str,}
   CN_SUBSET_ASCENDABLE_SCHEMA = {
     "caption_extension": str,
   }
@@ -278,22 +269,19 @@ class ConfigSanitizer:
       self.SUBSET_ASCENDABLE_SCHEMA,
       self.DB_SUBSET_ASCENDABLE_SCHEMA if support_dreambooth else {},
       self.CN_SUBSET_ASCENDABLE_SCHEMA if support_controlnet else {},
-      self.DO_SUBSET_ASCENDABLE_SCHEMA if support_dropout else {},
-    )
+      self.DO_SUBSET_ASCENDABLE_SCHEMA if support_dropout else {},)
 
-    self.user_config_validator = Schema({
-      "general": self.general_schema,
-      "datasets": [self.dataset_schema],
-    })
+    self.user_config_validator = Schema({"general": self.general_schema,
+                                         "datasets": [self.dataset_schema],})
 
     self.argparse_schema = self.__merge_dict(
       self.general_schema,
       self.ARGPARSE_SPECIFIC_SCHEMA,
       {optname: Any(None, self.general_schema[optname]) for optname in self.ARGPARSE_NULLABLE_OPTNAMES},
-      {a_name: self.general_schema[c_name] for a_name, c_name in self.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME.items()},
-    )
+      {a_name: self.general_schema[c_name] for a_name, c_name in self.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME.items()},)
 
-    self.argparse_config_validator = Schema(Object(self.argparse_schema), extra=voluptuous.ALLOW_EXTRA)
+    self.argparse_config_validator = Schema(Object(self.argparse_schema),
+                                            extra=voluptuous.ALLOW_EXTRA)
 
   def sanitize_user_config(self, user_config: dict) -> dict:
     try:
@@ -330,13 +318,23 @@ class BlueprintGenerator:
   def __init__(self, sanitizer: ConfigSanitizer):
     self.sanitizer = sanitizer
 
-  # runtime_params is for parameters which is only configurable on runtime, such as tokenizer
-  def generate(self, user_config: dict, argparse_namespace: argparse.Namespace, **runtime_params) -> Blueprint:
-    sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
-    sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
+  def generate(self,
+               user_config: dict,
+               argparse_namespace: argparse.Namespace,
+               **runtime_params) -> Blueprint:
 
-    # convert argparse namespace to dict like config
-    # NOTE: it is ok to have extra entries in dict
+    train_mask_dir = argparse_namespace.train_mask_dir
+    sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
+
+    sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
+    print(f'sanitized_argparse_namespace : {sanitized_argparse_namespace}')
+
+
+
+
+
+
+
     optname_map = self.sanitizer.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME
     argparse_config = {optname_map.get(optname, optname): value for optname, value in vars(sanitized_argparse_namespace).items()}
 
@@ -344,7 +342,6 @@ class BlueprintGenerator:
 
     dataset_blueprints = []
     for dataset_config in sanitized_user_config.get("datasets", []):
-      # NOTE: if subsets have no "metadata_file", these are DreamBooth datasets/subsets
       subsets = dataset_config.get("subsets", [])
       is_dreambooth = all(["metadata_file" not in subset for subset in subsets])
       is_controlnet = all(["conditioning_data_dir" in subset for subset in subsets])
@@ -357,11 +354,14 @@ class BlueprintGenerator:
       else:
         subset_params_klass = FineTuningSubsetParams
         dataset_params_klass = FineTuningDatasetParams
-
       subset_blueprints = []
       for subset_config in subsets:
         params = self.generate_params_by_fallbacks(subset_params_klass,
-                                                   [subset_config, dataset_config, general_config, argparse_config, runtime_params])
+                                                   [subset_config,
+                                                    dataset_config,
+                                                    general_config,
+                                                    argparse_config,
+                                                    runtime_params])
         subset_blueprints.append(SubsetBlueprint(params))
 
       params = self.generate_params_by_fallbacks(dataset_params_klass,
@@ -478,8 +478,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
 
 
 def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] = None,
-                                                  reg_data_dir: Optional[str] = None,
-                                                  train_mask_dir: Optional[str] = None,):
+                                                  reg_data_dir: Optional[str] = None,):
   def extract_dreambooth_params(name: str) -> Tuple[int, str]:
     tokens = name.split('_')
     try:
@@ -490,7 +489,7 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
     caption_by_folder = '_'.join(tokens[1:])
     return n_repeats, caption_by_folder
 
-  def generate(base_dir: Optional[str], is_reg: bool, is_mask:bool):
+  def generate(base_dir: Optional[str], is_reg: bool):
 
     if base_dir is None:
       return []
@@ -509,16 +508,14 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
       subset_config = {"image_dir": str(subdir),
                        "num_repeats": num_repeats,
                        "is_reg": is_reg,
-                       "class_tokens": class_tokens,
-                       "is_mask": is_mask}
+                       "class_tokens": class_tokens,}
       subsets_config.append(subset_config)
 
     return subsets_config
 
   subsets_config = []
-  subsets_config += generate(train_data_dir, False, False)
-  subsets_config += generate(reg_data_dir, True, False)
-  subsets_config += generate(train_mask_dir, False, True)
+  subsets_config += generate(train_data_dir, False)
+  subsets_config += generate(reg_data_dir, True)
 
   return subsets_config
 

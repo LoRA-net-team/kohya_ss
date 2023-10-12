@@ -3396,18 +3396,6 @@ def get_optimizer(args, trainable_params):
         for arg in args.optimizer_args:
             key, value = arg.split("=")
             value = ast.literal_eval(value)
-
-            # value = value.split(",")
-            # for i in range(len(value)):
-            #     if value[i].lower() == "true" or value[i].lower() == "false":
-            #         value[i] = value[i].lower() == "true"
-            #     else:
-            #         value[i] = ast.float(value[i])
-            # if len(value) == 1:
-            #     value = value[0]
-            # else:
-            #     value = tuple(value)
-
             optimizer_kwargs[key] = value
     # print("optkwargs:", optimizer_kwargs)
 

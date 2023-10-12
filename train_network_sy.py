@@ -243,7 +243,11 @@ class NetworkTrainer:
                                                               "metadata_file": args.in_json,
                                                               "mask_dir": args.train_mask_dir,}]}]}
             print(f'User config: {user_config}')
-            blueprint = blueprint_generator.generate(user_config, args, tokenizer=tokenizer)
+            blueprint = blueprint_generator.generate(user_config,
+                                                     args,
+                                                     tokenizer=tokenizer)
+
+
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
