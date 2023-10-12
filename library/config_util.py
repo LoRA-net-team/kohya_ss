@@ -330,11 +330,6 @@ class BlueprintGenerator:
     print(f'sanitized_argparse_namespace : {sanitized_argparse_namespace}')
 
 
-
-
-
-
-
     optname_map = self.sanitizer.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME
     argparse_config = {optname_map.get(optname, optname): value for optname, value in vars(sanitized_argparse_namespace).items()}
 
@@ -343,7 +338,7 @@ class BlueprintGenerator:
     dataset_blueprints = []
     for dataset_config in sanitized_user_config.get("datasets", []):
       subsets = dataset_config.get("subsets", [])
-
+      print(f' *** subsets : {subsets}')
       is_dreambooth = all(["metadata_file" not in subset for subset in subsets])
       is_controlnet = all(["conditioning_data_dir" in subset for subset in subsets])
       if is_controlnet:
@@ -358,6 +353,7 @@ class BlueprintGenerator:
       subset_blueprints = []
 
       for subset_config in subsets:
+        print(f' ** subset_config : {subset_config}')
         params = self.generate_params_by_fallbacks(subset_params_klass,
                                                    [subset_config,
                                                     dataset_config,

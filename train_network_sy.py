@@ -243,7 +243,6 @@ class NetworkTrainer:
             print(f'User config: {user_config}')
             # blueprint_generator = BlueprintGenerator
             print('start of generate function ...')
-
             blueprint = blueprint_generator.generate(user_config,
                                                      args,
                                                      tokenizer=tokenizer)
