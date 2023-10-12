@@ -1000,7 +1000,7 @@ class NetworkTrainer:
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
             print("model saved.")
     """
-        
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
@@ -1017,7 +1017,6 @@ if __name__ == "__main__":
     parser.add_argument("--unet_lr", type=float, default=None, help="learning rate for U-Net / U-Netの学習率")
     parser.add_argument("--text_encoder_lr", type=float, default=None,
                         help="learning rate for Text Encoder / Text Encoderの学習率")
-
     parser.add_argument("--network_weights", type=str, default=None,
                         help="pretrained weights for network / 学習するネットワークの初期重み")
     parser.add_argument("--network_module", type=str, default=None,
@@ -1054,6 +1053,7 @@ if __name__ == "__main__":
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--test_1", action='store_true')
     parser.add_argument("--test_2", action='store_true')
+    parser.add_argument("--train_mask_dir", type=str)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
