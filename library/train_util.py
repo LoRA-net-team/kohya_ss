@@ -274,12 +274,10 @@ class BucketManager:
         crop_bottom = crop_top + resized_height
         return crop_left, crop_top, crop_right, crop_bottom
 
-
 class BucketBatchIndex(NamedTuple):
     bucket_index: int
     bucket_batch_size: int
     batch_index: int
-
 
 class AugHelper:
     # albumentationsへの依存をなくしたがとりあえず同じinterfaceを持たせる
@@ -349,7 +347,6 @@ class BaseSubset:
         self.caption_tag_dropout_rate = caption_tag_dropout_rate
         self.caption_prefix = caption_prefix
         self.caption_suffix = caption_suffix
-
         self.token_warmup_min = token_warmup_min  # step=0におけるタグの数
         self.token_warmup_step = token_warmup_step  # N（N<1ならN*max_train_steps）ステップ目でタグの数が最大になる
         self.img_count = 0
@@ -519,9 +516,7 @@ class BaseDataset(torch.utils.data.Dataset):
         # width/height is used when enable_bucket==False
         self.width, self.height = (None, None) if resolution is None else resolution
         self.debug_dataset = debug_dataset
-
         self.subsets: List[Union[DreamBoothSubset, FineTuningSubset]] = []
-
         self.token_padding_disabled = False
         self.tag_frequency = {}
         self.XTI_layers = None
@@ -1034,14 +1029,16 @@ class BaseDataset(torch.utils.data.Dataset):
         trg_indexs_list = []
         mask_dirs = []
         for image_key in bucket[image_index : image_index + bucket_batch_size ]:
+            # self.image_data[info.image_key]
             # buckket_batch_size = batch_size
             image_info = self.image_data[image_key]
+            print(f'image_info : {image_info}')
             absolute_path = image_info.absolute_path
             absolute_paths.append(absolute_path)
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
-            mask_base_dir = self.image_data[train_mask_dir]
-            mask_dir = os.path.join(mask_base_dir, f'{name}_mask_binary.png')
+            #mask_base_dir = self.image_data[train_mask_dir]
+            mask_dir = image_info['train_mask_dir']
             mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
             np_img = np.array(mas_img.resize((512, 512)))
@@ -1404,7 +1401,6 @@ class DreamBoothDataset(BaseDataset):
                     print(missing_caption)
             return img_paths, captions, train_mask_dir
         print("prepare images.")
-
         num_train_images = 0
         num_reg_images = 0
         reg_infos: List[ImageInfo] = []
@@ -1413,11 +1409,9 @@ class DreamBoothDataset(BaseDataset):
                 print(
                     f"ignore subset with image_dir='{subset.image_dir}': num_repeats is less than 1 / num_repeatsが1を下回っているためサブセットを無視します: {subset.num_repeats}")
                 continue
-
             if subset in self.subsets:
                 print(f"ignore duplicated subset with image_dir='{subset.image_dir}': use the first one / 既にサブセットが登録されているため、重複した後発のサブセットを無視します")
                 continue
-
             img_paths, captions, train_mask_dir = load_dreambooth_dir(subset)
             if len(img_paths) < 1:
                 print(f"ignore subset with image_dir='{subset.image_dir}': no images found / 画像が見つからないためサブセットを無視します")
@@ -1426,7 +1420,6 @@ class DreamBoothDataset(BaseDataset):
                 num_reg_images += subset.num_repeats * len(img_paths)
             else:
                 num_train_images += subset.num_repeats * len(img_paths)
-
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
@@ -1441,17 +1434,13 @@ class DreamBoothDataset(BaseDataset):
                     reg_infos.append(info)
                 else:
                     self.register_image(info, subset)
-
             subset.img_count = len(img_paths)
             self.subsets.append(subset)
-
         print(f"{num_train_images} train images with repeating.")
         self.num_train_images = num_train_images
-
         print(f"{num_reg_images} reg images.")
         if num_train_images < num_reg_images:
             print("some of reg images are not used / 正則化画像の数が多いので、一部使用されない正則化画像があります")
-
         if num_reg_images == 0:
             print("no regularization images / 正則化画像が見つかりませんでした")
         else:
