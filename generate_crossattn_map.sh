@@ -1,21 +1,20 @@
 CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights './result/jungwoo_experience/jungwoo_3_base/jungwoo-000013.safetensors' \
+      --network_weights './result/jungwoo_experience/jungwoo_3_attn_loss_test_1/jungwoo-000018.safetensors' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo_inference.txt' \
-      --outdir 20231011_result/jungwoo_3_base/jw --seed 42 --trg_token 'jw'
-
-
-
-
+      --outdir 20231011_result/jungwoo_3_attn_loss_test_1/jw --seed 42 --trg_token 'jw'
 
 # ---------------------------------------------------------------------------------------------------------------------------------------
-CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
+CUDA_VISIBLE_DEVICES=3 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights './result/jungwoo_experience/jungwoo_3_blur_mask_10_mean/jungwoo-000015.safetensors' \
+      --network_weights './result/jungwoo_experience/jungwoo_3_attn_loss_test_2/jungwoo-000016.safetensors' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_jungwoo_inference.txt' \
-      --outdir 20231011_result/jungwoo_3_blur_mask_10_mean/jw --seed 42 --trg_token 'jw'
+      --outdir 20231011_result/jungwoo_3_attn_loss_test_2/jw --seed 42 --trg_token 'jw'
+# ---------------------------------------------------------------------------------------------------------------------------------------
+
+
 
 
 CUDA_VISIBLE_DEVICES=3 python generate_crossattn_map.py \

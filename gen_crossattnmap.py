@@ -2805,13 +2805,16 @@ def main(args):
                     # torch type heat map
                     #
                     heat_map = torch.stack(all_merges, dim=0)  # global_heat_map = [sen_len, 512,512]
+
+                    if heat_map.dim() == 3:
+                        heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
+                    print(f'layerwise heat map : {heat_map.shape}')
                     layer_name = layer_name.split('_')[:5]
                     a = '_'.join(layer_name)
                     np_heat_map = heat_map.cpu().numpy()
                     heat_map_dir = os.path.join(base_folder, f'attention_{a}.npy')
                     np.save(heat_map_dir, np_heat_map)
-                    if heat_map.dim() == 3:
-                        heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
+
                     img = image_overlay_heat_map(img=image, heat_map=heat_map)
                     attn_save_dir = os.path.join(base_folder, f'attention_{a}.jpg')
                     img.save(attn_save_dir)
