@@ -477,7 +477,9 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
   return DatasetGroup(datasets)
 
 
-def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] = None, reg_data_dir: Optional[str] = None):
+def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] = None,
+                                                  reg_data_dir: Optional[str] = None,
+                                                  train_mask_dir: Optional[str] = None,):
   def extract_dreambooth_params(name: str) -> Tuple[int, str]:
     tokens = name.split('_')
     try:
@@ -488,7 +490,8 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
     caption_by_folder = '_'.join(tokens[1:])
     return n_repeats, caption_by_folder
 
-  def generate(base_dir: Optional[str], is_reg: bool):
+  def generate(base_dir: Optional[str], is_reg: bool, is_mask:bool):
+
     if base_dir is None:
       return []
 
@@ -500,19 +503,22 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
     for subdir in base_dir.iterdir():
       if not subdir.is_dir():
         continue
-
       num_repeats, class_tokens = extract_dreambooth_params(subdir.name)
       if num_repeats < 1:
         continue
-
-      subset_config = {"image_dir": str(subdir), "num_repeats": num_repeats, "is_reg": is_reg, "class_tokens": class_tokens}
+      subset_config = {"image_dir": str(subdir),
+                       "num_repeats": num_repeats,
+                       "is_reg": is_reg,
+                       "class_tokens": class_tokens,
+                       "is_mask": is_mask}
       subsets_config.append(subset_config)
 
     return subsets_config
 
   subsets_config = []
-  subsets_config += generate(train_data_dir, False)
-  subsets_config += generate(reg_data_dir, True)
+  subsets_config += generate(train_data_dir, False, False)
+  subsets_config += generate(reg_data_dir, True, False)
+  subsets_config += generate(train_mask_dir, False, True)
 
   return subsets_config
 

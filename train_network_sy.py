@@ -124,11 +124,9 @@ class NetworkTrainer:
         self.is_sdxl = False
 
     # TODO 他のスクリプトと共通化する
-    def generate_step_logs(
-        self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler, keys_scaled=None, mean_norm=None, maximum_norm=None
-    ):
+    def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
+                           keys_scaled=None, mean_norm=None, maximum_norm=None):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
-
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
             logs["max_norm/average_key_norm"] = mean_norm
@@ -181,8 +179,7 @@ class NetworkTrainer:
         return False
 
     def cache_text_encoder_outputs_if_needed(
-        self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype
-    ):
+        self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype ):
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
@@ -233,44 +230,24 @@ class NetworkTrainer:
                 user_config = config_util.load_user_config(args.dataset_config)
                 ignored = ["train_data_dir", "reg_data_dir", "in_json"]
                 if any(getattr(args, attr) is not None for attr in ignored):
-                    print(
-                        "ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(
-                            ", ".join(ignored)
-                        )
-                    )
+                    print("ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(", ".join(ignored)))
             else:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
-                    user_config = {
-                        "datasets": [
-                            {
-                                "subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(
-                                    args.train_data_dir, args.reg_data_dir
-                                )
-                            }
-                        ]
-                    }
+                    user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir,
+                                                                                                                      args.reg_data_dir,
+                                                                                                                      args.train_mask_dir,)}]}
                 else:
                     print("Training with captions.")
-                    user_config = {
-                        "datasets": [
-                            {
-                                "subsets": [
-                                    {
-                                        "image_dir": args.train_data_dir,
-                                        "metadata_file": args.in_json,
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-
+                    user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,
+                                                              "metadata_file": args.in_json,
+                                                              "mask_dir": args.train_mask_dir,}]}]}
+            print(f'User config: {user_config}')
             blueprint = blueprint_generator.generate(user_config, args, tokenizer=tokenizer)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
-            # use arbitrary dataset class
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
-
+        """
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
@@ -875,6 +852,9 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         # -----------------------------------------------------------------------------------------------------------------------
+                        # sam USING
+                        # 여러 이미지에서의 동일한 feature 을 이용한 Mask
+                        #
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
@@ -1019,92 +999,53 @@ class NetworkTrainer:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
             print("model saved.")
-
-
-def setup_parser() -> argparse.ArgumentParser:
+    """
+        
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-
     train_util.add_sd_models_arguments(parser)
     train_util.add_dataset_arguments(parser, True, True, True)
     train_util.add_training_arguments(parser, True)
     train_util.add_optimizer_arguments(parser)
     config_util.add_config_arguments(parser)
     custom_train_functions.add_custom_train_arguments(parser)
-
-    parser.add_argument("--no_metadata", action="store_true", help="do not save metadata in output model / メタデータを出力先モデルに保存しない")
-    parser.add_argument(
-        "--save_model_as",
-        type=str,
-        default="safetensors",
-        choices=[None, "ckpt", "pt", "safetensors"],
-        help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）",
-    )
-
+    parser.add_argument("--no_metadata", action="store_true",
+                        help="do not save metadata in output model / メタデータを出力先モデルに保存しない")
+    parser.add_argument("--save_model_as", type=str, default="safetensors",
+                        choices=[None, "ckpt", "pt", "safetensors"],
+                        help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）", )
     parser.add_argument("--unet_lr", type=float, default=None, help="learning rate for U-Net / U-Netの学習率")
-    parser.add_argument("--text_encoder_lr", type=float, default=None, help="learning rate for Text Encoder / Text Encoderの学習率")
+    parser.add_argument("--text_encoder_lr", type=float, default=None,
+                        help="learning rate for Text Encoder / Text Encoderの学習率")
 
-    parser.add_argument("--network_weights", type=str, default=None, help="pretrained weights for network / 学習するネットワークの初期重み")
-    parser.add_argument("--network_module", type=str, default=None, help="network module to train / 学習対象のネットワークのモジュール")
-    parser.add_argument(
-        "--network_dim", type=int, default=None, help="network dimensions (depends on each network) / モジュールの次元数（ネットワークにより定義は異なります）"
-    )
-    parser.add_argument(
-        "--network_alpha",
-        type=float,
-        default=1,
-        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version) / LoRaの重み調整のalpha値、デフォルト1（旧バージョンと同じ動作をするにはnetwork_dimと同じ値を指定）",
-    )
-    parser.add_argument(
-        "--network_dropout",
-        type=float,
-        default=None,
-        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons) / 訓練時に毎ステップでニューロンをdropする（0またはNoneはdropoutなし、1は全ニューロンをdropout）",
-    )
-    parser.add_argument(
-        "--network_args", type=str, default=None, nargs="*", help="additional argmuments for network (key=value) / ネットワークへの追加の引数"
-    )
-    parser.add_argument("--network_train_unet_only", action="store_true", help="only training U-Net part / U-Net関連部分のみ学習する")
-    parser.add_argument(
-        "--network_train_text_encoder_only", action="store_true", help="only training Text Encoder part / Text Encoder関連部分のみ学習する"
-    )
-    parser.add_argument(
-        "--training_comment", type=str, default=None, help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列"
-    )
-    parser.add_argument(
-        "--dim_from_weights",
-        action="store_true",
-        help="automatically determine dim (rank) from network_weights / dim (rank)をnetwork_weightsで指定した重みから自動で決定する",
-    )
-    parser.add_argument(
-        "--scale_weight_norms",
-        type=float,
-        default=None,
-        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. (1 is a good starting point) / 重みの値をスケーリングして勾配爆発を防ぐ（1が初期値としては適当）",
-    )
-    parser.add_argument(
-        "--base_weights",
-        type=str,
-        default=None,
-        nargs="*",
-        help="network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みファイル",
-    )
-    parser.add_argument(
-        "--base_weights_multiplier",
-        type=float,
-        default=None,
-        nargs="*",
-        help="multiplier for network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みの倍率",
-    )
-    parser.add_argument(
-        "--no_half_vae",
-        action="store_true",
-        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",
-    )
-    return parser
-
-
-if __name__ == "__main__":
-    parser = setup_parser()
+    parser.add_argument("--network_weights", type=str, default=None,
+                        help="pretrained weights for network / 学習するネットワークの初期重み")
+    parser.add_argument("--network_module", type=str, default=None,
+                        help="network module to train / 学習対象のネットワークのモジュール")
+    parser.add_argument("--network_dim", type=int, default=None,
+                        help="network dimensions (depends on each network) / モジュールの次元数（ネットワークにより定義は異なります）")
+    parser.add_argument("--network_alpha",type=float,default=1,
+                        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version)",)
+    parser.add_argument("--network_dropout",type=float,default=None,
+                        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons)",)
+    parser.add_argument("--network_args", type=str, default=None, nargs="*",
+                        help="additional argmuments for network (key=value) / ネットワークへの追加の引数")
+    parser.add_argument("--network_train_unet_only", action="store_true",
+                        help="only training U-Net part / U-Net関連部分のみ学習する")
+    parser.add_argument("--network_train_text_encoder_only", action="store_true",
+                        help="only training Text Encoder part / Text Encoder関連部分のみ学習する")
+    parser.add_argument("--training_comment", type=str, default=None,
+                        help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列")
+    parser.add_argument("--dim_from_weights",action="store_true",
+                        help="automatically determine dim (rank) from network_weights / dim (rank)をnetwork_weightsで指定した重みから自動で決定する",)
+    parser.add_argument("--scale_weight_norms",type=float,default=None,
+                        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. ",)
+    parser.add_argument("--base_weights",type=str,default=None,nargs="*",
+                        help="network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みファイル",)
+    parser.add_argument("--base_weights_multiplier",type=float,default=None,nargs="*",
+                        help="multiplier for network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みの倍率",)
+    parser.add_argument("--no_half_vae",action="store_true",
+                        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_key", type=str)
