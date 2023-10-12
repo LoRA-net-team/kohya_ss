@@ -45,6 +45,7 @@ class BaseSubsetParams:
   caption_tag_dropout_rate: float = 0.0
   token_warmup_min: int = 1
   token_warmup_step: float = 0
+  train_mask_dir: Optional[str] = None
 
 @dataclass
 class DreamBoothSubsetParams(BaseSubsetParams):
