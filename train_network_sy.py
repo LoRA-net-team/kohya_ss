@@ -519,15 +519,12 @@ class NetworkTrainer:
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
-
         accelerator.print("running training / 学習開始")
         accelerator.print(f"  num train images * repeats / 学習画像の数×繰り返し回数: {train_dataset_group.num_train_images}")
         accelerator.print(f"  num reg images / 正則化画像の数: {train_dataset_group.num_reg_images}")
         accelerator.print(f"  num batches per epoch / 1epochのバッチ数: {len(train_dataloader)}")
         accelerator.print(f"  num epochs / epoch数: {num_train_epochs}")
-        accelerator.print(
-            f"  batch size per device / バッチサイズ: {', '.join([str(d.batch_size) for d in train_dataset_group.datasets])}"
-        )
+        accelerator.print(f"  batch size per device / バッチサイズ: {', '.join([str(d.batch_size) for d in train_dataset_group.datasets])}")
         # accelerator.print(f"  total train batch size (with parallel & distributed & accumulation) / 総バッチサイズ（並列学習、勾配合計含む）: {total_batch_size}")
         accelerator.print(f"  gradient accumulation steps / 勾配を合計するステップ数 = {args.gradient_accumulation_steps}")
         accelerator.print(f"  total optimization steps / 学習ステップ数: {args.max_train_steps}")
@@ -676,14 +673,13 @@ class NetworkTrainer:
             if use_dreambooth_method:
                 for subset in dataset.subsets:
                     info = reg_dataset_dirs_info if subset.is_reg else dataset_dirs_info
-                    info[os.path.basename(subset.image_dir)] = {"n_repeats": subset.num_repeats, "img_count": subset.img_count}
+                    info[os.path.basename(subset.image_dir)] = {"n_repeats": subset.num_repeats,
+                                                                "img_count": subset.img_count}
             else:
                 for subset in dataset.subsets:
                     dataset_dirs_info[os.path.basename(subset.metadata_file)] = {
                         "n_repeats": subset.num_repeats,
-                        "img_count": subset.img_count,
-                    }
-
+                        "img_count": subset.img_count,}
             metadata.update(
                 {
                     "ss_batch_size_per_device": args.train_batch_size,
@@ -701,9 +697,7 @@ class NetworkTrainer:
                     "ss_dataset_dirs": json.dumps(dataset_dirs_info),
                     "ss_reg_dataset_dirs": json.dumps(reg_dataset_dirs_info),
                     "ss_tag_frequency": json.dumps(dataset.tag_frequency),
-                    "ss_bucket_info": json.dumps(dataset.bucket_info),
-                }
-            )
+                    "ss_bucket_info": json.dumps(dataset.bucket_info),})
 
         # add extra args
         if args.network_args:
@@ -717,7 +711,6 @@ class NetworkTrainer:
                 metadata["ss_new_sd_model_hash"] = train_util.calculate_sha256(sd_model_name)
                 sd_model_name = os.path.basename(sd_model_name)
             metadata["ss_sd_model_name"] = sd_model_name
-
         if args.vae is not None:
             vae_name = args.vae
             if os.path.exists(vae_name):
@@ -725,25 +718,20 @@ class NetworkTrainer:
                 metadata["ss_new_vae_hash"] = train_util.calculate_sha256(vae_name)
                 vae_name = os.path.basename(vae_name)
             metadata["ss_vae_name"] = vae_name
-
         metadata = {k: str(v) for k, v in metadata.items()}
-
         # make minimum metadata for filtering
         minimum_metadata = {}
         for key in train_util.SS_METADATA_MINIMUM_KEYS:
             if key in metadata:
                 minimum_metadata[key] = metadata[key]
-
         progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
         global_step = 0
-
         noise_scheduler = DDPMScheduler(
             beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
         )
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
-
         if accelerator.is_main_process:
             init_kwargs = {}
             if args.log_tracker_config is not None:
@@ -755,7 +743,6 @@ class NetworkTrainer:
         loss_list = []
         loss_total = 0.0
         del train_dataset_group
-
         # callback for step start
         if hasattr(network, "on_step_start"):
             on_step_start = network.on_step_start
@@ -796,6 +783,12 @@ class NetworkTrainer:
             network.on_epoch_start(text_encoder, unet)
 
             for step, batch in enumerate(train_dataloader):
+                batch_attribute = batch.__dict__
+
+                # batch
+                #
+
+    """            
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -981,6 +974,7 @@ class NetworkTrainer:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
             print("model saved.")
+    """
 
 
 if __name__ == "__main__":

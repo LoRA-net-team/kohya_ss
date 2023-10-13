@@ -1032,7 +1032,11 @@ class BaseDataset(torch.utils.data.Dataset):
             # self.image_data[info.image_key]
             # buckket_batch_size = batch_size
             image_info = self.image_data[image_key]
+            image_info_attrs = image_info.__dict__
             print(f'image_info : {image_info}')
+            print(f'image_info_attrs : {image_info_attrs}')
+
+
             absolute_path = image_info.absolute_path
             absolute_paths.append(absolute_path)
             parent, dir = os.path.split(absolute_path)
