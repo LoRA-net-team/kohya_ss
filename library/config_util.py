@@ -46,6 +46,7 @@ class BaseSubsetParams:
   token_warmup_min: int = 1
   token_warmup_step: float = 0
   train_mask_dir: Optional[str] = None
+  trg_concept: Optional[str] = None
 
 @dataclass
 class DreamBoothSubsetParams(BaseSubsetParams):
@@ -384,7 +385,7 @@ class BlueprintGenerator:
     default_params = asdict(param_klass())
     param_names = default_params.keys()
     params = {name: search_value(name_map.get(name, name), fallbacks, default_params.get(name)) for name in param_names}
-    print(f' in benerate parmas, params : {params}')
+    print(f' in generate parmas, params : {params}')
     return param_klass(**params)
 
   @staticmethod
