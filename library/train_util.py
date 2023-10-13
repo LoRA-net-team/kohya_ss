@@ -105,8 +105,10 @@ TEXT_ENCODER_OUTPUTS_CACHE_SUFFIX = "_te_outputs.npz"
 
 
 class ImageInfo:
-    def __init__(self, image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str,
-                 mask_dir:str, trg_concept:str) -> None:
+    def __init__(self,
+                 image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str,
+                 mask_dir:str,
+                 trg_concept:str) -> None:
         self.image_key: str = image_key
         self.num_repeats: int = num_repeats
         self.caption: str = caption
@@ -1431,7 +1433,8 @@ class DreamBoothDataset(BaseDataset):
                                  caption,
                                  subset.is_reg,
                                  img_path,
-                                 mask_path)
+                                 mask_path,
+                                 subset.trg_concept)
                 if subset.is_reg:
                     reg_infos.append(info)
                 else:
