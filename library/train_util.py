@@ -105,7 +105,8 @@ TEXT_ENCODER_OUTPUTS_CACHE_SUFFIX = "_te_outputs.npz"
 
 
 class ImageInfo:
-    def __init__(self, image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str, mask_dir:str) -> None:
+    def __init__(self, image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str,
+                 mask_dir:str, trg_concept:str) -> None:
         self.image_key: str = image_key
         self.num_repeats: int = num_repeats
         self.caption: str = caption
@@ -127,6 +128,7 @@ class ImageInfo:
         self.text_encoder_outputs2: Optional[torch.Tensor] = None
         self.text_encoder_pool2: Optional[torch.Tensor] = None
         self.mask_dir: str = mask_dir
+        self.trg_concept: str = trg_concept
 
 
 class BucketManager:
@@ -1040,7 +1042,7 @@ class BaseDataset(torch.utils.data.Dataset):
             np_img = np.array(mas_img.resize((512, 512)))
             torch_img = torch.from_numpy(np_img)
             mask_img = torch.where(torch_img == 0, 0, 1)
-            trg_concept = 'jw'
+            trg_concept = image_info.trg_concept
             trg_concepts.append(trg_concept)
             mask_imgs.append(mask_img)
 
