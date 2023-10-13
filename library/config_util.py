@@ -354,7 +354,7 @@ class BlueprintGenerator:
       subset_blueprints = []
 
       for subset_config in subsets:
-        subset_config['train_mask_dir'] = argparse_namespace.train_mask_dir
+        subset_config['mask_dir'] = argparse_namespace.train_mask_dir
         #print(f' ** subset_config : {subset_config}')
         params = self.generate_params_by_fallbacks(subset_params_klass,
                                                    [subset_config, # subset_config
@@ -367,8 +367,10 @@ class BlueprintGenerator:
 
       params = self.generate_params_by_fallbacks(dataset_params_klass,
                                                  [dataset_config, general_config, argparse_config, runtime_params])
-      dataset_blueprints.append(DatasetBlueprint(is_dreambooth, is_controlnet, params, subset_blueprints))
-
+      dataset_blueprints.append(DatasetBlueprint(is_dreambooth,
+                                                 is_controlnet,
+                                                 params,
+                                                 subset_blueprints))
     dataset_group_blueprint = DatasetGroupBlueprint(dataset_blueprints)
     return Blueprint(dataset_group_blueprint)
 
@@ -414,9 +416,9 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
     is_dreambooth = isinstance(dataset, DreamBoothDataset)
     is_controlnet = isinstance(dataset, ControlNetDataset)
     info += dedent(f"""[Dataset {i}]
-        batch_size: {dataset.batch_size}
-        resolution: {(dataset.width, dataset.height)}
-        enable_bucket: {dataset.enable_bucket}""")
+                  batch_size: {dataset.batch_size}
+                  resolution: {(dataset.width, dataset.height)}
+                  enable_bucket: {dataset.enable_bucket}""")
     if dataset.enable_bucket:
       info += indent(dedent(f"""\
         min_bucket_reso: {dataset.min_bucket_reso}
@@ -445,7 +447,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           random_crop: {subset.random_crop}
           token_warmup_min: {subset.token_warmup_min},
           token_warmup_step: {subset.token_warmup_step},
-          train_mask_dir: "{subset.train_mask_dir}"
+          mask_dir: "{subset.mask_dir}"
       """), "  ")
       if is_dreambooth:
         info += indent(dedent(f"""\
@@ -460,6 +462,8 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
   for i, dataset in enumerate(datasets):
     print(f"[Dataset {i}]")
     dataset.make_buckets()
+    # what is make_buckets function ?
+    # datasets = list of dataset
     dataset.set_seed(seed)
   return DatasetGroup(datasets)
 

@@ -246,31 +246,28 @@ class NetworkTrainer:
             blueprint = blueprint_generator.generate(user_config,
                                                      args,
                                                      tokenizer=tokenizer)
-
-
+            # blueprint = Blueprint(dataset_group_blueprint)
+            # generate_dataset_group_by_blueprint ?
+            # train_dataset_group = DatasetGroup(datasets)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
-
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
         collater = train_util.collater_class(current_epoch, current_step, ds_for_collater)
-
         if args.debug_dataset:
             train_util.debug_dataset(train_dataset_group)
             return
         if len(train_dataset_group) == 0:
             print(
-                "No data found. Please verify arguments (train_data_dir must be the parent of folders with images) / 画像がありません。引数指定を確認してください（train_data_dirには画像があるフォルダではなく、画像があるフォルダの親フォルダを指定する必要があります）"
-            )
+                "No data found. Please verify arguments (train_data_dir must be the parent of folders with images) ）")
             return
 
         if cache_latents:
             assert (
                 train_dataset_group.is_latent_cacheable()
             ), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
-
         self.assert_extra_args(args, train_dataset_group)
 
         # acceleratorを準備する
@@ -312,14 +309,10 @@ class NetworkTrainer:
                     multiplier = 1.0
                 else:
                     multiplier = args.base_weights_multiplier[i]
-
                 accelerator.print(f"merging module: {weight_path} with multiplier {multiplier}")
-
                 module, weights_sd = network_module.create_network_from_weights(
-                    multiplier, weight_path, vae, text_encoder, unet, for_inference=True
-                )
+                    multiplier, weight_path, vae, text_encoder, unet, for_inference=True             )
                 module.merge_to(text_encoder, unet, weights_sd, weight_dtype, accelerator.device if args.lowram else "cpu")
-
             accelerator.print(f"all weights merged: {', '.join(args.base_weights)}")
 
         # 学習を準備する
@@ -333,13 +326,11 @@ class NetworkTrainer:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
-
             accelerator.wait_for_everyone()
 
         # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
         self.cache_text_encoder_outputs_if_needed(
-            args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype
-        )
+            args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype        )
 
         # prepare network
         net_kwargs = {}
@@ -347,7 +338,6 @@ class NetworkTrainer:
             for net_arg in args.network_args:
                 key, value = net_arg.split("=")
                 net_kwargs[key] = value
-
         # if a new network is added in future, add if ~ then blocks for each network (;'∀')
         if args.dim_from_weights:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
@@ -379,17 +369,14 @@ class NetworkTrainer:
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
-
         if args.gradient_checkpointing:
             unet.enable_gradient_checkpointing()
             for t_enc in text_encoders:
                 t_enc.gradient_checkpointing_enable()
             del t_enc
             network.enable_gradient_checkpointing()  # may have no effect
-
         # 学習に必要なクラスを準備する
         accelerator.print("prepare optimizer, data loader etc.")
-
         # 後方互換性を確保するよ
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
@@ -404,15 +391,13 @@ class NetworkTrainer:
         # dataloaderを準備する
         # DataLoaderのプロセス数：0はメインプロセスになる
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset_group,
             batch_size=1,
             shuffle=True,
             collate_fn=collater,
             num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers,
-        )
+            persistent_workers=args.persistent_data_loader_workers,)
 
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
@@ -617,6 +602,7 @@ class NetworkTrainer:
                     "max_bucket_reso": dataset.max_bucket_reso,
                     "tag_frequency": dataset.tag_frequency,
                     "bucket_info": dataset.bucket_info,
+
                 }
 
                 subsets_metadata = []
@@ -682,12 +668,9 @@ class NetworkTrainer:
             metadata["ss_dataset_dirs"] = json.dumps(dataset_dirs_info)
         else:
             # conserving backward compatibility when using train_dataset_dir and reg_dataset_dir
-            assert (
-                len(train_dataset_group.datasets) == 1
+            assert (len(train_dataset_group.datasets) == 1
             ), f"There should be a single dataset but {len(train_dataset_group.datasets)} found. This seems to be a bug. / データセットは1個だけ存在するはずですが、実際には{len(train_dataset_group.datasets)}個でした。プログラムのバグかもしれません。"
-
             dataset = train_dataset_group.datasets[0]
-
             dataset_dirs_info = {}
             reg_dataset_dirs_info = {}
             if use_dreambooth_method:
@@ -955,21 +938,16 @@ class NetworkTrainer:
                 avr_loss = loss_total / len(loss_list)
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 progress_bar.set_postfix(**logs)
-
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
-
                 if args.logging_dir is not None:
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm)
                     accelerator.log(logs, step=global_step)
-
                 if global_step >= args.max_train_steps:
                     break
-
             if args.logging_dir is not None:
                 logs = {"loss/epoch": loss_total / len(loss_list)}
                 accelerator.log(logs, step=epoch + 1)
-
             accelerator.wait_for_everyone()
 
             # 指定エポックごとにモデルを保存
