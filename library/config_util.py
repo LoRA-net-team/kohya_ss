@@ -356,6 +356,7 @@ class BlueprintGenerator:
       for subset_config in subsets:
         subset_config['mask_dir'] = argparse_namespace.train_mask_dir
         subset_config['trg_concept'] = argparse_namespace.trg_concept
+        print(f'argparse_namespace.trg_concept : {argparse_namespace.trg_concept}')
         #print(f' ** subset_config : {subset_config}')
         params = self.generate_params_by_fallbacks(subset_params_klass,
                                                    [subset_config, # subset_config
@@ -376,12 +377,14 @@ class BlueprintGenerator:
     return Blueprint(dataset_group_blueprint)
 
   @staticmethod
-  def generate_params_by_fallbacks(param_klass, fallbacks: Sequence[dict]):
+  def generate_params_by_fallbacks(param_klass,
+                                   fallbacks: Sequence[dict]):
     name_map = BlueprintGenerator.BLUEPRINT_PARAM_NAME_TO_CONFIG_OPTNAME
     search_value = BlueprintGenerator.search_value
     default_params = asdict(param_klass())
     param_names = default_params.keys()
     params = {name: search_value(name_map.get(name, name), fallbacks, default_params.get(name)) for name in param_names}
+    print(f' in benerate parmas, params : {params}')
     return param_klass(**params)
 
   @staticmethod
