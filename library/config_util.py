@@ -447,7 +447,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           random_crop: {subset.random_crop}
           token_warmup_min: {subset.token_warmup_min},
           token_warmup_step: {subset.token_warmup_step},
-          mask_dir: "{subset.mask_dir}"
+          mask_dir: "{subset.train_mask_dir}"
       """), "  ")
       if is_dreambooth:
         info += indent(dedent(f"""\
