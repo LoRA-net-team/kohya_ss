@@ -11,6 +11,7 @@ from multiprocessing import Value
 import toml
 from tqdm import tqdm
 import torch
+from setproctitle import *
 try:
     import intel_extension_for_pytorch as ipex
     if torch.xpu.is_available():
@@ -205,6 +206,11 @@ class NetworkTrainer:
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet)
 
     def train(self, args):
+        if args.process_title :
+            setproctitle(args.process_title)
+        else :
+            setproctitle('parksooyeon')
+
         session_id = random.randint(0, 2**32)
         training_started_at = time.time()
         train_util.verify_training_args(args)
@@ -1027,6 +1033,8 @@ if __name__ == "__main__":
     parser.add_argument("--test_1", action='store_true')
     parser.add_argument("--test_2", action='store_true')
     parser.add_argument("--train_mask_dir", type=str)
+    parser.add_argument("--process_title", type=str, default='parksooyeon')
+
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
