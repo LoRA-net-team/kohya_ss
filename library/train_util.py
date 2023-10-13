@@ -1029,20 +1029,11 @@ class BaseDataset(torch.utils.data.Dataset):
         trg_indexs_list = []
         mask_dirs = []
         for image_key in bucket[image_index : image_index + bucket_batch_size ]:
-            # self.image_data[info.image_key]
-            # buckket_batch_size = batch_size
             image_info = self.image_data[image_key]
-            image_info_attrs = image_info.__dict__
-            print(f'image_info : {image_info}')
-            print(f'image_info_attrs : {image_info_attrs}')
-
-
             absolute_path = image_info.absolute_path
             absolute_paths.append(absolute_path)
             parent, dir = os.path.split(absolute_path)
             name, ext = os.path.splitext(dir)
-            #mask_base_dir = self.image_data[train_mask_dir]
-            #mask_dir = image_info['mask_dir']
             mask_dir = image_info.mask_dir
             mask_dirs.append(mask_dir)
             mas_img = Image.open(mask_dir)
