@@ -783,12 +783,6 @@ class NetworkTrainer:
             network.on_epoch_start(text_encoder, unet)
 
             for step, batch in enumerate(train_dataloader):
-                batch_attribute = batch.__dict__
-
-                # batch
-                #
-
-    """            
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -974,7 +968,6 @@ class NetworkTrainer:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
             print("model saved.")
-    """
 
 
 if __name__ == "__main__":
