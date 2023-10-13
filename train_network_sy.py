@@ -1033,7 +1033,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_1", action='store_true')
     parser.add_argument("--test_2", action='store_true')
     parser.add_argument("--train_mask_dir", type=str)
-    parser.add_argument("--process_title", type=str, default='parksooyeon')
+    parser.add_argument("--process_title", type=str,  default='parksooyeon')
 
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
