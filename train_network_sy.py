@@ -839,6 +839,7 @@ class NetworkTrainer:
                                                     weight_dtype,
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
+                        print(f'in call unet, batch["trg_indexs_list"] : {batch["trg_indexs_list"]}')
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
 
