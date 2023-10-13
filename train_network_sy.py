@@ -1016,7 +1016,7 @@ if __name__ == "__main__":
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_key", type=str)
-    parser.add_argument("--trg_token", type=str, default='haibara')
+    parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--test_1", action='store_true')
