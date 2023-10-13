@@ -78,14 +78,12 @@ def register_attention_control(unet : nn.Module, controller):
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
                                                            size=((512, 512)),mode='bicubic').squeeze()
-
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                            #masked_heat_map = word_heat_map_ * mask_
-
-                            #attn_loss = F.mse_loss(word_heat_map_, masked_heat_map)
-                            #controller.store(attn_loss, layer_name)
+                            masked_heat_map = word_heat_map_ * mask_
+                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                            controller.store(attn_loss, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -132,9 +130,7 @@ class NetworkTrainer:
             logs["max_norm/keys_scaled"] = keys_scaled
             logs["max_norm/average_key_norm"] = mean_norm
             logs["max_norm/max_key_norm"] = maximum_norm
-
         lrs = lr_scheduler.get_last_lr()
-
         if args.network_train_text_encoder_only or len(lrs) <= 2:  # not block lr (or single block)
             if args.network_train_unet_only:
                 logs["lr/unet"] = float(lrs[0])
@@ -879,16 +875,7 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
-                            a = sum(atten_collection[layer_name])
-                            #if args.test_1:
-                            #    if 'down_blocks_0_attentions_1' in layer_name or 'up_blocks_3_attentions_0' in layer_name :
-                            #        a = a * 1000
-                            #    elif 'up_blocks_2_attentions_0' in layer_name or 'up_blocks_2_attentions_1' in layer_name :
-                            #        a = a * 100
-                            #    else :
-                            #        a = a
-                            #print(f'{layer_name} : attn_loss : {a}')
-                            attn_loss = attn_loss + a
+                            attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:

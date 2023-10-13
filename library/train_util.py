@@ -1151,7 +1151,6 @@ class BaseDataset(torch.utils.data.Dataset):
                     input_ids_list.append(token_caption)
                     # token_caption
                     #------------------------------------------------------------------------------------------
-
                     def generate_text_embedding(caption, tokenizer):
                         cls_token = 49406
                         pad_token = 49407
@@ -1180,11 +1179,8 @@ class BaseDataset(torch.utils.data.Dataset):
                                 if id in trg_token_id:
                                     trg_indexs.append(i)
                         return trg_indexs
-
                     trg_indexs = generate_text_embedding(caption, self.tokenizers[0])
                     trg_indexs_list.append(trg_indexs)
-
-
                     #------------------------------------------------------------------------------------------
                     if len(self.tokenizers) > 1:
                         if self.XTI_layers:
