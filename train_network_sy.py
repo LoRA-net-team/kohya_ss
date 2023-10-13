@@ -884,7 +884,6 @@ class NetworkTrainer:
                             #        a = a
                             #print(f'{layer_name} : attn_loss : {a}')
                             attn_loss = attn_loss + a
-                        print(f'attn loss total : {args.attn_loss_ratio * attn_loss}')
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
