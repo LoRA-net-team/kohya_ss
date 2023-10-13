@@ -329,9 +329,6 @@ class BlueprintGenerator:
     sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
     print(f'sanitized_user_config : {sanitized_user_config}')
     sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
-
-
-
     optname_map = self.sanitizer.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME
     argparse_config = {optname_map.get(optname, optname): value for optname, value in vars(sanitized_argparse_namespace).items()}
 
@@ -357,8 +354,6 @@ class BlueprintGenerator:
       for subset_config in subsets:
         subset_config['mask_dir'] = argparse_namespace.train_mask_dir
         subset_config['trg_concept'] = argparse_namespace.trg_concept
-        print(f'argparse_namespace.trg_concept : {argparse_namespace.trg_concept}')
-        #print(f' ** subset_config : {subset_config}')
         params = self.generate_params_by_fallbacks(subset_params_klass,
                                                    [subset_config, # subset_config
                                                     dataset_config,
@@ -373,7 +368,7 @@ class BlueprintGenerator:
       dataset_blueprints.append(DatasetBlueprint(is_dreambooth,
                                                  is_controlnet,
                                                  params,
-                                                 subset_blueprints))
+                                                 subset_blueprints)) # trg_concept
     dataset_group_blueprint = DatasetGroupBlueprint(dataset_blueprints)
     return Blueprint(dataset_group_blueprint)
 
@@ -412,6 +407,10 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
       dataset_klass = FineTuningDataset
     # ------------------------------------------------------------------------------------------------------------------
     # DreamBoothSubset(dataset_group_blueprint.params)
+
+
+
+
     subsets = [subset_klass(**asdict(subset_blueprint.params)) for subset_blueprint in dataset_blueprint.subsets]
     dataset = dataset_klass(subsets=subsets,
                             **asdict(dataset_blueprint.params))
