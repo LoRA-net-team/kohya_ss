@@ -868,29 +868,27 @@ class NetworkTrainer:
                         attn_loss = 0
                         for layer_name in layer_names:
                             a = sum(atten_collection[layer_name])
-                            if args.test_1:
-                                if 'down_blocks_0_attentions_1' in layer_name or 'up_blocks_3_attentions_0' in layer_name :
-                                    a = a * 1000
-                                elif 'up_blocks_2_attentions_0' in layer_name or 'up_blocks_2_attentions_1' in layer_name :
-                                    a = a * 100
-                                else :
-                                    a = a
+                            #if args.test_1:
+                            #    if 'down_blocks_0_attentions_1' in layer_name or 'up_blocks_3_attentions_0' in layer_name :
+                            #        a = a * 1000
+                            #    elif 'up_blocks_2_attentions_0' in layer_name or 'up_blocks_2_attentions_1' in layer_name :
+                            #        a = a * 100
+                            #    else :
+                            #        a = a
                             #print(f'{layer_name} : attn_loss : {a}')
                             attn_loss = attn_loss + a
+                        print(f'attn loss total : {args.attn_loss_ratio * attn_loss}')
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
-
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(
-                        args.scale_weight_norms, accelerator.device
-                    )
+                        args.scale_weight_norms, accelerator.device)
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm }
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
