@@ -990,7 +990,7 @@ class NetworkTrainer:
                                                                                     reduction="none")
                                         compare_loss = compare_loss.mean()
                                         attn_compare_loss = attn_compare_loss + compare_loss
-                        loss = loss + attn_compare_loss
+                        loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1131,6 +1131,7 @@ if __name__ == "__main__":
     parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
+    parser.add_argument("--preserve_loss_ratio", type=float, default=1.0)
     parser.add_argument("--test_1", action='store_true')
     parser.add_argument("--test_2", action='store_true')
     parser.add_argument("--train_mask_dir", type=str)
