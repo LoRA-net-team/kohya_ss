@@ -18,7 +18,6 @@ from .hook import ObjectHooker, AggregateHooker, UNetCrossAttentionLocator
 
 __all__ = ['trace', 'DiffusionHeatMapHooker', 'GlobalHeatMap']
 
-
 class DiffusionHeatMapHooker(AggregateHooker):
     def __init__(
             self,

@@ -112,6 +112,7 @@ class ParsedHeatMap:
 
 
 class GlobalHeatMap:
+
     def __init__(self, tokenizer: Any, prompt: str, heat_maps: torch.Tensor):
         self.tokenizer = tokenizer
         self.heat_maps = heat_maps

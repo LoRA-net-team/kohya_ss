@@ -118,6 +118,7 @@ def arg_as_list(s):
 
 
 class NetworkTrainer:
+
     def __init__(self):
         self.vae_scale_factor = 0.18215
         self.is_sdxl = False
@@ -833,18 +834,20 @@ class NetworkTrainer:
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        from daam import trace
-                        with trace(unet) as tc:
-                            noise_pred = self.call_unet(args,
-                                                        accelerator,
-                                                        unet,
-                                                        noisy_latents,
-                                                        timesteps,
-                                                        text_encoder_conds,
-                                                        batch,
-                                                        weight_dtype,
-                                                        batch["trg_indexs_list"],
-                                                        batch['mask_imgs'])
+                        # -----------------------------------------------------------------------------------------------------------------------
+                        # sam USING
+                        # 여러 이미지에서의 동일한 feature 을 이용한 Mask
+                        #
+                        noise_pred = self.call_unet(args,
+                                                    accelerator,
+                                                    unet,
+                                                    noisy_latents,
+                                                    timesteps,
+                                                    text_encoder_conds,
+                                                    batch,
+                                                    weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    batch['mask_imgs'])
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
 
