@@ -370,7 +370,6 @@ class NetworkTrainer:
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
 
         # モデルを読み込む
-        _, te_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
 
         # text_encoder is List[CLIPTextModel] or CLIPTextModel
@@ -412,12 +411,7 @@ class NetworkTrainer:
             gc.collect()
             accelerator.wait_for_everyone()
 
-        te_org.requires_grad_(False)
-        te_org.eval()
-        vae_org.requires_grad_(False)
-        vae_org.eval()
-        unet_org.requires_grad_(False)
-        unet_org.eval()
+
 
         # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
         self.cache_text_encoder_outputs_if_needed(
@@ -558,7 +552,7 @@ class NetworkTrainer:
             network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                 network, optimizer, train_dataloader, lr_scheduler
             )
-        te_org, unet_org, vae_org = accelerator.prepare(te_org, unet_org, vae_org)
+
         # transform DDP after prepare (train_network here only)
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
@@ -933,7 +927,6 @@ class NetworkTrainer:
 
                         class_noise_pred = self.call_unet(args,
                                                     accelerator,
-                                                    #unet_org,
                                                     unet,
                                                     noisy_latents,
                                                     timesteps,
