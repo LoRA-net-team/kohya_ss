@@ -1148,7 +1148,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         caption_layer.append(caption_)
                     captions.append(caption_layer)
                 else:
-                    class_captions.apped(class_caption)
+                    class_captions.append(class_caption)
                     captions.append(caption)
 
                 if not self.token_padding_disabled:  # this option might be omitted in future
