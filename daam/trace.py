@@ -80,19 +80,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
 
     def compute_global_heat_map(self, prompt=None, factors=None, head_idx=None, layer_idx=None, normalize=False):
         # type: (str, List[float], int, int, bool) -> GlobalHeatMap
-        """
-        Compute the global heat map for the given prompt, aggregating across time (inference steps) and space (different
-        spatial transformer block heat maps).
 
-        Args:
-            prompt: The prompt to compute the heat map for. If none, uses the last prompt that was used for generation.
-            factors: Restrict the application to heat maps with spatial factors in this set. If `None`, use all sizes.
-            head_idx: Restrict the application to heat maps with this head index. If `None`, use all heads.
-            layer_idx: Restrict the application to heat maps with this layer index. If `None`, use all layers.
-
-        Returns:
-            A heat map object for computing word-level heat maps.
-        """
         heat_maps = self.all_heat_maps
 
         if prompt is None:
@@ -286,5 +274,6 @@ class UNetCrossAttentionHooker(ObjectHooker[AttentionBlock]):
     def num_heat_maps(self):
         return len(next(iter(self.heat_maps.values())))
 
+#trace: Type[DiffusionHeatMapHooker] = DiffusionHeatMapHooker
 
-trace: Type[DiffusionHeatMapHooker] = DiffusionHeatMapHooker
+trace: Type[UNetCrossAttentionHooker] = UNetCrossAttentionHooker
