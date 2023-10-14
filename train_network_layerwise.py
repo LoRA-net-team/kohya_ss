@@ -111,6 +111,83 @@ def register_attention_control(unet : nn.Module, controller):
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
 
+
+def register_attention_control_org(unet : nn.Module, controller):
+    """
+    Register cross attention layers to controller.
+    """
+    def ca_forward(self, layer_name):
+
+        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
+            is_cross_attention = False
+            if context is not None:
+                is_cross_attention = True
+            query = self.to_q(hidden_states)
+            context = context if context is not None else hidden_states
+            key = self.to_k(context)
+            value = self.to_v(context)
+
+            query = self.reshape_heads_to_batch_dim(query)
+            key = self.reshape_heads_to_batch_dim(key)
+            value = self.reshape_heads_to_batch_dim(value)
+            if self.upcast_attention:
+                query = query.float()
+                key = key.float()
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
+                                                         device=query.device),
+                                             query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
+            attention_probs = attention_scores.softmax(dim=-1)
+            attention_probs = attention_probs.to(value.dtype)
+
+            if is_cross_attention:
+                if trg_indexs_list is not None:
+                    trg_indexs = trg_indexs_list
+                    batch_num = len(trg_indexs)
+                    attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
+                    for batch_idx, attention_prob in enumerate(attention_probs_batch) :
+                        batch_trg_index = trg_indexs[batch_idx] # two times
+                        head_num = attention_prob.shape[0]
+                        res = int(math.sqrt(attention_prob.shape[1]))
+                        for word_idx in batch_trg_index :
+                            # head, pix_len
+                            word_heat_map = attention_prob[:, :, word_idx]
+                            word_heat_map_ = word_heat_map.reshape(-1, res, res)
+                            word_heat_map_ = word_heat_map_.mean(dim=0)
+                            word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
+                                                           size=((512, 512)),mode='bicubic').squeeze()
+                            # ------------------------------------------------------------------------------------------------------------------------------
+                            # mask = [512,512]
+                            mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                            masked_heat_map = word_heat_map_ * mask_
+                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                            controller.store(attn_loss, layer_name)
+
+            hidden_states = torch.bmm(attention_probs, value)
+            hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
+            hidden_states = self.to_out[0](hidden_states)
+            return hidden_states
+        return forward
+
+    def register_recr(net_, count, layer_name):
+        if net_.__class__.__name__ == 'CrossAttention':
+            net_.forward = ca_forward(net_, layer_name)
+            return count + 1
+        elif hasattr(net_, 'children'):
+            for name__, net__ in net_.named_children():
+                full_name = f'{layer_name}_{name__}'
+                count = register_recr(net__, count, full_name)
+        return count
+
+    cross_att_count = 0
+    for net in unet.named_children():
+        if "down" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "up" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "mid" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+    controller.num_att_layers = cross_att_count
+
 def arg_as_list(s):
     import ast
     v = ast.literal_eval(s)
@@ -187,6 +264,14 @@ class NetworkTrainer:
         encoder_hidden_states = train_util.get_hidden_states(args,
                                                              input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         return encoder_hidden_states
+
+    def class_get_text_cond(self, args, accelerator, batch, tokenizers, text_encoder_org, weight_dtype):
+        class_input_ids = batch["class_input_ids"].to(accelerator.device)
+        class_encoder_hidden_states = train_util.get_hidden_states(args,
+                                                             class_input_ids,
+                                                             tokenizers[0],
+                                                             text_encoder_org, weight_dtype)
+        return class_encoder_hidden_states
 
     def call_unet(self,
                   args, accelerator, unet,
@@ -528,6 +613,9 @@ class NetworkTrainer:
         attention_storer = AttentionStore()
         register_attention_control(unet, attention_storer)
 
+        attention_storer_org = AttentionStore()
+        register_attention_control_org(unet_org, attention_storer_org)
+
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -801,14 +889,12 @@ class NetworkTrainer:
                         else:
                             # latentに変換
                             latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
-
                             # NaNが含まれていれば警告を表示し0に置き換える
                             if torch.any(torch.isnan(latents)):
                                 accelerator.print("NaN found in latents, replacing with zeros")
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
@@ -824,22 +910,17 @@ class NetworkTrainer:
                             text_encoder_conds = self.get_text_cond(args, accelerator,
                                                                     batch, tokenizers,
                                                                     text_encoders, weight_dtype )
-
-
-
-
+                            class_text_encoder_conds = self.class_get_text_cond(args, accelerator,
+                                                                    batch, tokenizers,
+                                                                    te_org, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(
-                        args, noise_scheduler, latents
-                    )
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
+                                                                                                       noise_scheduler,
+                                                                                                       latents)
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        # -----------------------------------------------------------------------------------------------------------------------
-                        # sam USING
-                        # 여러 이미지에서의 동일한 feature 을 이용한 Mask
-                        #
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
@@ -852,6 +933,19 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
+                        class_noise_pred = self.call_unet(args,
+                                                    accelerator,
+                                                    unet_org,
+                                                    noisy_latents,
+                                                    timesteps,
+                                                    class_text_encoder_conds,
+                                                    batch,
+                                                    weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    batch['mask_imgs'])
+                        atten_collection_org = attention_storer_org.step_store
+                        attention_storer_org.step_store = {}
+
 
                     if args.v_parameterization:
                         # v-parameterization training
