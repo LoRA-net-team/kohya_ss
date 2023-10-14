@@ -122,15 +122,15 @@ def cache_dir() -> Path:
     # *nix
     if os.name == 'posix' and sys.platform != 'darwin':
         xdg = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
-        return Path(xdg, 'daam')
+        return Path(xdg, 'daa')
     elif sys.platform == 'darwin':
         # Mac OS
-        return Path(os.path.expanduser('~'), 'Library/Caches/daam')
+        return Path(os.path.expanduser('~'), 'Library/Caches/daa')
     else:
         # Windows
         local = os.environ.get('LOCALAPPDATA', None) \
                 or os.path.expanduser('~\\AppData\\Local')
-        return Path(local, 'daam')
+        return Path(local, 'daa')
 
 
 def compute_token_merge_indices(tokenizer, prompt: str, word: str, word_idx: int = None, offset_idx: int = 0):
