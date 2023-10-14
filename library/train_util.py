@@ -1208,8 +1208,11 @@ class BaseDataset(torch.utils.data.Dataset):
         example["absolute_paths"] = absolute_paths
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
+
+
+
         if len(text_encoder_outputs1_list) == 0:
-            if self.token_padding_disabled:
+            if self.token_padding_disabled :
                 # padding=True means pad in the batch
                 example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
                 example["class_input_ids"] = self.tokenizer[0](class_captions,
@@ -1222,8 +1225,10 @@ class BaseDataset(torch.utils.data.Dataset):
                 else:
                     example["input_ids2"] = None
             else:
+                print(f'make input ids')
                 example["input_ids"] = torch.stack(input_ids_list)
                 example["input_ids2"] = torch.stack(input_ids2_list) if len(self.tokenizers) > 1 else None
+                example["class_input_ids"] = torch.stack(class_input_ids_list)
             example["text_encoder_outputs1_list"] = None
             example["text_encoder_outputs2_list"] = None
             example["text_encoder_pool2_list"] = None
