@@ -1047,14 +1047,27 @@ class BaseDataset(torch.utils.data.Dataset):
             name, ext = os.path.splitext(dir)
             mask_dir = image_info.mask_dir
             mask_dirs.append(mask_dir)
+            if mask_dir is not None:
+                mas_img = Image.open(mask_dir)
+                # grayscale
+                if mas_img.mode != "L":
+                    mas_img = mas_img.convert("L")
+                np_img = np.array(mas_img.resize((512, 512)))
+                torch_img = torch.from_numpy(np_img)
+                # --------------------------------------------------------------------------
+                # should test
+                # mask_img = torch.where(torch_img == 0, 0, 1) # 0 or 1
+                mask_img = torch_img / 255.0  # 0~1
+                mask_imgs.append(mask_img)
+            """
             mas_img = Image.open(mask_dir)
             np_img = np.array(mas_img.resize((512, 512)))
             torch_img = torch.from_numpy(np_img)
             mask_img = torch.where(torch_img == 0, 0, 1)
+            mask_imgs.append(mask_img)
+            """
             trg_concept = image_info.trg_concept
             trg_concepts.append(trg_concept)
-            mask_imgs.append(mask_img)
-
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
