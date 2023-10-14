@@ -1122,8 +1122,6 @@ class BaseDataset(torch.utils.data.Dataset):
             # captionとtext encoder outputを処理する
             caption = image_info.caption  # default
             class_caption = caption.replace(trg_concept, "girl")
-            print(f' caption: {caption} \n class_caption: {class_caption}')
-
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
@@ -1136,7 +1134,6 @@ class BaseDataset(torch.utils.data.Dataset):
                 text_encoder_pool2_list.append(text_encoder_pool2)
                 captions.append(caption)
             else:
-                print('caption checking')
                 caption = self.process_caption(subset, image_info.caption)
                 class_caption = self.process_caption(subset, class_caption)
                 if self.XTI_layers:
