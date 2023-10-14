@@ -1051,9 +1051,9 @@ class BaseDataset(torch.utils.data.Dataset):
                     mas_img = mas_img.convert("L")
                 np_img = np.array(mas_img.resize((512, 512)))
                 torch_img = torch.from_numpy(np_img)
-                mask_imgs.append(mask_img)
                 # mask_img = torch.where(torch_img == 0, 0, 1) # 0 or 1
                 mask_img = torch_img / 255.0 # 0~1
+                mask_imgs.append(mask_img)
             trg_concept = image_info.trg_concept
             trg_concepts.append(trg_concept)
 
