@@ -879,7 +879,9 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
-                            attn_loss = attn_loss + sum(atten_collection[layer_name])
+                            if args.attn_loss_layers == 'all' or layer_name in args.attn_loss_layers.split(","):
+                                attn_loss = attn_loss + sum(atten_collection[layer_name])
+                        assert attn_loss * args.attn_loss_ratio != 0, "attn_loss is zero, check attn_loss_layers or attn_loss_ratio"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1016,6 +1018,8 @@ if __name__ == "__main__":
                         help="multiplier for network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みの倍率",)
     parser.add_argument("--no_half_vae",action="store_true",
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
+    
+    parser.add_argument("attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ','")
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_key", type=str)
