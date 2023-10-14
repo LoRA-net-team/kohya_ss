@@ -11,6 +11,7 @@ from multiprocessing import Value
 import toml
 from tqdm import tqdm
 import torch
+import re
 from setproctitle import *
 try:
     import intel_extension_for_pytorch as ipex
@@ -34,6 +35,13 @@ from library.custom_train_functions import (apply_snr_weight, get_weighted_text_
                                             add_v_prediction_like_loss,)
 from torch import nn
 import torch.nn.functional as F
+from typing import List
+
+def match_layer_name(layer_name, regex_list:List[str]):
+    for regex in regex_list:
+        if re.match(regex, layer_name):
+            return True
+    return False
 
 def register_attention_control(unet : nn.Module, controller):
     """
@@ -879,7 +887,7 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
-                            if args.attn_loss_layers == 'all' or layer_name in args.attn_loss_layers.split(","):
+                            if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers.split(',')):
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
                         assert attn_loss * args.attn_loss_ratio != 0, f"attn_loss is zero, check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
@@ -1019,7 +1027,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_half_vae",action="store_true",
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     
-    parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ','")
+    parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ',', matches regex with given string. default is 'all'")
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_key", type=str)
