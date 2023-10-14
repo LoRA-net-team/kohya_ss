@@ -874,8 +874,13 @@ class NetworkTrainer:
                     if args.heatmap_loss:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
+                        out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_1', 'up_blocks_2', ]
                         for layer_name in layer_names:
-                            attn_loss = attn_loss + sum(atten_collection[layer_name])
+                            for out_layer in out_layers:
+                                if out_layer in layer_name :
+                                    attn_loss = attn_loss + sum(atten_collection[layer_name])
+
+                            #attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
