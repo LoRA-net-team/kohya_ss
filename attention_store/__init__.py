@@ -7,10 +7,7 @@ class AttentionStore :
         self.cur_att_layer = 0
         self.step_store = self.get_empty_store()
         self.attention_store = {}
-        self.cross_key_store = {}
-        self.self_query_store = {}
-        self.self_key_store = {}
-
+        self.heatmap_store = {}
     def get_empty_store(self):
         return {}
 
@@ -22,6 +19,14 @@ class AttentionStore :
             self.step_store[layer_name].append(attn)
             #self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
+
+    def save(self, word_heat_map, layer_name):
+        if layer_name not in self.step_store.keys() :
+            self.heatmap_store[layer_name] = []
+            self.heatmap_store[layer_name].append(word_heat_map)
+        else :
+            self.heatmap_store[layer_name].append(word_heat_map)
+
 
     def cross_key_caching(self, key_value, layer_name):
         if layer_name not in self.cross_key_store.keys() :

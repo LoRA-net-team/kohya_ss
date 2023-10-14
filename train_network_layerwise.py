@@ -36,11 +36,8 @@ from torch import nn
 import torch.nn.functional as F
 
 def register_attention_control(unet : nn.Module, controller):
-    """
-    Register cross attention layers to controller.
-    """
-    def ca_forward(self, layer_name):
 
+    def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
             is_cross_attention = False
             if context is not None:
@@ -49,7 +46,6 @@ def register_attention_control(unet : nn.Module, controller):
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
@@ -84,6 +80,7 @@ def register_attention_control(unet : nn.Module, controller):
                             masked_heat_map = word_heat_map_ * mask_
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
+                            controller.save(word_heat_map_, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -148,19 +145,14 @@ def register_attention_control_org(unet : nn.Module, controller):
                         batch_trg_index = trg_indexs[batch_idx] # two times
                         head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
-                        for word_idx in batch_trg_index :
+                        for word_idx in batch_trg_index:
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
                             word_heat_map_ = word_heat_map.reshape(-1, res, res)
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
-                                                           size=((512, 512)),mode='bicubic').squeeze()
-                            # ------------------------------------------------------------------------------------------------------------------------------
-                            # mask = [512,512]
-                            mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                            masked_heat_map = word_heat_map_ * mask_
-                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
-                            controller.store(attn_loss, layer_name)
+                                                           size=((512, 512)), mode='bicubic').squeeze()
+                            controller.save(word_heat_map_, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -933,6 +925,10 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
+
+                        heatmap_collection = attention_storer.heatmap_store
+                        attention_storer.heatmap_store = {}
+
                         class_noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet_org,
@@ -943,9 +939,8 @@ class NetworkTrainer:
                                                     weight_dtype,
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
-                        atten_collection_org = attention_storer_org.step_store
-                        attention_storer_org.step_store = {}
-
+                        heatmap_collection_org = attention_storer_org.heatmap_store
+                        attention_storer_org.heatmap_store = {}
 
                     if args.v_parameterization:
                         # v-parameterization training
@@ -980,6 +975,22 @@ class NetworkTrainer:
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
                             #attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
+
+                    if args.class_compare :
+                        layer_names = atten_collection.keys()
+                        attn_compare_loss = 0
+                        out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3', ]
+                        for layer_name in layer_names:
+                            for out_layer in out_layers:
+                                if out_layer in layer_name:
+                                    lora_heatmap = heatmap_collection[layer_name]
+                                    org_heatmap = heatmap_collection_org[layer_name]
+                                    compare_loss = torch.nn.functional.mse_loss(lora_heatmap.float(),
+                                                                                org_heatmap.float(),
+                                                                                reduction="none")
+                            attn_compare_loss = attn_compare_loss + compare_loss
+                        loss = loss + attn_compare_loss
+
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1122,6 +1133,9 @@ if __name__ == "__main__":
     parser.add_argument("--test_1", action='store_true')
     parser.add_argument("--test_2", action='store_true')
     parser.add_argument("--train_mask_dir", type=str)
+    parser.add_argument("--class_compare", action='store_true')
+
+
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
