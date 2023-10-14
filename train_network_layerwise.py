@@ -899,12 +899,13 @@ class NetworkTrainer:
                                 clip_skip=args.clip_skip,
                             )
                         else:
-                            text_encoder_conds = self.get_text_cond(args, accelerator,
-                                                                    batch, tokenizers,
+                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers,
                                                                     text_encoders, weight_dtype )
                             class_text_encoder_conds = self.class_get_text_cond(args, accelerator,
-                                                                    batch, tokenizers,
-                                                                    te_org, weight_dtype)
+                                                                                batch, tokenizers,
+                                                                                # te_org,
+                                                                                text_encoders[0],
+                                                                                weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
@@ -931,7 +932,8 @@ class NetworkTrainer:
 
                         class_noise_pred = self.call_unet(args,
                                                     accelerator,
-                                                    unet_org,
+                                                    #unet_org,
+                                                    unet,
                                                     noisy_latents,
                                                     timesteps,
                                                     class_text_encoder_conds,
