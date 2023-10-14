@@ -1451,7 +1451,7 @@ class DreamBoothDataset(BaseDataset):
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
-                mask_path = os.path.join(train_mask_dir,f'{name}_binary_mask.png')
+                mask_path = os.path.join(train_mask_dir,f'{name}_gaussian_mask.png')
                 info = ImageInfo(img_path,
                                  subset.num_repeats,
                                  caption,
