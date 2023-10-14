@@ -948,7 +948,8 @@ class NetworkTrainer:
                     else:
                         target = noise
 
-                    loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                    loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(),
+                                                        reduction="none")
                     loss = loss.mean([1, 2, 3])
 
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
@@ -985,9 +986,10 @@ class NetworkTrainer:
                                 if out_layer in layer_name:
                                     lora_heatmap = heatmap_collection[layer_name]
                                     org_heatmap = heatmap_collection_org[layer_name]
-                                    compare_loss = torch.nn.functional.mse_loss(lora_heatmap.float(),
-                                                                                org_heatmap.float(),
-                                                                                reduction="none")
+                                    for lora_heatmap_, org_heatmap_ in zip(lora_heatmap, org_heatmap) :
+                                        compare_loss = torch.nn.functional.mse_loss(lora_heatmap_.float(),
+                                                                                    org_heatmap_.float(),
+                                                                                    reduction="none")
                             attn_compare_loss = attn_compare_loss + compare_loss
                         loss = loss + attn_compare_loss
 
