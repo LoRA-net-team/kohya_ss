@@ -1434,6 +1434,8 @@ class DreamBoothDataset(BaseDataset):
                             break
                     if os.path.isfile(mask_path):
                         break
+                if not os.path.isfile(mask_path):
+                    raise ValueError(f"no mask file / マスクファイルがありません: {train_mask_dir + name + '_binary_mask.png'}")
                 info = ImageInfo(img_path,
                                  subset.num_repeats,
                                  caption,
