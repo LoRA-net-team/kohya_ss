@@ -2394,11 +2394,12 @@ def main(args):
                 network.merge_to(text_encoder, unet, weights_sd, dtype, device)
     else:
         networks = []
-    org_state_dict = network.state_dict()
-    for layer in org_state_dict.keys():
-        if 'org_weight' not in layer:
-            print(f'layer : {layer}')
-            network.state_dict()[layer] = weights_sd[layer]
+    if args.network_weights :
+        org_state_dict = network.state_dict()
+        for layer in org_state_dict.keys():
+            if 'org_weight' not in layer:
+                print(f'layer : {layer}')
+                network.state_dict()[layer] = weights_sd[layer]
 
     print(f'\n step 10. upscaler')
     upscaler = None

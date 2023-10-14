@@ -1,5 +1,11 @@
 CUDA_VISIBLE_DEVICES=0 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
+      --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_girl_inference.txt' \
+      --outdir attn_test/20231014_result/base_model/girl --seed 42 --trg_token 'girl'
+
+cp /data7/sooyeon/LyCORIS/LyCORIS/test/test_haibara_inference.txt /data7/sooyeon/LyCORIS/LyCORIS/test/test_girl_inference.txt
+
+
       --network_module networks.lora \
       --network_weights './result/haibara_experience/haibara_3_1_image_mask_only_out_mean_10/haibara-000032.safetensors' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_haibara_inference.txt' \
