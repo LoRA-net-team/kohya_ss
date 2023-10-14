@@ -183,7 +183,9 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)
-        encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
+        class_input_ids = batch["class_input_ids"].to(accelerator.device)
+        encoder_hidden_states = train_util.get_hidden_states(args,
+                                                             input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         return encoder_hidden_states
 
     def call_unet(self,
@@ -257,10 +259,6 @@ class NetworkTrainer:
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
 
-
-
-
-
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
@@ -269,14 +267,13 @@ class NetworkTrainer:
             train_util.debug_dataset(train_dataset_group)
             return
         if len(train_dataset_group) == 0:
-            print(
-                "No data found. Please verify arguments (train_data_dir must be the parent of folders with images) ）")
+            print("No data found. Please verify arguments"
+                  "(train_data_dir must be the parent of folders with images) ）")
             return
 
         if cache_latents:
-            assert (
-                train_dataset_group.is_latent_cacheable()
-            ), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
+            assert (train_dataset_group.is_latent_cacheable()),\
+                "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
         self.assert_extra_args(args, train_dataset_group)
 
         # acceleratorを準備する
@@ -296,6 +293,7 @@ class NetworkTrainer:
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
 
         # モデルを読み込む
+        _, te_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
 
         # text_encoder is List[CLIPTextModel] or CLIPTextModel
@@ -319,8 +317,8 @@ class NetworkTrainer:
                 else:
                     multiplier = args.base_weights_multiplier[i]
                 accelerator.print(f"merging module: {weight_path} with multiplier {multiplier}")
-                module, weights_sd = network_module.create_network_from_weights(
-                    multiplier, weight_path, vae, text_encoder, unet, for_inference=True             )
+                module, weights_sd = network_module.create_network_from_weights(multiplier,
+                                                                                weight_path, vae, text_encoder, unet, for_inference=True             )
                 module.merge_to(text_encoder, unet, weights_sd, weight_dtype, accelerator.device if args.lowram else "cpu")
             accelerator.print(f"all weights merged: {', '.join(args.base_weights)}")
 
@@ -336,6 +334,13 @@ class NetworkTrainer:
                 torch.cuda.empty_cache()
             gc.collect()
             accelerator.wait_for_everyone()
+
+        te_org.requires_grad_(False)
+        te_org.eval()
+        vae_org.requires_grad_(False)
+        vae_org.eval()
+        unet_org.requires_grad_(False)
+        unet_org.eval()
 
         # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
         self.cache_text_encoder_outputs_if_needed(
@@ -360,16 +365,14 @@ class NetworkTrainer:
                 text_encoder,
                 unet,
                 neuron_dropout=args.network_dropout,
-                **net_kwargs,
-            )
+                **net_kwargs,)
         if network is None:
             return
 
         if hasattr(network, "prepare_network"):
             network.prepare_network(args)
         if args.scale_weight_norms and not hasattr(network, "apply_max_norm_regularization"):
-            print(
-                "warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
+            print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
             )
             args.scale_weight_norms = False
         train_unet = not args.network_train_text_encoder_only
@@ -478,7 +481,7 @@ class NetworkTrainer:
             network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                 network, optimizer, train_dataloader, lr_scheduler
             )
-
+        te_org, unet_org, vae_org = accelerator.prepare(te_org, unet_org, vae_org)
         # transform DDP after prepare (train_network here only)
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
@@ -735,9 +738,10 @@ class NetworkTrainer:
                 minimum_metadata[key] = metadata[key]
         progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
         global_step = 0
-        noise_scheduler = DDPMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
-        )
+        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012,
+                                        beta_schedule="scaled_linear", num_train_timesteps=1000,
+                                        clip_sample=False)
+
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
@@ -745,9 +749,8 @@ class NetworkTrainer:
             init_kwargs = {}
             if args.log_tracker_config is not None:
                 init_kwargs = toml.load(args.log_tracker_config)
-            accelerator.init_trackers(
-                "network_train" if args.log_tracker_name is None else args.log_tracker_name, init_kwargs=init_kwargs
-            )
+            accelerator.init_trackers("network_train" if args.log_tracker_name is None else args.log_tracker_name,
+                init_kwargs=init_kwargs)
 
         loss_list = []
         loss_total = 0.0
@@ -786,16 +789,12 @@ class NetworkTrainer:
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-
             metadata["ss_epoch"] = str(epoch + 1)
-
             network.on_epoch_start(text_encoder, unet)
-
             for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
-
                     with torch.no_grad():
                         if "latents" in batch and batch["latents"] is not None:
                             latents = batch["latents"].to(accelerator.device)
@@ -822,9 +821,12 @@ class NetworkTrainer:
                                 clip_skip=args.clip_skip,
                             )
                         else:
-                            text_encoder_conds = self.get_text_cond(
-                                args, accelerator, batch, tokenizers, text_encoders, weight_dtype
-                            )
+                            text_encoder_conds = self.get_text_cond(args, accelerator,
+                                                                    batch, tokenizers,
+                                                                    text_encoders, weight_dtype )
+
+
+
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified

@@ -1022,6 +1022,7 @@ class BaseDataset(torch.utils.data.Dataset):
         captions = []
         input_ids_list = []
         input_ids2_list = []
+        class_input_ids_list = []
         latents_list = []
         images = []
         original_sizes_hw = []
@@ -1036,6 +1037,7 @@ class BaseDataset(torch.utils.data.Dataset):
         trg_concepts = []
         trg_indexs_list = []
         mask_dirs = []
+
         for image_key in bucket[image_index : image_index + bucket_batch_size ]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
@@ -1064,7 +1066,6 @@ class BaseDataset(torch.utils.data.Dataset):
                 else:
                     latents = image_info.latents_flipped
                 image = None
-
             elif image_info.latents_npz is not None:  # FineTuningDatasetまたはcache_latents_to_disk=Trueの場合
                 latents, original_size, crop_ltrb, flipped_latents = load_latents_from_disk(image_info.latents_npz)
                 if flipped:
@@ -1119,6 +1120,9 @@ class BaseDataset(torch.utils.data.Dataset):
 
             # captionとtext encoder outputを処理する
             caption = image_info.caption  # default
+            class_caption = caption.replace(trg_concept, "girl")
+            print(f' caption: {caption} \n class_caption: {class_caption}')
+
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
@@ -1131,7 +1135,9 @@ class BaseDataset(torch.utils.data.Dataset):
                 text_encoder_pool2_list.append(text_encoder_pool2)
                 captions.append(caption)
             else:
+                print('caption checking')
                 caption = self.process_caption(subset, image_info.caption)
+                class_caption = self.process_caption(subset, class_caption)
                 if self.XTI_layers:
                     caption_layer = []
                     for layer in self.XTI_layers:
@@ -1147,8 +1153,12 @@ class BaseDataset(torch.utils.data.Dataset):
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
-                        token_caption = self.get_input_ids(caption, self.tokenizers[0])
+                        token_caption = self.get_input_ids(caption,
+                                                           self.tokenizers[0])
+                        class_token_caption = self.get_input_ids(class_caption,
+                                                                 self.tokenizers[0])
                     input_ids_list.append(token_caption)
+                    class_input_ids_list.append(class_token_caption)
                     # token_caption
                     #------------------------------------------------------------------------------------------
                     def generate_text_embedding(caption, tokenizer):
@@ -1179,6 +1189,7 @@ class BaseDataset(torch.utils.data.Dataset):
                                 if id in trg_token_id:
                                     trg_indexs.append(i)
                         return trg_indexs
+
                     trg_indexs = generate_text_embedding(caption, self.tokenizers[0])
                     trg_indexs_list.append(trg_indexs)
                     #------------------------------------------------------------------------------------------
