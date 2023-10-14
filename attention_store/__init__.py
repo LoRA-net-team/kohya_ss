@@ -21,7 +21,7 @@ class AttentionStore :
         return attn
 
     def save(self, word_heat_map, layer_name):
-        if layer_name not in self.step_store.keys() :
+        if layer_name not in self.heatmap_store.keys() :
             self.heatmap_store[layer_name] = []
             self.heatmap_store[layer_name].append(word_heat_map)
         else :
