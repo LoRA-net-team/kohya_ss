@@ -606,7 +606,8 @@ class NetworkTrainer:
         register_attention_control(unet, attention_storer)
 
         attention_storer_org = AttentionStore()
-        register_attention_control_org(unet_org, attention_storer_org)
+        register_attention_control_org(unet,
+                                       attention_storer_org)
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
