@@ -202,7 +202,6 @@ class NetworkTrainer:
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet)
 
     def train(self, args):
-        print('start')
         if args.process_title :
             setproctitle(args.process_title)
         else :
