@@ -874,12 +874,13 @@ class NetworkTrainer:
                     if args.heatmap_loss:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
-                        out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_1', 'up_blocks_2', ]
+                        #out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3', ]
+                        # out layer that i used, ['down_blocks_0', 'down_blocks_1', 'up_blocks_1', 'up_blocks_2', ]
+                        in_layers = ['down_blocks_2', 'mid', 'up_blocks_1']
                         for layer_name in layer_names:
-                            for out_layer in out_layers:
-                                if out_layer in layer_name :
+                            for in_layer in in_layers:
+                                if in_layer in layer_name :
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
-
                             #attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
