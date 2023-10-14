@@ -3,7 +3,8 @@ import functools
 import itertools
 
 from diffusers import UNet2DConditionModel
-from diffusers.models.attention_processor import Attention
+#from diffusers.models.attention_processor import Attention
+from diffusers.models.attention import AttentionBlock
 import torch.nn as nn
 
 
@@ -82,13 +83,13 @@ class AggregateHooker(ObjectHooker[ModuleListType]):
         self.module.append(hook)
 
 
-class UNetCrossAttentionLocator(ModuleLocator[Attention]):
+class UNetCrossAttentionLocator(ModuleLocator[AttentionBlock]):
     def __init__(self, restrict: bool = None, locate_middle_block: bool = False):
         self.restrict = restrict
         self.layer_names = []
         self.locate_middle_block = locate_middle_block
 
-    def locate(self, model: UNet2DConditionModel) -> List[Attention]:
+    def locate(self, model: UNet2DConditionModel) -> List[AttentionBlock]:
         """
         Locate all cross-attention modules in a UNet2DConditionModel.
 
