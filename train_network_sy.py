@@ -36,8 +36,14 @@ from library.custom_train_functions import (apply_snr_weight, get_weighted_text_
 from torch import nn
 import torch.nn.functional as F
 from typing import List
+from functools import lru_cache
 
-def match_layer_name(layer_name, regex_list:List[str]):
+@lru_cache(maxsize=128)
+def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
+    """
+    Check if layer_name matches regex_list_str.
+    """
+    regex_list = regex_list_str.split(',')
     for regex in regex_list:
         regex = regex.strip() # remove space
         if re.match(regex, layer_name):
@@ -888,7 +894,7 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
-                            if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers.split(',')):
+                            if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
                         assert attn_loss * args.attn_loss_ratio != 0, f"attn_loss is zero, check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
