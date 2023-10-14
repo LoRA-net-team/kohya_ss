@@ -98,7 +98,7 @@ def register_attention_control(unet : nn.Module, controller):
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                             unmasked_value = word_heat_map_ * (1 - mask_) # minimize unmasked area
                             masked_value = word_heat_map_ * mask_ # maximize masked area
-                            attn_loss = unmasked_value.sum() / (masked_value.sum() + 1e-10)
+                            attn_loss = unmasked_value.sum() / (word_heat_map_.sum() + 1e-10)
                             controller.store(attn_loss, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
