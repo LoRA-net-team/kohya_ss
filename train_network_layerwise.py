@@ -992,6 +992,7 @@ class NetworkTrainer:
                                         compare_loss = torch.nn.functional.mse_loss(lora_heatmap_.float(),
                                                                                     org_heatmap_.float(),
                                                                                     reduction="none")
+                                        compare_loss = compare_loss.mean()
                                         print(f'compare_loss : {compare_loss.shape}')
                                         #loss = loss.mean([1, 2, 3])
                             attn_compare_loss = attn_compare_loss + compare_loss
