@@ -92,12 +92,13 @@ def register_attention_control(unet : nn.Module, controller):
                             word_heat_map_ = word_heat_map.reshape(-1, res, res)
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
-                                                           size=((512, 512)),mode='bicubic').squeeze()
+                                                           size=((512, 512)),mode='bilinear').squeeze()
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                            masked_heat_map = word_heat_map_ * mask_
-                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                            unmasked_value = word_heat_map_ * (1 - mask_) # minimize unmasked area
+                            masked_value = word_heat_map_ * mask_ # maximize masked area
+                            attn_loss = unmasked_value.sum() / (masked_value.sum() + 1e-5)
                             controller.store(attn_loss, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
