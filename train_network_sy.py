@@ -520,9 +520,10 @@ class NetworkTrainer:
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
-        from attention_store import AttentionStore
-        attention_storer = AttentionStore()
-        register_attention_control(unet, attention_storer)
+        if args.heatmap_loss:
+            from attention_store import AttentionStore
+            attention_storer = AttentionStore()
+            register_attention_control(unet, attention_storer)
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets

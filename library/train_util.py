@@ -129,7 +129,7 @@ class ImageInfo:
         self.text_encoder_outputs1: Optional[torch.Tensor] = None
         self.text_encoder_outputs2: Optional[torch.Tensor] = None
         self.text_encoder_pool2: Optional[torch.Tensor] = None
-        self.mask_dir: str = mask_dir
+        self.mask_dir: Optional[str] = mask_dir
         self.trg_concept: str = trg_concept
 
 
@@ -1044,17 +1044,18 @@ class BaseDataset(torch.utils.data.Dataset):
             name, ext = os.path.splitext(dir)
             mask_dir = image_info.mask_dir
             mask_dirs.append(mask_dir)
-            mas_img = Image.open(mask_dir)
-            # grayscale
-            if mas_img.mode != "L":
-                mas_img = mas_img.convert("L")
-            np_img = np.array(mas_img.resize((512, 512)))
-            torch_img = torch.from_numpy(np_img)
-            # mask_img = torch.where(torch_img == 0, 0, 1) # 0 or 1
-            mask_img = torch_img / 255.0 # 0~1
+            if mask_dir is not None:
+                mas_img = Image.open(mask_dir)
+                # grayscale
+                if mas_img.mode != "L":
+                    mas_img = mas_img.convert("L")
+                np_img = np.array(mas_img.resize((512, 512)))
+                torch_img = torch.from_numpy(np_img)
+                mask_imgs.append(mask_img)
+                # mask_img = torch.where(torch_img == 0, 0, 1) # 0 or 1
+                mask_img = torch_img / 255.0 # 0~1
             trg_concept = image_info.trg_concept
             trg_concepts.append(trg_concept)
-            mask_imgs.append(mask_img)
 
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
@@ -1431,14 +1432,15 @@ class DreamBoothDataset(BaseDataset):
                 #mask_path = os.path.join(train_mask_dir,f'{name}_binary_mask.png')
                 # find _binary_mask or _gaussian_mask or _mask with .png or .jpg ext
                 mask_path = None
-                for mask_ext in ["_binary_mask", "_gaussian_mask", "_mask"]:
-                    for img_ext in [".png", ".jpg"]:
-                        mask_path = os.path.join(train_mask_dir, name + mask_ext + img_ext)
+                if train_mask_dir is not None:
+                    for mask_ext in ["_binary_mask", "_gaussian_mask", "_mask"]:
+                        for img_ext in [".png", ".jpg"]:
+                            mask_path = os.path.join(train_mask_dir, name + mask_ext + img_ext)
+                            if os.path.isfile(mask_path):
+                                break
                         if os.path.isfile(mask_path):
                             break
-                    if os.path.isfile(mask_path):
-                        break
-                if not os.path.isfile(mask_path):
+                if train_mask_dir is not None and not os.path.isfile(mask_path):
                     raise ValueError(f"no mask file / マスクファイルがありません: {train_mask_dir + name + '_binary_mask.png'}")
                 info = ImageInfo(img_path,
                                  subset.num_repeats,
