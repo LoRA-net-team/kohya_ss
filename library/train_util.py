@@ -1423,7 +1423,17 @@ class DreamBoothDataset(BaseDataset):
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
-                mask_path = os.path.join(train_mask_dir,f'{name}_binary_mask.png')
+                
+                #mask_path = os.path.join(train_mask_dir,f'{name}_binary_mask.png')
+                # find _binary_mask or _gaussian_mask or _mask with .png or .jpg ext
+                mask_path = None
+                for mask_ext in ["_binary_mask", "_gaussian_mask", "_mask"]:
+                    for img_ext in [".png", ".jpg"]:
+                        mask_path = os.path.join(train_mask_dir, name + mask_ext + img_ext)
+                        if os.path.isfile(mask_path):
+                            break
+                    if os.path.isfile(mask_path):
+                        break
                 info = ImageInfo(img_path,
                                  subset.num_repeats,
                                  caption,
