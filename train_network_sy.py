@@ -881,7 +881,7 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or layer_name in args.attn_loss_layers.split(","):
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
-                        assert attn_loss * args.attn_loss_ratio != 0, "attn_loss is zero, check attn_loss_layers or attn_loss_ratio"
+                        assert attn_loss * args.attn_loss_ratio != 0, f"attn_loss is zero, check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
