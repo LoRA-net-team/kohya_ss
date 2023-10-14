@@ -524,6 +524,8 @@ class NetworkTrainer:
             from attention_store import AttentionStore
             attention_storer = AttentionStore()
             register_attention_control(unet, attention_storer)
+        else:
+            attention_storer = None
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -848,8 +850,9 @@ class NetworkTrainer:
                                                     weight_dtype,
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
-                        atten_collection = attention_storer.step_store
-                        attention_storer.step_store = {}
+                        if attention_storer is not None:
+                            atten_collection = attention_storer.step_store
+                            attention_storer.step_store = {}
 
                     if args.v_parameterization:
                         # v-parameterization training
@@ -897,7 +900,8 @@ class NetworkTrainer:
                     progress_bar.update(1)
                     global_step += 1
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-                    attention_storer.step_store = {}
+                    if attention_storer is not None:
+                        attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
@@ -947,7 +951,8 @@ class NetworkTrainer:
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-            attention_storer.step_store = {}
+            if attention_storer is not None:
+                attention_storer.step_store = {}
             # end of epoch
 
         # metadata["ss_epoch"] = str(num_train_epochs)
