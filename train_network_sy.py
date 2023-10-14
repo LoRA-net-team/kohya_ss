@@ -1019,7 +1019,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_half_vae",action="store_true",
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     
-    parser.add_argument("attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ','")
+    parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ','")
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_key", type=str)
