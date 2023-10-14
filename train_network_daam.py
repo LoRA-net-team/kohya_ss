@@ -833,7 +833,7 @@ class NetworkTrainer:
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        from daam import trace, set_seed
+                        from daam import trace
                         with trace(unet) as tc:
                             noise_pred = self.call_unet(args,
                                                         accelerator,
