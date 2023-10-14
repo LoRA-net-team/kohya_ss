@@ -39,6 +39,7 @@ from typing import List
 
 def match_layer_name(layer_name, regex_list:List[str]):
     for regex in regex_list:
+        regex = regex.strip() # remove space
         if re.match(regex, layer_name):
             return True
     return False
