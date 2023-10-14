@@ -950,6 +950,8 @@ class NetworkTrainer:
 
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(),
                                                         reduction="none")
+                    print(f'task_loss : {loss.shape}')
+
                     loss = loss.mean([1, 2, 3])
 
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
@@ -990,6 +992,8 @@ class NetworkTrainer:
                                         compare_loss = torch.nn.functional.mse_loss(lora_heatmap_.float(),
                                                                                     org_heatmap_.float(),
                                                                                     reduction="none")
+                                        print(f'compare_loss : {compare_loss.shape}')
+                                        #loss = loss.mean([1, 2, 3])
                             attn_compare_loss = attn_compare_loss + compare_loss
                         loss = loss + attn_compare_loss
 
