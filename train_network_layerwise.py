@@ -950,8 +950,6 @@ class NetworkTrainer:
 
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(),
                                                         reduction="none")
-                    print(f'task_loss : {loss.shape}')
-
                     loss = loss.mean([1, 2, 3])
 
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
@@ -969,8 +967,6 @@ class NetworkTrainer:
                     if args.heatmap_loss:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
-                        #out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3', ]
-                        # out layer that i used, ['down_blocks_0', 'down_blocks_1', 'up_blocks_1', 'up_blocks_2', ]
                         in_layers = ['down_blocks_2', 'mid', 'up_blocks_1']
                         for layer_name in layer_names:
                             for in_layer in in_layers:
@@ -993,9 +989,8 @@ class NetworkTrainer:
                                                                                     org_heatmap_.float(),
                                                                                     reduction="none")
                                         compare_loss = compare_loss.mean()
-                                        print(f'compare_loss : {compare_loss.shape}')
-                                        #loss = loss.mean([1, 2, 3])
-                            attn_compare_loss = attn_compare_loss + compare_loss
+                                        print(f'compare_loss : {compare_loss}')
+                                        attn_compare_loss = attn_compare_loss + compare_loss
                         loss = loss + attn_compare_loss
 
                     accelerator.backward(loss)
