@@ -1020,6 +1020,7 @@ class BaseDataset(torch.utils.data.Dataset):
             return self.get_item_for_caching(bucket, bucket_batch_size, image_index)
         loss_weights = []
         captions = []
+        class_captions = []
         input_ids_list = []
         input_ids2_list = []
         class_input_ids_list = []
@@ -1147,6 +1148,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         caption_layer.append(caption_)
                     captions.append(caption_layer)
                 else:
+                    class_captions.apped(class_caption)
                     captions.append(caption)
 
                 if not self.token_padding_disabled:  # this option might be omitted in future
@@ -1210,6 +1212,10 @@ class BaseDataset(torch.utils.data.Dataset):
             if self.token_padding_disabled:
                 # padding=True means pad in the batch
                 example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
+                example["class_input_ids"] = self.tokenizer[0](class_captions,
+                                                               padding=True,
+                                                               truncation=True,
+                                                               return_tensors="pt").input_ids
                 if len(self.tokenizers) > 1:
                     example["input_ids2"] = self.tokenizer[1](
                         captions, padding=True, truncation=True, return_tensors="pt").input_ids
