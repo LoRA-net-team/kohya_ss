@@ -871,24 +871,12 @@ class NetworkTrainer:
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
-                    if args.heatmap_loss:
-                        if args.only_in_layer :
-                            layer_names = atten_collection.keys()
-                            attn_loss = 0
-                            #out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3', ]
-                            # out layer that i used, ['down_blocks_0', 'down_blocks_1', 'up_blocks_1', 'up_blocks_2', ]
-                            in_layers = ['down_blocks_2', 'mid', 'up_blocks_1']
-                            for layer_name in layer_names:
-                                for in_layer in in_layers:
-                                    if in_layer in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-                            loss = task_loss + args.attn_loss_ratio * attn_loss
-                        else :
-                            layer_names = atten_collection.keys()
-                            attn_loss = 0
-                            for layer_name in layer_names:
-                                attn_loss = attn_loss + sum(atten_collection[layer_name])
-                            loss = task_loss + args.attn_loss_ratio * attn_loss
+                    if args.heatmap_loss :
+                        layer_names = atten_collection.keys()
+                        attn_loss = 0
+                        for layer_name in layer_names:
+                            attn_loss = attn_loss + sum(atten_collection[layer_name])
+                        loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1028,7 +1016,7 @@ if __name__ == "__main__":
     parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
-    parser.add_argument("--only_in_layer", action='store_true')
+    parser.add_argument("--binary_test", action='store_true')
     parser.add_argument("--train_mask_dir", type=str)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)

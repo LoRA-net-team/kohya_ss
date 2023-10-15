@@ -1048,26 +1048,14 @@ class BaseDataset(torch.utils.data.Dataset):
             mask_dir = image_info.mask_dir
             mask_dirs.append(mask_dir)
             if mask_dir is not None:
-                mas_img = Image.open(mask_dir)
+                mask_img = Image.open(mask_dir)
                 # grayscale
-                if mas_img.mode != "L":
-                    mas_img = mas_img.convert("L")
-                np_img = np.array(mas_img.resize((512, 512)))
+                if mask_img.mode != "L":
+                    mask_img = mask_img.convert("L")
+                np_img = np.array(mask_img.resize((512, 512)))
                 torch_img = torch.from_numpy(np_img)
-                # --------------------------------------------------------------------------
-                # should test
-                mask_img = torch.where(torch_img == 0, 0, 1) # 0 or 1
-                # mask_img = torch_img / 255.0  # 0~1
+                mask_img = torch_img / 255.0  # 0~1
                 mask_imgs.append(mask_img)
-            """
-            mas_img = Image.open(mask_dir)
-            np_img = np.array(mas_img.resize((512, 512)))
-            torch_img = torch.from_numpy(np_img)
-            mask_img = torch.where(torch_img == 0, 0, 1)
-            mask_imgs.append(mask_img)
-            """
-            trg_concept = image_info.trg_concept
-            trg_concepts.append(trg_concept)
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
             flipped = subset.flip_aug and random.random() < 0.5  # not flipped or flipped with 50% chance
@@ -1451,7 +1439,7 @@ class DreamBoothDataset(BaseDataset):
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
-                mask_path = os.path.join(train_mask_dir,f'{name}_gaussian_mask.png')
+                mask_path = os.path.join(train_mask_dir,f'{name}_binary_mask.png')
                 info = ImageInfo(img_path,
                                  subset.num_repeats,
                                  caption,
@@ -2599,17 +2587,21 @@ def add_optimizer_arguments(parser: argparse.ArgumentParser):
 def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: bool):
     parser.add_argument("--output_dir", type=str, default=None, help="directory to output trained model / 学習後のモデル出力先ディレクトリ")
     parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
-    parser.add_argument("--huggingface_repo_id", type=str, default=None, help="huggingface repo name to upload / huggingfaceにアップロードするリポジトリ名"
+    parser.add_argument(
+        "--huggingface_repo_id", type=str, default=None, help="huggingface repo name to upload / huggingfaceにアップロードするリポジトリ名"
     )
-    parser.add_argument("--huggingface_repo_type", type=str, default=None, help="huggingface repo type to upload / huggingfaceにアップロードするリポジトリの種類"
+    parser.add_argument(
+        "--huggingface_repo_type", type=str, default=None, help="huggingface repo type to upload / huggingfaceにアップロードするリポジトリの種類"
     )
-    parser.add_argument("--huggingface_path_in_repo",
+    parser.add_argument(
+        "--huggingface_path_in_repo",
         type=str,
         default=None,
         help="huggingface model path to upload files / huggingfaceにアップロードするファイルのパス",
     )
     parser.add_argument("--huggingface_token", type=str, default=None, help="huggingface token / huggingfaceのトークン")
-    parser.add_argument("--huggingface_repo_visibility",
+    parser.add_argument(
+        "--huggingface_repo_visibility",
         type=str,
         default=None,
         help="huggingface repository visibility ('public' for public, 'private' or None for private) / huggingfaceにアップロードするリポジトリの公開設定（'public'で公開、'private'またはNoneで非公開）",
