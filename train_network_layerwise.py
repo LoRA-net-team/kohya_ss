@@ -922,6 +922,7 @@ class NetworkTrainer:
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
                         atten_collection = attention_storer.step_store
+                        assert atten_collection != {}, f"atten_collection is empty, atten_collection : {atten_collection}"
                         attention_storer.step_store = {}
                         heatmap_collection = attention_storer.heatmap_store
                         attention_storer.heatmap_store = {}
@@ -941,6 +942,7 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         atten_collection_org = attention_storer_org.step_store
                         attention_storer_org.step_store = {}
+                        assert atten_collection_org != {}, f"atten_collection_org is empty, atten_collection_org : {atten_collection_org}"
                         heatmap_collection_org = attention_storer_org.heatmap_store
                         attention_storer_org.heatmap_store = {}
 
