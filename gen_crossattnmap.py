@@ -2574,8 +2574,7 @@ def main(args):
             prompts = []
             negative_prompts = []
             start_code = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-            noises = [torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-                      for _ in range(steps * scheduler_num_noises_per_step)]
+            noises = [torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)  for _ in range(steps * scheduler_num_noises_per_step)]
             seeds = []
             clip_prompts = []
             if init_image is not None:  # img2img?
@@ -2597,6 +2596,7 @@ def main(args):
             all_masks_are_same = True
             all_guide_images_are_same = True
             for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
+               # negative_prompt
                 prompts.append(prompt)
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
@@ -2651,7 +2651,8 @@ def main(args):
                     print("pre-calculation... done")
 
             print(' (15.3) generating image')
-            print(f'before pipe, prompts : {prompts} | type(prompts) : {type(prompts)}')
+            #print(f'before pipe, prompts : {prompts} | type(prompts) : {type(prompts)}')
+            negative_prompts.append(prompts)
             images = pipe(prompts,
                           negative_prompts,
                           init_images,mask_images,height,width,steps,scale,negative_scale,
@@ -2837,7 +2838,7 @@ def main(args):
                                 print(f"scale: {scale}")
                                 continue
                             m = re.match(r"nl ([\d\.]+|none|None)", parg, re.IGNORECASE)
-                            if m:  # negative scale
+                            if m:
                                 if m.group(1).lower() == "none":
                                     negative_scale = None
                                 else:
@@ -2850,6 +2851,7 @@ def main(args):
                                 print(f"strength: {strength}")
                                 continue
                             m = re.match(r"n (.+)", parg, re.IGNORECASE)
+                            print(f'result of m : {m}')
                             if m:  # negative prompt
                                 negative_prompt = m.group(1)
                                 print(f"negative prompt: {negative_prompt}")
@@ -2897,7 +2899,8 @@ def main(args):
                 batch_data.append(b1)
                 if len(batch_data) == args.batch_size:
                     print(f' {unique_index} : process batch *** ')
-                    prev_image = process_batch(batch_data, highres_fix, save_index = unique_index )[0]
+                    prev_image = process_batch(batch_data,
+                                               highres_fix, save_index = unique_index )[0]
                     batch_data.clear()
                 global_step += 1
             prompt_index += 1
