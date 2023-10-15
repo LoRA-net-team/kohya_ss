@@ -2485,6 +2485,16 @@ def main(args):
     if args.H is None:
         args.H = 512
 
+
+
+
+
+
+
+
+
+
+
     print(f'\n step 15. save dir')
     os.makedirs(args.outdir, exist_ok=True)
     max_embeddings_multiples = 1 if args.max_embeddings_multiples is None else args.max_embeddings_multiples
@@ -2496,8 +2506,9 @@ def main(args):
         # shuffle prompt list
         if args.shuffle_prompts:
             random.shuffle(prompt_list)
-        def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index=1):
-
+        # ------------------------------------------------------------------------------------------------------------------------------
+        def process_batch(batch: List[BatchData],
+                          highres_fix, highres_1st=False, save_index=1):
             batch_size = len(batch)
             # highres_fixの処理
             if highres_fix and not highres_1st:
@@ -2567,7 +2578,6 @@ def main(args):
 
                 if args.highres_fix_disable_control_net:
                     pipe.set_enable_control_net(False)  # オプション指定時、2nd stageではControlNetを無効にする
-
             # このバッチの情報を取り出す
             (return_latents, (step_first, _, _, _, init_image, mask_image, _, guide_image),(width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
@@ -2679,6 +2689,7 @@ def main(args):
                 metadata.add_text("sampler", args.sampler)
                 metadata.add_text("steps", str(steps))
                 metadata.add_text("scale", str(scale))
+
                 if negative_prompt is not None:
                     metadata.add_text("negative-prompt", negative_prompt)
                 if negative_scale is not None:
@@ -2697,15 +2708,12 @@ def main(args):
                 parent, folder = os.path.split(args.outdir)
                 os.makedirs(parent, exist_ok=True)
                 base_folder = os.path.join(parent, f'{folder}_{save_index}')
-                print(f'base_folder : {base_folder}')
                 os.makedirs(base_folder, exist_ok=True)
                 image.save(os.path.join(base_folder, fln), pnginfo=metadata)
                 prompt_save_dir = os.path.join(base_folder, f'prompt.txt')
                 with open(prompt_save_dir, 'w') as f:
                     f.write(prompt)
                 # ------------------------------------------------------------------------------------------------
-                print(f'save attn map')
-                print(f'prompt : {prompt}')
                 text_embeddings, trg_indexs = generate_text_embedding(args, prompt, tokenizer, text_encoder, device)
                 atten_collection = attention_storer.step_store
                 attention_storer.step_store = {}
@@ -2753,8 +2761,9 @@ def main(args):
                         cv2.waitKey()
                         cv2.destroyAllWindows()
                 except ImportError:
-                    print("opencv-python is not installed, cannot preview / opencv-pythonがインストールされていないためプレビューできません")
+                    print("opencv-python is not installed, cannot preview / opencv-python")
             return images
+        # ------------------------------------------------------------------------------------------------------------------------------
         prompt_index = 0
         global_step = 0
         batch_data = []
@@ -2793,8 +2802,8 @@ def main(args):
                     prompt = prompt_args[0]
                     unique_index = prompt_index + 1
                     print(f"prompt {unique_index}/{len(prompt_list)}: {prompt}")
+                    print(f'raw_prompt : {raw_prompt}')
                     for parg in prompt_args[1:]:
-                        print(f'parg : {parg}')
                         try:
                             m = re.match(r"w (\d+)", parg, re.IGNORECASE)
                             if m:
@@ -2835,10 +2844,6 @@ def main(args):
                                 print(f"strength: {strength}")
                                 continue
                             m = re.match(r"n (.+)", parg, re.IGNORECASE)
-
-
-
-                            print(f'result of m : {m}')
                             if m:  # negative prompt
                                 negative_prompt = m.group(1)
                                 print(f"negative prompt: {negative_prompt}")
@@ -2860,7 +2865,8 @@ def main(args):
                             print(ex)
 
                 if seeds is not None:  # given in prompt
-                    if len(seeds) > 0:seed = seeds.pop(0)
+                    if len(seeds) > 0:
+                        seed = seeds.pop(0)
                 else:
                     if predefined_seeds is not None:
                         if len(predefined_seeds) > 0:seed = predefined_seeds.pop(0)
@@ -2885,11 +2891,15 @@ def main(args):
                     process_batch(batch_data,
                                   highres_fix)
                     batch_data.clear()
+
+
+
                 batch_data.append(b1)
                 if len(batch_data) == args.batch_size:
                     print(f' {unique_index} : process batch *** ')
                     prev_image = process_batch(batch_data,
-                                               highres_fix, save_index = unique_index )[0]
+                                               highres_fix,
+                                               save_index = unique_index )[0]
                     batch_data.clear()
                 global_step += 1
             prompt_index += 1
