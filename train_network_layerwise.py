@@ -980,18 +980,18 @@ class NetworkTrainer:
                     if args.class_compare :
                         layer_names = heatmap_collection.keys()
                         attn_compare_loss = 0
-                        #out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
+                        out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
                         for layer_name in layer_names:
-                            #for out_layer in out_layers:
-                                #if out_layer in layer_name:
-                            lora_heatmap = heatmap_collection[layer_name]
-                            org_heatmap = heatmap_collection_org[layer_name]
-                            for lora_heatmap_, org_heatmap_ in zip(lora_heatmap, org_heatmap) :
-                                compare_loss = torch.nn.functional.mse_loss(lora_heatmap_.float(),
-                                                                            org_heatmap_.float(),
-                                                                            reduction="none")
-                                compare_loss = compare_loss.mean()
-                                attn_compare_loss = attn_compare_loss + compare_loss
+                            for out_layer in out_layers:
+                                if out_layer in layer_name:
+                                    lora_heatmap = heatmap_collection[layer_name]
+                                    org_heatmap = heatmap_collection_org[layer_name]
+                                    for lora_heatmap_, org_heatmap_ in zip(lora_heatmap, org_heatmap) :
+                                        compare_loss = torch.nn.functional.mse_loss(lora_heatmap_.float(),
+                                                                                    org_heatmap_.float(),
+                                                                                    reduction="none")
+                                        compare_loss = compare_loss.mean()
+                                        attn_compare_loss = attn_compare_loss + compare_loss
                         loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
                     accelerator.backward(loss)
