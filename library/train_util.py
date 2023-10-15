@@ -1122,6 +1122,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
             # captionとtext encoder outputを処理する
             caption = image_info.caption  # default
+            trg_concept = image_info.trg_concept
             class_caption = caption.replace(trg_concept, "girl")
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
@@ -1439,7 +1440,7 @@ class DreamBoothDataset(BaseDataset):
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
-                mask_path = os.path.join(train_mask_dir,f'{name}_binary_mask.png')
+                mask_path = os.path.join(train_mask_dir,f'{name}_gaussian_mask.png')
                 info = ImageInfo(img_path,
                                  subset.num_repeats,
                                  caption,
