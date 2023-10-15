@@ -2803,7 +2803,7 @@ def main(args):
                     seed = None
                     seeds = None
                     strength = 0.8 if args.strength is None else args.strength
-                    negative_prompt = ""
+                    negative_prompt = args.negative_prompt
                     clip_prompt = None
                     network_muls = None
                     prompt_args = raw_prompt.strip().split(" --")
@@ -2851,6 +2851,9 @@ def main(args):
                                 print(f"strength: {strength}")
                                 continue
                             m = re.match(r"n (.+)", parg, re.IGNORECASE)
+
+
+
                             print(f'result of m : {m}')
                             if m:  # negative prompt
                                 negative_prompt = m.group(1)
@@ -3031,5 +3034,6 @@ if __name__ == "__main__":
                         nargs="*",help="ControlNet guidance ratio for steps / ControlNetでガイドするステップ比率",)
     parser.add_argument("--device", default='cuda')
     parser.add_argument("--trg_token", type=str)
+    parser.add_argument("--negative_prompt", type=str, default=None)
     args = parser.parse_args()
     main(args)
