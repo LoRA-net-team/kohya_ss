@@ -603,8 +603,7 @@ class NetworkTrainer:
         register_attention_control(unet, attention_storer)
 
         attention_storer_org = AttentionStore()
-        #register_attention_control_org(unet,
-        #                               attention_storer_org)
+        register_attention_control(unet,attention_storer_org)
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -926,6 +925,8 @@ class NetworkTrainer:
                         attention_storer.step_store = {}
                         heatmap_collection = attention_storer.heatmap_store
                         attention_storer.heatmap_store = {}
+
+
                         print(f'org heatmap_collection: {heatmap_collection}')
 
 
@@ -941,8 +942,12 @@ class NetworkTrainer:
                                                     weight_dtype,
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
+                        atten_collection_org = attention_storer_org.step_store
+                        attention_storer_org.step_store = {}
                         heatmap_collection_org = attention_storer_org.heatmap_store
+                        print(f'***** heatmap_collection_org : {heatmap_collection_org}')
                         attention_storer_org.heatmap_store = {}
+
 
 
 
