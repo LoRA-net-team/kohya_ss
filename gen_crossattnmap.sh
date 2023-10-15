@@ -4,8 +4,7 @@ CUDA_VISIBLE_DEVICES=0 python gen_crossattnmap.py \
       --network_weights './result/haibara_experience/one_image/haibara_3_1_image_base/haibara-000026.safetensors' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_haibara_inference.txt' \
       --outdir 20231011_result/haibara_experience/haibara_3_1_image_base/haibara_epoch_26 --seed 42 --trg_token 'haibara' \
-      --negative_scale 7.5 --negative_prompt
-      --negative_prompt
+      --negative_prompt 'worst quality, mutated hand, blurry'
 
 #---------------
 CUDA_VISIBLE_DEVICES=0 python gen_crossattnmap.py \

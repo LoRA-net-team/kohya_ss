@@ -2684,7 +2684,6 @@ def main(args):
         guide_images = []
         for p in args.guide_image_path:
             guide_images.extend(load_images(p))
-
         print(f"loaded {len(guide_images)} guide images for guidance")
         if len(guide_images) == 0:
             print(f"No guide image, use previous generated image. / ガイド画像がありません。直前に生成した画像を使います: {args.image_path}")
@@ -2991,7 +2990,6 @@ def main(args):
                         raw_prompt = input()
                     except EOFError:
                         break
-
                     valid = len(raw_prompt.strip().split(" --")[0].strip()) > 0
                 if not valid:  # EOF, end app
                     break
@@ -3111,33 +3109,21 @@ def main(args):
                         seeds = iter_seed
                     else:
                         seed = None  # 前のを消す
-
                 if seed is None:
                     seed = random.randint(0, 0x7FFFFFFF)
                 if args.interactive:
                     print(f"seed: {seed}")
-
-                # prepare init image, guide image and mask
                 init_image = mask_image = guide_image = None
-
-                # 同一イメージを使うとき、本当はlatentに変換しておくと無駄がないが面倒なのでとりあえず毎回処理する
                 if init_images is not None:
                     init_image = init_images[global_step % len(init_images)]
-
-                    # img2imgの場合は、基本的に元画像のサイズで生成する。highres fixの場合はargs.W, args.Hとscaleに従いリサイズ済みなので無視する
-                    # 32単位に丸めたやつにresizeされるので踏襲する
                     if not highres_fix:
                         width, height = init_image.size
                         width = width - width % 32
                         height = height - height % 32
                         if width != init_image.size[0] or height != init_image.size[1]:
-                            print(
-                                f"img2img image size is not divisible by 32 so aspect ratio is changed / img2imgの画像サイズが32で割り切れないためリサイズされます。画像が歪みます"
-                            )
-
+                            print(f"img2img image size is not divisible by 32 so aspect ratio is changed / img2img")
                 if mask_images is not None:
                     mask_image = mask_images[global_step % len(mask_images)]
-
                 if guide_images is not None:
                     if control_nets:  # 複数件の場合あり
                         c = len(control_nets)
@@ -3151,31 +3137,20 @@ def main(args):
                     else:
                         print("Use previous image as guide image.")
                         guide_image = prev_image
-
                 if regional_network:
                     num_sub_prompts = len(prompt.split(" AND "))
-                    assert (
-                        len(networks) <= num_sub_prompts
-                    ), "Number of networks must be less than or equal to number of sub prompts."
+                    assert (len(networks) <= num_sub_prompts), "Number of networks must be less than or equal to number of sub prompts."
                 else:
                     num_sub_prompts = None
+                print(f'before match BatchData, negative_prompt : {negative_prompt}')
 
-                b1 = BatchData(
-                    False,
-                    BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image),
-                    BatchDataExt(
-                        width,
-                        height,
-                        steps,
-                        scale,
-                        negative_scale,
-                        strength,
-                        tuple(network_muls) if network_muls else None,
-                        num_sub_prompts,
-                    ),
-                )
+                b1 = BatchData(False,
+                               BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image),
+                               BatchDataExt(width,height,steps,scale,negative_scale,strength,tuple(network_muls)
+                               if network_muls else None,num_sub_prompts,),)
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext:  # バッチ分割必要？
-                    process_batch(batch_data, highres_fix)
+                    process_batch(batch_data,
+                                  highres_fix)
                     batch_data.clear()
 
                 batch_data.append(b1)
