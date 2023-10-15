@@ -81,10 +81,8 @@ def register_attention_control(unet : nn.Module, controller):
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
                             # saving word_heat_map
-                            print(f'saving lora heat map collection,')
                             controller.save(word_heat_map_, layer_name)
-                            print(f'controller.heatmap_store : {controller.heatmap_store}')
-
+                            
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
