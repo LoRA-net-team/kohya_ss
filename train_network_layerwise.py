@@ -34,8 +34,8 @@ from library.custom_train_functions import (apply_snr_weight, get_weighted_text_
                                             add_v_prediction_like_loss,)
 from torch import nn
 import torch.nn.functional as F
-
-def register_attention_control(unet : nn.Module, controller):
+from attention_store import AttentionStore
+def register_attention_control(unet : nn.Module, controller:AttentionStore):
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -286,7 +286,7 @@ class NetworkTrainer:
         if args.process_title :
             setproctitle(args.process_title)
         else :
-            setproctitle('parksooyeon')
+            pass
 
         session_id = random.randint(0, 2**32)
         training_started_at = time.time()
@@ -906,6 +906,8 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         attention_storer = AttentionStore()
+                        # register_attention_control overrides the forward method of the network, so it should not called multiple times, but here, we call it twice.
+                        # this is to get the attention map of the original image and the attention map of the image with noise added.
                         register_attention_control(unet, attention_storer)
 
 
@@ -975,6 +977,7 @@ class NetworkTrainer:
                             for in_layer in in_layers:
                                 if in_layer in layer_name :
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
+                        assert attn_loss != 0, f"attn_loss is 0, atten_collection : {atten_collection}"
                         print(f'attn_loss : {attn_loss}')
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
@@ -993,6 +996,7 @@ class NetworkTrainer:
                                                                                     reduction="none")
                                         compare_loss = compare_loss.mean()
                                         attn_compare_loss = attn_compare_loss + compare_loss
+                        assert attn_compare_loss != 0, f"attn_compare_loss is 0, heatmap_collection : {heatmap_collection}, heatmap_collection_org : {heatmap_collection_org}"
                         print(f'attn_compare_loss : {attn_compare_loss}')
                         loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
