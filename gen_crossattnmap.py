@@ -2755,7 +2755,6 @@ def main(args):
                 except ImportError:
                     print("opencv-python is not installed, cannot preview / opencv-pythonがインストールされていないためプレビューできません")
             return images
-
         prompt_index = 0
         global_step = 0
         batch_data = []
@@ -2775,22 +2774,6 @@ def main(args):
             else:
                 raw_prompt = prompt_list[prompt_index]
             raw_prompts = handle_dynamic_prompt_variants(raw_prompt, args.images_per_prompt)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             print(f' (15.2) raw_prompts')
             for pi in range(args.images_per_prompt if len(raw_prompts) == 1 else len(raw_prompts)):
                 raw_prompt = raw_prompts[pi] if len(raw_prompts) > 1 else raw_prompts[0]
@@ -2803,7 +2786,7 @@ def main(args):
                     seed = None
                     seeds = None
                     strength = 0.8 if args.strength is None else args.strength
-                    negative_prompt = args.negative_prompt
+                    negative_prompt = ''#args.negative_prompt
                     clip_prompt = None
                     network_muls = None
                     prompt_args = raw_prompt.strip().split(" --")
@@ -2811,6 +2794,7 @@ def main(args):
                     unique_index = prompt_index + 1
                     print(f"prompt {unique_index}/{len(prompt_list)}: {prompt}")
                     for parg in prompt_args[1:]:
+                        print(f'parg : {parg}')
                         try:
                             m = re.match(r"w (\d+)", parg, re.IGNORECASE)
                             if m:
