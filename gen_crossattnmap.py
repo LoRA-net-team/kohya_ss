@@ -2366,7 +2366,7 @@ def main(args):
                 block_wise = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]
                 exclude_set = set()
                 if args.lora_layer_exclude:
-                    exclude_set = set(args.network_exclude.split(","))
+                    exclude_set = set(args.lora_layer_exclude.split(","))
                 for i, block in enumerate(BLOCKS):
                     should_exclude = False
                     for reg in exclude_set:
