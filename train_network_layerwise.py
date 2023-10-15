@@ -973,6 +973,7 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss:
+                        assert batch["trg_indexs_list"] is not None, f"batch['trg_indexs_list'] is None, batch : {batch}"
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         in_layers = ['down_blocks_2', 'mid', 'up_blocks_1']
@@ -985,6 +986,7 @@ class NetworkTrainer:
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     if args.class_compare :
+                        assert batch["trg_indexs_list"] is not None, f"batch['trg_indexs_list'] is None, batch : {batch}"
                         layer_names = heatmap_collection.keys()
                         attn_compare_loss = 0
                         out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
