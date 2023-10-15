@@ -82,7 +82,7 @@ def register_attention_control(unet : nn.Module, controller):
                             controller.store(attn_loss, layer_name)
                             # saving word_heat_map
                             controller.save(word_heat_map_, layer_name)
-                            
+
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
@@ -909,6 +909,8 @@ class NetworkTrainer:
 
                     # Predict the noise residual
                     with accelerator.autocast():
+                        mask_imgs = batch['mask_imgs']
+                        print(f'first unet, mask_imgs : {mask_imgs}')
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
@@ -922,10 +924,9 @@ class NetworkTrainer:
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
                         heatmap_collection = attention_storer.heatmap_store
+                        print(f'org heatmap_collection keys : {heatmap_collection.keys()}')
                         attention_storer.heatmap_store = {}
-
-
-                        print(f'org heatmap_collection: {heatmap_collection}')
+                        
 
 
 
@@ -943,7 +944,6 @@ class NetworkTrainer:
                         atten_collection_org = attention_storer_org.step_store
                         attention_storer_org.step_store = {}
                         heatmap_collection_org = attention_storer_org.heatmap_store
-                        print(f'***** heatmap_collection_org : {heatmap_collection_org}')
                         attention_storer_org.heatmap_store = {}
 
 
@@ -982,7 +982,6 @@ class NetworkTrainer:
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     if args.class_compare :
-                        print(f'start of class compare')
                         layer_names = heatmap_collection.keys()
                         print(f'layer_names : {layer_names}')
                         attn_compare_loss = 0
