@@ -1016,7 +1016,6 @@ if __name__ == "__main__":
     parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
-    parser.add_argument("--binary_test", action='store_true')
     parser.add_argument("--train_mask_dir", type=str)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
