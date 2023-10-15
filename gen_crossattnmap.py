@@ -2852,9 +2852,6 @@ def main(args):
                                 continue
                             m = re.match(r"n (.+)", parg, re.IGNORECASE)
 
-
-
-                            print(f'result of m : {m}')
                             if m:  # negative prompt
                                 negative_prompt = m.group(1)
                                 print(f"negative prompt: {negative_prompt}")
