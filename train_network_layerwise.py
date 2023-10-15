@@ -108,6 +108,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore):
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
+    assert cross_att_count != 0, "cross_att_count is zero, please check your model"
 
 
 def register_attention_control_org(unet : nn.Module, controller):
