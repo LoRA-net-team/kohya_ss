@@ -983,6 +983,7 @@ class NetworkTrainer:
                                                                             org_heatmap_.float(),
                                                                             reduction="none")
                                 compare_loss = compare_loss.mean()
+                                print(f'compare_loss : {compare_loss}')
                                 attn_compare_loss = attn_compare_loss + compare_loss
                         loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
