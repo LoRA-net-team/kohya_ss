@@ -81,7 +81,6 @@ def register_attention_control(unet : nn.Module, controller):
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
                             # saving word_heat_map
-                            print(f'saving word heat map ... word_heat_map_ : {word_heat_map_.shape}')
                             controller.save(word_heat_map_, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
@@ -598,11 +597,7 @@ class NetworkTrainer:
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
         from attention_store import AttentionStore
-        attention_storer = AttentionStore()
-        register_attention_control(unet, attention_storer)
 
-        attention_storer_org = AttentionStore()
-        register_attention_control(unet,attention_storer_org)
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -910,8 +905,10 @@ class NetworkTrainer:
 
                     # Predict the noise residual
                     with accelerator.autocast():
-                        mask_imgs = batch['mask_imgs']
-                        print(f'first unet, mask_imgs : {mask_imgs}')
+                        attention_storer = AttentionStore()
+                        register_attention_control(unet, attention_storer)
+
+
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
@@ -925,13 +922,11 @@ class NetworkTrainer:
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
                         heatmap_collection = attention_storer.heatmap_store
-                        print(f'org heatmap_collection keys : {heatmap_collection.keys()}')
                         attention_storer.heatmap_store = {}
 
 
-
-
-
+                        attention_storer_org = AttentionStore()
+                        register_attention_control(unet, attention_storer_org)
                         class_noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
