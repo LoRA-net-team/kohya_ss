@@ -138,6 +138,7 @@ def register_attention_control_org(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
+                print(f"is_cross_attention, trg_indexs_list : {trg_indexs_list}")
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
