@@ -970,6 +970,7 @@ class NetworkTrainer:
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     if args.class_compare :
+                        print(f'start of class compare')
                         layer_names = atten_collection.keys()
                         attn_compare_loss = 0
                         #out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
