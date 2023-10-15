@@ -1056,8 +1056,8 @@ class BaseDataset(torch.utils.data.Dataset):
                 torch_img = torch.from_numpy(np_img)
                 # --------------------------------------------------------------------------
                 # should test
-                # mask_img = torch.where(torch_img == 0, 0, 1) # 0 or 1
-                mask_img = torch_img / 255.0  # 0~1
+                mask_img = torch.where(torch_img == 0, 0, 1) # 0 or 1
+                # mask_img = torch_img / 255.0  # 0~1
                 mask_imgs.append(mask_img)
             """
             mas_img = Image.open(mask_dir)
