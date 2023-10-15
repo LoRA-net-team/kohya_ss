@@ -80,6 +80,7 @@ def register_attention_control(unet : nn.Module, controller):
                             masked_heat_map = word_heat_map_ * mask_
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
+                            # saving word_heat_map
                             controller.save(word_heat_map_, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
@@ -921,8 +922,12 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         atten_collection = attention_storer.step_store
                         attention_storer.step_store = {}
-
                         heatmap_collection = attention_storer.heatmap_store
+                        print(f'org heatmap_collection: {heatmap_collection}')
+                        attention_storer.heatmap_store = {}
+
+
+
                         attention_storer.heatmap_store = {}
                         class_noise_pred = self.call_unet(args,
                                                     accelerator,
@@ -936,6 +941,8 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         heatmap_collection_org = attention_storer_org.heatmap_store
                         attention_storer_org.heatmap_store = {}
+
+
 
                     if args.v_parameterization:
                         # v-parameterization training
