@@ -2364,7 +2364,17 @@ def main(args):
                 else:
                     weights_sd = torch.load(network_weight, map_location="cpu")
                 block_wise = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]
+                exclude_set = set()
+                if args.lora_layer_exclude:
+                    exclude_set = set(args.network_exclude.split(","))
                 for i, block in enumerate(BLOCKS):
+                    should_exclude = False
+                    for reg in exclude_set:
+                        if re.search(reg, block): # example : 'unet_up_blocks_3' to
+                            should_exclude = True
+                            break
+                    if should_exclude:
+                        continue
                     for layer in weights_sd.keys():
                         if block in layer:
                             block_wise[i] = 1
@@ -3099,6 +3109,9 @@ if __name__ == "__main__":
                         help="ControlNet weights / ControlNetの重み")
     parser.add_argument("--control_net_ratios",type=float,default=None,
                         nargs="*",help="ControlNet guidance ratio for steps / ControlNetでガイドするステップ比率",)
+    # add regexes to exclude from BLOCKS(UNet Layer names)
+    parser.add_argument("--lora_layer_exclude", type=str, default="",
+                        help="regexes to exclude from BLOCKS(UNet Layer names) / BLOCKS(UNet Layer名)から除外する正規表現",)
     parser.add_argument("--device", default='cuda')
     parser.add_argument("--trg_token", type=str)
     args = parser.parse_args()
