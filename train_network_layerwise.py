@@ -979,7 +979,6 @@ class NetworkTrainer:
 
                     if args.class_compare :
                         layer_names = heatmap_collection.keys()
-                        print(f'layer_names : {layer_names}')
                         attn_compare_loss = 0
                         #out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
                         for layer_name in layer_names:
@@ -992,7 +991,6 @@ class NetworkTrainer:
                                                                             org_heatmap_.float(),
                                                                             reduction="none")
                                 compare_loss = compare_loss.mean()
-                                print(f'compare_loss : {compare_loss}')
                                 attn_compare_loss = attn_compare_loss + compare_loss
                         loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
