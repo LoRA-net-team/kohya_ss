@@ -924,7 +924,6 @@ class NetworkTrainer:
 
                         heatmap_collection = attention_storer.heatmap_store
                         attention_storer.heatmap_store = {}
-
                         class_noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
@@ -968,13 +967,12 @@ class NetworkTrainer:
                             for in_layer in in_layers:
                                 if in_layer in layer_name :
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
-                            #attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     if args.class_compare :
                         layer_names = atten_collection.keys()
                         attn_compare_loss = 0
-                        out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3', ]
+                        out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
                         for layer_name in layer_names:
                             for out_layer in out_layers:
                                 if out_layer in layer_name:
