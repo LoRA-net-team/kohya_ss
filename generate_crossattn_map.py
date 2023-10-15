@@ -2387,10 +2387,21 @@ def main(args):
                     weights_sd = torch.load(network_weight, map_location="cpu")
 
                 block_wise = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]
+                exclude_set = set()
+                if args.network_exclude:
+                    exclude_set = set(args.network_exclude.split(","))
                 for i, block in enumerate(BLOCKS):
+                    should_exclude = False
+                    for reg in exclude_set:
+                        if re.search(reg, block):
+                            should_exclude = True
+                            break
+                    if should_exclude:
+                        continue
                     for layer in weights_sd.keys():
                         if block in layer:
                             block_wise[i] = 1
+                assert any(block_wise), "no block is loaded"
                 print(f'final block_wise : {block_wise}')
                 network, weights_sd = imported_module.create_network_from_weights(network_mul, network_weight,
                                                                                   block_wise,
@@ -3368,6 +3379,9 @@ if __name__ == "__main__":
                         help="enable CLIP guided SD, scale for guidance (DDIM, PNDM, LMS samplers only) / CLIP guided SDを有効にしてこのscaleを適用する（サンプラーはDDIM、PNDM、LMSのみ）",)
     parser.add_argument("--clip_image_guidance_scale",type=float,default=0.0,
                         help="enable CLIP guided SD by image, scale for guidance / 画像によるCLIP guided SDを有効にしてこのscaleを適用する",)
+    # add regexes to exclude from BLOCKS(UNet Layer names)
+    parser.add_argument("--lora_layer_exclude", type=str, default="",
+                        help="regexes to exclude from BLOCKS(UNet Layer names) / BLOCKS(UNet Layer名)から除外する正規表現",)
     parser.add_argument(
         "--vgg16_guidance_scale",
         type=float,
