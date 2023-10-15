@@ -972,6 +972,7 @@ class NetworkTrainer:
                     if args.class_compare :
                         print(f'start of class compare')
                         layer_names = atten_collection.keys()
+                        print(f'layer_names : {layer_names}')
                         attn_compare_loss = 0
                         #out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
                         for layer_name in layer_names:
