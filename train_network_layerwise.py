@@ -81,6 +81,7 @@ def register_attention_control(unet : nn.Module, controller):
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
                             # saving word_heat_map
+                            print(f'saving word heat map ... ')
                             controller.save(word_heat_map_, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
@@ -926,7 +927,7 @@ class NetworkTrainer:
                         heatmap_collection = attention_storer.heatmap_store
                         print(f'org heatmap_collection keys : {heatmap_collection.keys()}')
                         attention_storer.heatmap_store = {}
-                        
+
 
 
 
