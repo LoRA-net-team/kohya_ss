@@ -138,7 +138,7 @@ def register_attention_control_org(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
-                print(f"is_cross_attention, trg_indexs_list : {trg_indexs_list}")
+                print(f"register_attention_control_org, is_cross_attention, trg_indexs_list : {trg_indexs_list}")
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -147,6 +147,7 @@ def register_attention_control_org(unet : nn.Module, controller):
                         batch_trg_index = trg_indexs[batch_idx] # two times
                         head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
+                        print(f"register_attention_control_org, res : {res}")
                         for word_idx in batch_trg_index:
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
@@ -154,6 +155,8 @@ def register_attention_control_org(unet : nn.Module, controller):
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
                                                            size=((512, 512)), mode='bicubic').squeeze()
+                            print(f"right before saving , word_heat_map_ : {word_heat_map_.shape}")
+
                             controller.save(word_heat_map_, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
