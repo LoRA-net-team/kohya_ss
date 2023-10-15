@@ -2893,6 +2893,8 @@ def main(args):
                 # prepare init image, guide image and mask
                 init_image = mask_image = guide_image = None
                 num_sub_prompts = None
+
+                print(f'before match BatchData, negative_prompt : {negative_prompt}')
                 b1 = BatchData(False,BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image,clip_prompt, guide_image),
                                BatchDataExt(width, height, steps, scale, negative_scale, strength, tuple(network_muls) if network_muls else None, num_sub_prompts, ), )
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext :

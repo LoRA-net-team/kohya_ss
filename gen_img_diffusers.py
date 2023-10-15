@@ -3142,7 +3142,7 @@ def main(args):
                     assert (len(networks) <= num_sub_prompts), "Number of networks must be less than or equal to number of sub prompts."
                 else:
                     num_sub_prompts = None
-                print(f'before match BatchData, negative_prompt : {negative_prompt}')
+
 
                 b1 = BatchData(False,
                                BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image),
