@@ -946,10 +946,6 @@ class NetworkTrainer:
                         assert atten_collection_org != {}, f"atten_collection_org is empty, atten_collection_org : {atten_collection_org}"
                         heatmap_collection_org = attention_storer_org.heatmap_store
                         attention_storer_org.heatmap_store = {}
-
-
-
-
                     if args.v_parameterization:
                         # v-parameterization training
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
@@ -981,11 +977,7 @@ class NetworkTrainer:
                             for in_layer in in_layers:
                                 if in_layer in layer_name :
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
-<<<<<<< HEAD
-=======
                         assert attn_loss != 0, f"attn_loss is 0, atten_collection : {atten_collection}"
-                        print(f'attn_loss : {attn_loss}')
->>>>>>> 724f8549a1c2b6745d5a73d26f4b7a6e0c37a7f2
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     if args.class_compare :
@@ -1004,11 +996,7 @@ class NetworkTrainer:
                                                                                     reduction="none")
                                         compare_loss = compare_loss.mean()
                                         attn_compare_loss = attn_compare_loss + compare_loss
-<<<<<<< HEAD
-=======
                         assert attn_compare_loss != 0, f"attn_compare_loss is 0, heatmap_collection : {heatmap_collection}, heatmap_collection_org : {heatmap_collection_org}"
-                        print(f'attn_compare_loss : {attn_compare_loss}')
->>>>>>> 724f8549a1c2b6745d5a73d26f4b7a6e0c37a7f2
                         loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
                     accelerator.backward(loss)
