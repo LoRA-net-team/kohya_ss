@@ -892,6 +892,9 @@ class NetworkTrainer:
                                 for i in second_third_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
+                            else :
+                                attn_loss = attn_loss + sum(atten_collection[layer_name])
+
 
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
