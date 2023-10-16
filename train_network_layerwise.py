@@ -975,7 +975,6 @@ class NetworkTrainer:
                             for in_layer in in_layers:
                                 if in_layer in layer_name :
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
-                        print(f'attn_loss : {attn_loss}')
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     if args.class_compare :
@@ -993,7 +992,6 @@ class NetworkTrainer:
                                                                                     reduction="none")
                                         compare_loss = compare_loss.mean()
                                         attn_compare_loss = attn_compare_loss + compare_loss
-                        print(f'attn_compare_loss : {attn_compare_loss}')
                         loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
                     accelerator.backward(loss)
