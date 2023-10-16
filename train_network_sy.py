@@ -35,6 +35,12 @@ from library.custom_train_functions import (apply_snr_weight, get_weighted_text_
 from torch import nn
 import torch.nn.functional as F
 
+first_layers =  ['mid']
+second_layers = ['down_blocks_2','up_blocks_1']
+third_layers =  ['down_blocks_1','up_blocks_2']
+forth_layers =  ['down_blocks_0','up_blocks_3']
+second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
+
 def register_attention_control(unet : nn.Module, controller):
     """
     Register cross attention layers to controller.
@@ -174,7 +180,6 @@ class NetworkTrainer:
 
     def is_text_encoder_outputs_cached(self, args):
         return False
-
     def cache_text_encoder_outputs_if_needed(
         self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype ):
         for t_enc in text_encoders:
@@ -255,10 +260,6 @@ class NetworkTrainer:
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
-
-
-
-
 
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
@@ -875,6 +876,22 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
+
+                            if args.only_second_training :
+                                for i in second_layers :
+                                    if i in layer_name :
+                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
+
+                            elif args.only_third_training :
+                                for i in third_layers :
+                                    if i in layer_name :
+                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
+
+                            elif args.second_third_training :
+                                for i in second_third_layers :
+                                    if i in layer_name :
+                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
+
                             attn_loss = attn_loss + sum(atten_collection[layer_name])
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
@@ -1017,6 +1034,9 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--train_mask_dir", type=str)
+    parser.add_argument("--only_second_training", action='store_true')
+    parser.add_argument("--only_third_training", action='store_true')
+    parser.add_argument("--second_third_training", action='store_true')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
