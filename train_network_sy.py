@@ -40,6 +40,7 @@ second_layers = ['down_blocks_2','up_blocks_1']
 third_layers =  ['down_blocks_1','up_blocks_2']
 forth_layers =  ['down_blocks_0','up_blocks_3']
 second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
+first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
 
 def register_attention_control(unet : nn.Module, controller):
     """
@@ -1037,6 +1038,7 @@ if __name__ == "__main__":
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
+    parser.add_argument("--first_second_third_training", action='store_true')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()

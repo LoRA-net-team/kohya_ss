@@ -1,9 +1,9 @@
 CUDA_VISIBLE_DEVICES=0 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights './result/haibara_experience/one_image/haibara_3_1_image_continuous_binary_mask_1_preserve_1/haibara-000028.safetensors' \
+      --network_weights './result/haibara_experience/one_image/name_8/haibara_3_1_8_image_base/haibara-000060.safetensors' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_haibara_inference.txt' \
-      --outdir ./result/haibara_experience/one_image/haibara_3_1_image_continuous_binary_mask_1_preserve_1/inference_attention/haibara_epoch_28 --seed 42 --trg_token 'haibara' \
+      --outdir ./result/haibara_experience/one_image/name_8/haibara_3_1_8_image_base/inference_attention/haibara_epoch_60 --seed 42 --trg_token 'haibara' \
       --negative_prompt 'worst quality, mutated hand, blurry'
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 CUDA_VISIBLE_DEVICES=1 python gen_crossattnmap.py \
