@@ -34,8 +34,8 @@ from library.custom_train_functions import (apply_snr_weight, get_weighted_text_
                                             add_v_prediction_like_loss,)
 from torch import nn
 import torch.nn.functional as F
-from attention_store import AttentionStore
-def register_attention_control(unet : nn.Module, controller:AttentionStore):
+
+def register_attention_control(unet : nn.Module, controller):
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -108,7 +108,6 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore):
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
-    assert cross_att_count != 0, "cross_att_count is zero, please check your model"
 
 
 def register_attention_control_org(unet : nn.Module, controller):
@@ -287,7 +286,7 @@ class NetworkTrainer:
         if args.process_title :
             setproctitle(args.process_title)
         else :
-            pass
+            setproctitle('parksooyeon')
 
         session_id = random.randint(0, 2**32)
         training_started_at = time.time()
@@ -907,8 +906,6 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         attention_storer = AttentionStore()
-                        # register_attention_control overrides the forward method of the network, so it should not called multiple times, but here, we call it twice.
-                        # this is to get the attention map of the original image and the attention map of the image with noise added.
                         register_attention_control(unet, attention_storer)
 
 
@@ -923,7 +920,6 @@ class NetworkTrainer:
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
                         atten_collection = attention_storer.step_store
-                        assert atten_collection != {}, f"atten_collection is empty, atten_collection : {atten_collection}"
                         attention_storer.step_store = {}
                         heatmap_collection = attention_storer.heatmap_store
                         attention_storer.heatmap_store = {}
@@ -943,7 +939,6 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         atten_collection_org = attention_storer_org.step_store
                         attention_storer_org.step_store = {}
-                        assert atten_collection_org != {}, f"atten_collection_org is empty, atten_collection_org : {atten_collection_org}"
                         heatmap_collection_org = attention_storer_org.heatmap_store
                         attention_storer_org.heatmap_store = {}
 
@@ -973,7 +968,6 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss:
-                        assert batch["trg_indexs_list"] is not None, f"batch['trg_indexs_list'] is None, batch : {batch}"
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         in_layers = ['down_blocks_2', 'mid', 'up_blocks_1']
@@ -981,15 +975,10 @@ class NetworkTrainer:
                             for in_layer in in_layers:
                                 if in_layer in layer_name :
                                     attn_loss = attn_loss + sum(atten_collection[layer_name])
-<<<<<<< HEAD
-=======
-                        assert attn_loss != 0, f"attn_loss is 0, atten_collection : {atten_collection}"
                         print(f'attn_loss : {attn_loss}')
->>>>>>> 724f8549a1c2b6745d5a73d26f4b7a6e0c37a7f2
                         loss = task_loss + args.attn_loss_ratio * attn_loss
 
                     if args.class_compare :
-                        assert batch["trg_indexs_list"] is not None, f"batch['trg_indexs_list'] is None, batch : {batch}"
                         layer_names = heatmap_collection.keys()
                         attn_compare_loss = 0
                         out_layers = ['down_blocks_0', 'down_blocks_1', 'up_blocks_2', 'up_blocks_3',]
@@ -999,16 +988,18 @@ class NetworkTrainer:
                                     lora_heatmap = heatmap_collection[layer_name]
                                     org_heatmap = heatmap_collection_org[layer_name]
                                     for lora_heatmap_, org_heatmap_ in zip(lora_heatmap, org_heatmap) :
-                                        compare_loss = torch.nn.functional.mse_loss(lora_heatmap_.float(),
-                                                                                    org_heatmap_.float(),
-                                                                                    reduction="none")
-                                        compare_loss = compare_loss.mean()
+                                        #compare_loss = torch.nn.functional.mse_loss(lora_heatmap_.float(),
+                                        #                                            org_heatmap_.float(),
+                                        #                                            reduction="none")
+                                        #compare_loss = compare_loss.mean()
+                                        #attn_compare_loss = attn_compare_loss + compare_loss
+                                        # cosine similarity loss
+                                        loss_function = torch.nn.CosineEmbeddingLoss(reduction='none')
+                                        # . . . Then during training . . .
+                                        compare_loss =  loss_function(lora_heatmap_.float(),
+                                                             org_heatmap_.float(),).sum()
                                         attn_compare_loss = attn_compare_loss + compare_loss
-<<<<<<< HEAD
-=======
-                        assert attn_compare_loss != 0, f"attn_compare_loss is 0, heatmap_collection : {heatmap_collection}, heatmap_collection_org : {heatmap_collection_org}"
                         print(f'attn_compare_loss : {attn_compare_loss}')
->>>>>>> 724f8549a1c2b6745d5a73d26f4b7a6e0c37a7f2
                         loss = loss + args.preserve_loss_ratio * attn_compare_loss
 
                     accelerator.backward(loss)
