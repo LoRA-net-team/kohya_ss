@@ -78,6 +78,7 @@ def register_attention_control(unet : nn.Module, controller):
                         batch_trg_index = trg_indexs[batch_idx] # two times
                         head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
+                        print(f'{layer_name} : res : {res}')
                         for word_idx in batch_trg_index :
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
