@@ -896,7 +896,12 @@ class NetworkTrainer:
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
 
 
-                            attn_loss = attn_loss + sum(atten_collection[layer_name])
+
+
+
+
+
+
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
