@@ -3104,7 +3104,7 @@ if __name__ == "__main__":
     parser.add_argument("--trg_token", type=str)
     parser.add_argument("--negative_prompt", type=str)
     parser.add_argument("--erase_selfattn",  action = 'store_true')
-    parser.add_argument("--erase_crossattn", action = 'store_true')
+    parser.add_argument("--erase_crossattn", action = 'store_true' )
 
     args = parser.parse_args()
     main(args)
