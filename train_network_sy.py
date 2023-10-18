@@ -1045,11 +1045,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
+        print(f"Created temporary file: {tempfile_new.name}")
         if args.wandb_log_template_path is not None:
             with open(args.wandb_log_template_path, 'r', encoding='utf-8') as f:
                 lines = f.read()
         else:
-            lines = '[[[wandb]]]\n\tname = "{0}"'
+            lines = '''[wandb]
+    name = "arisu_1_image_binary_mask_1_no_prompt_test"'''
         tempfile_path = tempfile_new.name
         with open(tempfile_path, 'w', encoding='utf-8') as f:
             # format
