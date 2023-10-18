@@ -1291,6 +1291,7 @@ class BaseDataset(torch.utils.data.Dataset):
             else:
                 input_ids1 = None
                 input_ids2 = None
+            print(f'in train_utils, caption : {caption}')
 
             captions.append(caption)
             images.append(image)
