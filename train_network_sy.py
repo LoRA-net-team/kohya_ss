@@ -10,6 +10,8 @@ import json
 from multiprocessing import Value
 import toml
 from tqdm import tqdm
+import toml
+import tempfile
 import torch
 from setproctitle import *
 try:
@@ -1032,6 +1034,7 @@ if __name__ == "__main__":
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
+    parser.add_argument("--wandb_log_template_path", type=str)
     parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--heatmap_loss", action='store_true')
@@ -1042,6 +1045,18 @@ if __name__ == "__main__":
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
     args = parser.parse_args()
+    if args.wandb_init_name is not None:
+        tempfile_new = tempfile.NamedTemporaryFile()
+        if args.wandb_log_template_path is not None:
+            with open(args.wandb_log_template_path, 'r', encoding='utf-8') as f:
+                lines = f.read()
+        else:
+            lines = '[[[wandb]]]\n\tname = "{0}"'
+        tempfile_path = tempfile_new.name
+        with open(tempfile_path, 'w', encoding='utf-8') as f:
+            # format
+            f.write(lines.format(args.wandb_init_name))
+        args.log_tracker_config = tempfile_path #overwrite
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
     trainer.train(args)
