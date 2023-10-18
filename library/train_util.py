@@ -1122,6 +1122,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
             # captionとtext encoder outputを処理する
             caption = image_info.caption  # default
+            print(f'in train_utils, caption : {caption}')
             trg_concept = image_info.trg_concept
             class_caption = caption.replace(trg_concept, "girl")
             if image_info.text_encoder_outputs1 is not None:
@@ -1291,7 +1292,7 @@ class BaseDataset(torch.utils.data.Dataset):
             else:
                 input_ids1 = None
                 input_ids2 = None
-            print(f'in train_utils, caption : {caption}')
+
 
             captions.append(caption)
             images.append(image)
