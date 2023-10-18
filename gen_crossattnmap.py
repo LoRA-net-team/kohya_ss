@@ -2381,6 +2381,11 @@ def main(args):
             if not args.network_merge or not mergeable:
                 print(f'one lora loading ...')
                 network.apply_to(text_encoder, unet)
+                layer_names = weights_sd.keys()
+                for layer_name in layer_names:
+                    print(f'{layer_name} : {weights_sd[layer_name].shape}')
+
+                    
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
                 if args.opt_channels_last:
