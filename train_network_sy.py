@@ -1051,7 +1051,8 @@ if __name__ == "__main__":
             with open(args.wandb_log_template_path, 'r', encoding='utf-8') as f:
                 lines = f.read()
         else:
-            lines = '[[[wandb]]]\n\tname = "{0}"'
+            lines = '''[[[wandb]]]
+    name = "arisu_1_image_binary_mask_1_no_prompt_test"'''
         tempfile_path = tempfile_new.name
         with open(tempfile_path, 'w', encoding='utf-8') as f:
             # format
