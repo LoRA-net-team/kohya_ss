@@ -2384,8 +2384,7 @@ def main(args):
                 layer_names = weights_sd.keys()
                 for layer_name in layer_names:
                     # erase self attention
-                    if 'attn1_to_q' in layer_name :
-                        weights_sd[layer_name] = weights_sd[layer_name] * 0
+                    weights_sd[layer_name] = weights_sd[layer_name] * 0
 
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
