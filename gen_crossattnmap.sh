@@ -3,7 +3,7 @@ CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --network_module networks.lora \
       --network_weights './result/haibara_experience/one_image/name_9/haibara_9_continuous_binary_mask_only_second_training_10/haibara-000044.safetensors' \
       --prompt 'haibara,masterpiece, best quality, 1girl, bangs, blue_eyes, cowboy_shot, looking_at_viewer, school uniform, solo, highly detailed, solo, cowboy shot, palm tree, waves, smile, sitting on a chair' \
-      --outdir ./result/haibara_experience/one_image/name_9/haibara_9_continuous_binary_mask_only_second_training_10/inference_attention/haibara_epoch_44_one_prompt --seed 42 --trg_token 'haibara' \
+      --outdir ./result/haibara_experience/one_image/name_9/haibara_9_continuous_binary_mask_only_second_training_10/inference_attention/haibara_epoch_44_one_prompt_test --seed 42 --trg_token 'haibara' \
       --negative_prompt 'drawn by bad-artist, sketch by bad-artist-anime, ugly, worst quality, poor details,bad-hands'
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
