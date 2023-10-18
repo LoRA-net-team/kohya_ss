@@ -2384,8 +2384,15 @@ def main(args):
                 layer_names = weights_sd.keys()
                 for layer_name in layer_names:
                     # erase self attention
-                    if 'attn1' in layer_name :
-                        weights_sd[layer_name] = weights_sd[layer_name] * 0
+                    if args.erase_selfattn :
+                        if 'attn1' in layer_name :
+                            print(f'erase self attention ..., layer_name : {layer_name}')
+                            weights_sd[layer_name] = weights_sd[layer_name] * 0
+                    elif args.erase_crossattn :
+                        if 'attn2' in layer_name :
+                            print(f'erase cross attention ..., layer_name : {layer_name}')
+                            weights_sd[layer_name] = weights_sd[layer_name] * 0
+
 
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
@@ -3096,5 +3103,8 @@ if __name__ == "__main__":
     parser.add_argument("--device", default='cuda')
     parser.add_argument("--trg_token", type=str)
     parser.add_argument("--negative_prompt", type=str)
+    parser.add_argument("--erase_selfattn",  action = 'store_true')
+    parser.add_argument("--erase_crossattn", action = 'store_true')
+
     args = parser.parse_args()
     main(args)
