@@ -1047,6 +1047,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
+        print(f"Created temporary file: {tempfile_new.name}")
         if args.wandb_log_template_path is not None:
             with open(args.wandb_log_template_path, 'r', encoding='utf-8') as f:
                 lines = f.read()
