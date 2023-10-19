@@ -40,7 +40,6 @@ def main(args) :
 
     print(f' (1.4) CCIP score')
 
-
     print(f'\n step 2. reference image')
     ref_img_dict = {}
     ref_img_dir_dict = {}
@@ -61,6 +60,7 @@ def main(args) :
                 img_emb = get_dino_dim(img_dir, dino_model, dino_transform, args)
             ref_img_dict[caption] = img_emb
             ref_img_dir_dict[caption] = img_dir
+
     print(f'\n step 3. generated image')
     base_img_folder = args.base_img_folder
     conditions = os.listdir(base_img_folder)
@@ -72,6 +72,7 @@ def main(args) :
                      '(CCIP) epoch', '(CCIP) dino sim', '(CCIP) ccip diff', '(CCIP) aes score',])
 
     for condition in conditions:
+        print(f' *** condition : {condition}')
         condition_dir = os.path.join(base_img_folder, condition, 'sample')
         epochs = os.listdir(condition_dir)
         best_epoch_dict = {}
