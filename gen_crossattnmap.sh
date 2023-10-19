@@ -1,21 +1,29 @@
-CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
+CUDA_VISIBLE_DEVICES=4 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights './result/haibara_experience/one_image/name_3/haibara_3_1_image_base/haibara-000050.safetensors' \
-      --prompt 'haibara,masterpiece, best quality, 1girl, bangs, blue_eyes, cowboy_shot, looking_at_viewer, school uniform, solo, highly detailed, solo, cowboy shot, palm tree, waves, smile, sitting on a chair' \
+      --network_weights './result/haibara_experience/one_image/name_3/haibara_binary_mask_only_second_training_10/haibara-000050.safetensors' \
+      --prompt 'haibara,masterpiece, best quality, 1girl, bangs, blue_eyes, cowboy_shot, looking_at_viewer, school uniform, solo, highly detailed, solo, cowboy shot, waves, smile, sitting on a chair' \
       --erase_selfattn \
-      --outdir ./result/haibara_experience/one_image/name_3/haibara_3_1_image_base/inference_attention/haibara_epoch_50_one_prompt_erase_selfattn --seed 42 --trg_token 'haibara' \
+      --outdir ./result/haibara_experience/one_image/name_3/haibara_binary_mask_only_second_training_10/inference_attention/haibara_epoch_50_one_prompt_erase_selfattn_without_glasses --seed 42 --trg_token 'haibara' \
       --negative_prompt 'drawn by bad-artist, sketch by bad-artist-anime, ugly, worst quality, poor details,bad-hands'
 
-CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
+CUDA_VISIBLE_DEVICES=5 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
       --network_module networks.lora \
-      --network_weights './result/haibara_experience/one_image/name_3/haibara_3_1_image_base/haibara-000050.safetensors' \
+      --network_weights './result/haibara_experience/one_image/name_3/haibara_binary_mask_only_second_training_10/haibara-000050.safetensors' \
+      --prompt 'haibara,masterpiece, best quality, 1girl, bangs, blue_eyes, cowboy_shot, looking_at_viewer, school uniform, solo, highly detailed, solo, cowboy shot, wearing eyeglass, waves, smile, sitting on a chair' \
+      --outdir ./result/haibara_experience/one_image/name_3/haibara_binary_mask_only_second_training_10/inference_attention/haibara_epoch_50_one_prompt_full --seed 42 --trg_token 'haibara' \
+      --negative_prompt 'drawn by bad-artist, sketch by bad-artist-anime, ugly, worst quality, poor details,bad-hands'
+
+# without text encoder
+CUDA_VISIBLE_DEVICES=4 python gen_crossattnmap.py \
+      --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
+      --network_module networks.lora \
+      --network_weights './result/haibara_experience/one_image/name_3/haibara_binary_mask_only_second_training_10/haibara-000050.safetensors' \
       --prompt 'haibara,masterpiece, best quality, 1girl, bangs, blue_eyes, cowboy_shot, looking_at_viewer, school uniform, solo, highly detailed, solo, cowboy shot, palm tree, waves, smile, sitting on a chair' \
       --erase_crossattn \
-      --outdir ./result/haibara_experience/one_image/name_3/haibara_3_1_image_base/inference_attention/haibara_epoch_50_one_prompt_erase_crossattn --seed 42 --trg_token 'haibara' \
+      --outdir ./result/haibara_experience/one_image/name_3/haibara_binary_mask_only_second_training_10/inference_attention/haibara_epoch_50_one_prompt_erase_crossattn --seed 42 --trg_token 'haibara' \
       --negative_prompt 'drawn by bad-artist, sketch by bad-artist-anime, ugly, worst quality, poor details,bad-hands'
-
 
 
 
