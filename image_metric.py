@@ -1,6 +1,6 @@
 import torch
 from torchvision import transforms as pth_transforms
-from PIL import Image, ImageFile
+from imgutils.metrics import ccip_difference
 import numpy as np
 import argparse, os, shutil
 import csv
@@ -20,7 +20,8 @@ def compute_cosine_distance(image_features, image_features2):
 
 def main(args) :
 
-    print(f'step 1. model')
+    print(f'\n step 1. model')
+
     print(f' (1.1) DINO model')
     dino_model = VITs16(dino_model=args.dino_model, device=args.device)
     dino_transform = pth_transforms.Compose([pth_transforms.Resize(224, interpolation=3),
@@ -37,8 +38,12 @@ def main(args) :
     print(f' (1.3) clip model')
     clip_model, clip_preprocess = clip.load("ViT-L/14", device=args.device)
 
-    print(f'step 2. ref image')
+    print(f' (1.4) CCIP score')
+
+
+    print(f'\n step 2. reference image')
     ref_img_dict = {}
+    ref_img_dir_dict = {}
     ref_img_folder = args.ref_img_folder
     files = os.listdir(ref_img_folder)
     for file in files :
@@ -54,17 +59,19 @@ def main(args) :
             except :
                 img_dir = os.path.join(ref_img_folder, f'{name}.jpg')
                 img_emb = get_dino_dim(img_dir, dino_model, dino_transform, args)
-            print(f'caption : {caption}')
             ref_img_dict[caption] = img_emb
-
-    print(f'step 3. image')
+            ref_img_dir_dict[caption] = img_dir
+    print(f'\n step 3. generated image')
     base_img_folder = args.base_img_folder
     conditions = os.listdir(base_img_folder)
     elems = []
     best_sim = []
-    best_sim.append(['Condition', 'Best_epoch', 'Avg_I2I_sim', 'Aes_score', 'Avg_T2I_sim'])
+    best_sim.append(['Condition',
+                     '(DINO) epoch', '(DINO) dino sim', '(DINO) ccip diff', '(DINO) aes score',
+                     'T2I',
+                     '(CCIP) epoch', '(CCIP) dino sim', '(CCIP) ccip diff', '(CCIP) aes score',])
+
     for condition in conditions:
-        #trg_seed = condition.split('_')[-1]
         condition_dir = os.path.join(base_img_folder, condition, 'sample')
         epochs = os.listdir(condition_dir)
         best_epoch_dict = {}
@@ -72,7 +79,8 @@ def main(args) :
             if 'record' not in epoch and 'sample' not in epoch and 'safetensors' not in epoch :
                 epoch_dir = os.path.join(condition_dir, epoch)
                 images = os.listdir(epoch_dir)
-                similarities = []
+                dino_similarities = []
+                ccip_diffs = []
                 aesthetic_predictions = []
                 img_num = 0
                 for image in images:
@@ -82,12 +90,14 @@ def main(args) :
                         image_dir = os.path.join(epoch_dir, image)
                         txt_dir = os.path.join(epoch_dir, f'{name}.txt')
                         pil_img = Image.open(image_dir)  # RGB
+                        # -----------------------------------------------------------------------------------------------------
                         # (1) Aesthetic
                         with torch.no_grad():
                             image_features = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
                         im_emb_arr = normalized(image_features.cpu().detach().numpy())
                         aesthetic_prediction = mlp_model(torch.from_numpy(im_emb_arr).to('cuda').type(torch.cuda.FloatTensor))
                         aesthetic_predictions.append(aesthetic_prediction.item())
+                        # -----------------------------------------------------------------------------------------------------
                         # (2) Dino
                         image_embedding = get_dino_dim(image_dir,dino_model,dino_transform, args)
                         try :
@@ -95,28 +105,40 @@ def main(args) :
                                 caption = f.readlines()[0]
                         except :
                             print(txt_dir)
-                        if caption in ref_img_dict.keys() :
-                            ref_emb = ref_img_dict[caption]
-                            sim = torch.nn.functional.cosine_similarity(image_embedding,
-                                                                        ref_emb,
-                                                                        dim=1, eps=1e-8)
-                            similarities.append(sim.item())
-                        #else :
-                        #    print(f'{caption} is not in ref_img_dict.keys()')
-                #print(F'img_num : {img_num}')
+                        for caption in ref_img_dict.keys() :
+                            if caption in ref_img_dict.keys() :
+                                # (2-1) Dino similarity
+                                ref_emb = ref_img_dict[caption]
+                                sim = torch.nn.functional.cosine_similarity(image_embedding,
+                                                                            ref_emb,
+                                                                            dim=1, eps=1e-8)
+                                dino_similarities.append(sim.item())
+
+                                # (2-2) CCIP similarity
+                                ref_img_dir = ref_img_dir_dict[caption]
+                                difference = ccip_difference(image_dir, ref_img_dir)
+                                ccip_diffs.append(difference)
+
+                # -----------------------------------------------------------------------------------------------------
                 average_aes = sum(aesthetic_predictions) / len(aesthetic_predictions)
-                average_sim = sum(similarities) / len(similarities)
-                best_epoch_dict[epoch] = [average_sim, average_aes]
-                elem = [condition, epoch, average_sim, average_aes]
+                average_dino_sim = sum(dino_similarities) / len(dino_similarities)
+                average_ccip_diff = sum(ccip_diffs) / len(ccip_diffs)
+                # -----------------------------------------------------------------------------------------------------
+                best_epoch_dict[epoch] = [average_dino_sim, average_ccip_diff, average_aes]
+                elem = [condition, epoch, average_dino_sim, average_ccip_diff, average_aes]
                 elems.append(elem)
-        best_epoch_dict = sorted(best_epoch_dict.items(), key=lambda x: x[1][0], reverse=True)
-        print(f'{condition} best_epoch_dict : {best_epoch_dict}')
-        best_epoch, score = best_epoch_dict[0]
-        avg_sim, aes_score = score
+
+        dino_best_epoch_dict = sorted(best_epoch_dict.items(), key=lambda x: x[1][0], reverse=True)
+        dino_best_epoch, dino_score = dino_best_epoch_dict[0]
+        d_average_dino_sim, d_average_ccip_diff, d_average_aes = dino_score
+
+        ccip_best_epoch_dict = sorted(best_epoch_dict.items(), key=lambda x: x[1][1], reverse=False)
+        ccip_best_epoch, ccip_score = ccip_best_epoch_dict[0]
+        c_average_dino_sim, c_average_ccip_diff, c_average_aes = ccip_score
 
         # -----------------------------------------------------------------------------------------
         # best epoch dit
-        best_epoch_dir = os.path.join(condition_dir, best_epoch)
+        best_epoch_dir = os.path.join(condition_dir, d_average_dino_sim)
         files = os.listdir(best_epoch_dir)
         t2i_sim_list = []
         for file in files :
@@ -136,24 +158,32 @@ def main(args) :
                     t2i_sim_list.append(t2i_sim)
         avg_t2i_sim = sum(t2i_sim_list) / len(t2i_sim_list)
         # -----------------------------------------------------------------------------------------
-        best_sim.append([condition, best_epoch, avg_sim, aes_score,avg_t2i_sim])
+        best_sim.append([condition,
+                         dino_best_epoch, d_average_dino_sim, d_average_ccip_diff, d_average_aes,
+                         avg_t2i_sim,
+                         ccip_best_epoch, c_average_dino_sim, c_average_ccip_diff, c_average_aes,])
 
-    with open('generated_images/temp2/average_sim_aesthetic_park_second.csv', 'w', newline='') as csvfile:
+    asethetic_csv = os.path.join(args.base_img_folder, 'metric', 'average_sim_aesthetic.csv')
+    with open(asethetic_csv, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(elems)
-
-    with open('generated_images/temp2/best_sim_second_1.csv', 'w', newline='') as csvfile:
+    best_similarity_DINO_csv = os.path.join(args.base_img_folder, 'metric', 'best_score.csv')
+    with open(best_similarity_DINO_csv, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(best_sim)
+
+
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dino_model', type=str, default='dino_vits16')
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--ref_img_folder', type=str, default=r'/data7/sooyeon/MyData/haibara_dataset/not_test/haibara_19/2_girl')
-    parser.add_argument('--base_img_folder', type=str, default=r'./result/haibara_experience/one_image/name_3_without_caption')
-
+    parser.add_argument('--ref_img_folder',
+                        type=str,
+                        default=r'/data7/sooyeon/MyData/haibara_dataset/not_test/haibara_19/2_girl')
+    parser.add_argument('--base_img_folder',
+                        type=str,
+                        default=r'./result/haibara_experience/one_image/name_3_without_caption')
     args = parser.parse_args()
     main(args)
-    '../PersonalizeOverfitting/improved-aesthetic-predictor/sac+logos+ava1-l14-linearMSE.pth'
