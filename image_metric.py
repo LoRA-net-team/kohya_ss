@@ -139,7 +139,7 @@ def main(args) :
 
         # -----------------------------------------------------------------------------------------
         # best epoch dit
-        best_epoch_dir = os.path.join(str(condition_dir), str(d_average_dino_sim))
+        best_epoch_dir = os.path.join(str(condition_dir), str(dino_best_epoch))
         files = os.listdir(best_epoch_dir)
         t2i_sim_list = []
         for file in files :
