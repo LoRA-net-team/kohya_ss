@@ -31,7 +31,7 @@ def main(args) :
 
     print(f' (1.2) Aesthetic model')
     mlp_model = Aesthetic_MLP(768)  # CLIP embedding dim is 768 for CLIP ViT L 14
-    mlp_model.load_state_dict(torch.load("../../../pretrained/improved-aesthetic-predictor/sac+logos+ava1-l14-linearMSE.pth"))
+    mlp_model.load_state_dict(torch.load("../../pretrained/improved-aesthetic-predictor/sac+logos+ava1-l14-linearMSE.pth"))
     mlp_model.to(args.device)
     mlp_model.eval()
 
