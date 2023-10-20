@@ -95,8 +95,8 @@ def register_attention_control(unet : nn.Module, controller):
                             controller.store(attn_loss, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
-            if is_cross_attention :
-                print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
+            #if is_cross_attention :
+            #    print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
