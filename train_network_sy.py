@@ -907,17 +907,20 @@ class NetworkTrainer:
                         # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
                         # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
                         noise_pred:torch.Tensor
-                        print("noise_pred size: ", noise_pred.size()) # debug
-                        print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug
-                        mask_imgs = [F.interpolate(mask, noise_pred.size()[-2:], mode='bilinear') for mask in batch['mask_imgs']]
+                        print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
+                        print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        # [256, 256] -> [1, 1, 256, 256]
+                        mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
+                        # interpolate
+                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in mask_imgs]
+                        # to Tensor
+                        mask_imgs = torch.cat(mask_imgs, dim=0) # [batch_size, 1, 256, 256]
                         print("mask_imgs size: ", mask_imgs[0].size()) # debug
                         # multiply mask to noise_pred and target
                         # element-wise multiplication
-                        noise_pred = noise_pred * torch.stack(mask_imgs)
-                        target = target * torch.stack(mask_imgs)
-                        
-                        
-                        
+                        noise_pred = noise_pred * mask_imgs
+                        target = target * mask_imgs
 
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
