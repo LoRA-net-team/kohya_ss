@@ -918,10 +918,13 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 sum_of_attn = sum(atten_collection[layer_name])
-                                attn_loss = attn_loss + sum_of_attn
+                                if attn_loss:
+                                    attn_loss = attn_loss + sum_of_attn
+                                else:
+                                    attn_loss = sum_of_attn
                                 # attention_losses[layer_name] = sum_of_attn but detach
-                                attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn.detach().item()
-                            attention_losses["loss/attention_loss"] = attn_loss.detach().item()
+                                attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
+                            attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     else:
@@ -970,6 +973,9 @@ class NetworkTrainer:
                 loss_total += current_loss
                 avr_loss = loss_total / len(loss_list)
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
+                # detach attention_losses dict
+                attention_losses = {k: v.detach().item() for k, v in attention_losses.items()}
+                
                 progress_bar.set_postfix(**logs)
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
