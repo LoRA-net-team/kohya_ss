@@ -185,7 +185,9 @@ def main(args) :
                          avg_t2i_sim,
                          ccip_best_epoch, c_average_dino_sim, c_average_ccip_diff, c_average_aes,])
         """
-        asethetic_csv = os.path.join(condition_dir, 'metric', 'average_sim_aesthetic.csv')
+        asethetic_csv_dir = os.path.join(condition_dir, 'metric')
+        os.makedirs(asethetic_csv_dir, exist_ok=True)
+        asethetic_csv = os.path.join(asethetic_csv_dir, 'average_sim_aesthetic.csv')
         with open(asethetic_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerows(elems)
