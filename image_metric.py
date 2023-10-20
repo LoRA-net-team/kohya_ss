@@ -64,15 +64,17 @@ def main(args) :
     print(f'\n step 3. generated image')
     base_img_folder = args.base_img_folder
     conditions = os.listdir(base_img_folder)
-    elems = []
-    best_sim = []
-    best_sim.append(['Condition',
-                     '(DINO) epoch', '(DINO) dino sim', '(DINO) ccip diff', '(DINO) aes score',
-                     'T2I',
-                     '(CCIP) epoch', '(CCIP) dino sim', '(CCIP) ccip diff', '(CCIP) aes score',])
+
+    #best_sim = []
+    #best_sim.append(['Condition',
+    #                 '(DINO) epoch', '(DINO) dino sim', '(DINO) ccip diff', '(DINO) aes score',
+    #                 'T2I',
+    #                 '(CCIP) epoch', '(CCIP) dino sim', '(CCIP) ccip diff', '(CCIP) aes score',])
 
     for condition in conditions:
         print(f' *** condition : {condition}')
+        elems = []
+        elems.append(['condition', 'epoch', 'average_dino_sim', 'average_ccip_diff', 'average_aes', 'avg_t2i_sim'])
         condition_dir = os.path.join(base_img_folder, condition, 'sample')
         epochs = os.listdir(condition_dir)
         best_epoch_dict = {}
@@ -98,6 +100,7 @@ def main(args) :
                         im_emb_arr = normalized(image_features.cpu().detach().numpy())
                         aesthetic_prediction = mlp_model(torch.from_numpy(im_emb_arr).to('cuda').type(torch.cuda.FloatTensor))
                         aesthetic_predictions.append(aesthetic_prediction.item())
+
                         # -----------------------------------------------------------------------------------------------------
                         # (2) Dino
                         image_embedding = get_dino_dim(image_dir,dino_model,dino_transform, args)
@@ -120,27 +123,44 @@ def main(args) :
                                 difference = ccip_difference(image_dir, ref_img_dir)
                                 ccip_diffs.append(difference)
 
+
+                        with open(txt_dir, 'r') as f:
+                            txt = f.readlines()[0]
+                        gen_image = clip_preprocess(Image.open(img_dir)).unsqueeze(0).to(args.device)
+                        with torch.no_grad():
+                            clip_img_emb = clip_model.encode_image(gen_image)  # [1,512]
+                            target_text = txt.split(',')
+                            text = clip.tokenize(target_text).to(args.device)
+                            clip_txt_emb = clip_model.encode_text(text)
+                            t2i_sim = torch.nn.functional.cosine_similarity(clip_img_emb, clip_txt_emb, dim=1,
+                                                                            eps=1e-8).mean().item()
+                            t2i_sim_list.append(t2i_sim)
+
+
                 # -----------------------------------------------------------------------------------------------------
                 average_aes = sum(aesthetic_predictions) / len(aesthetic_predictions)
                 average_dino_sim = sum(dino_similarities) / len(dino_similarities)
                 average_ccip_diff = sum(ccip_diffs) / len(ccip_diffs)
+                avg_t2i_sim = sum(t2i_sim_list) / len(t2i_sim_list)
+
                 # -----------------------------------------------------------------------------------------------------
-                best_epoch_dict[epoch] = [average_dino_sim, average_ccip_diff, average_aes]
-                elem = [condition, epoch, average_dino_sim, average_ccip_diff, average_aes]
+                #best_epoch_dict[epoch] = [average_dino_sim, average_ccip_diff, average_aes]
+                elem = [condition, epoch, average_dino_sim, average_ccip_diff, average_aes,avg_t2i_sim]
                 elems.append(elem)
 
-        dino_best_epoch_dict = sorted(best_epoch_dict.items(), key=lambda x: x[1][0], reverse=True)
-        dino_best_epoch, dino_score = dino_best_epoch_dict[0]
-        d_average_dino_sim, d_average_ccip_diff, d_average_aes = dino_score
+        #dino_best_epoch_dict = sorted(best_epoch_dict.items(), key=lambda x: x[1][0], reverse=True)
+        #dino_best_epoch, dino_score = dino_best_epoch_dict[0]
+        #d_average_dino_sim, d_average_ccip_diff, d_average_aes = dino_score
 
-        ccip_best_epoch_dict = sorted(best_epoch_dict.items(), key=lambda x: x[1][1], reverse=False)
-        ccip_best_epoch, ccip_score = ccip_best_epoch_dict[0]
-        c_average_dino_sim, c_average_ccip_diff, c_average_aes = ccip_score
+        #ccip_best_epoch_dict = sorted(best_epoch_dict.items(), key=lambda x: x[1][1], reverse=False)
+        #ccip_best_epoch, ccip_score = ccip_best_epoch_dict[0]
+        #c_average_dino_sim, c_average_ccip_diff, c_average_aes = ccip_score
 
         # -----------------------------------------------------------------------------------------
         # best epoch dit
-        best_epoch_dir = os.path.join(str(condition_dir), str(dino_best_epoch))
-        files = os.listdir(best_epoch_dir)
+        #best_epoch_dir = os.path.join(str(condition_dir), str(dino_best_epoch))
+        #files = os.listdir(best_epoch_dir)
+        """
         t2i_sim_list = []
         for file in files :
             name, ext = os.path.splitext(file)
@@ -163,16 +183,17 @@ def main(args) :
                          dino_best_epoch, d_average_dino_sim, d_average_ccip_diff, d_average_aes,
                          avg_t2i_sim,
                          ccip_best_epoch, c_average_dino_sim, c_average_ccip_diff, c_average_aes,])
-
-    asethetic_csv = os.path.join(args.base_img_folder, 'metric', 'average_sim_aesthetic.csv')
-    with open(asethetic_csv, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerows(elems)
+        """
+        asethetic_csv = os.path.join(condition_dir, 'metric', 'average_sim_aesthetic.csv')
+        with open(asethetic_csv, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerows(elems)
+    """
     best_similarity_DINO_csv = os.path.join(args.base_img_folder, 'metric', 'best_score.csv')
     with open(best_similarity_DINO_csv, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(best_sim)
-
+    """
 
 
 if __name__ == '__main__':
