@@ -47,6 +47,7 @@ class BaseSubsetParams:
   token_warmup_step: float = 0
   train_mask_dir: Optional[str] = None
   trg_concept: Optional[str] = None
+  class_concept: Optional[str] = None
 
 @dataclass
 class DreamBoothSubsetParams(BaseSubsetParams):
