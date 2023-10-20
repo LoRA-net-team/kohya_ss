@@ -85,6 +85,7 @@ def main(args) :
                 dino_similarities = []
                 ccip_diffs = []
                 aesthetic_predictions = []
+                t2i_sim_list = []
                 img_num = 0
                 for image in images:
                     name, ext = os.path.splitext(image)
