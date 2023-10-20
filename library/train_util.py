@@ -361,6 +361,8 @@ class BaseSubset:
         self.train_mask_dir = train_mask_dir
         self.trg_concept = trg_concept
         self.class_concept = class_concept
+        if self.class_concept is not None:
+            print(f"Using class concept: {self.class_concept}")
 class DreamBoothSubset(BaseSubset):
     def __init__(
         self,

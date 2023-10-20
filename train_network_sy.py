@@ -245,6 +245,7 @@ class NetworkTrainer:
         cache_latents = args.cache_latents
         use_dreambooth_method = args.in_json is None
         use_user_config = args.dataset_config is not None
+        use_class_concept = args.class_concept is not None # if class_caption is provided, for subsets, add key 'class_concept' to each subset
 
         if args.seed is None:
             args.seed = random.randint(0, 2**32)
@@ -266,12 +267,21 @@ class NetworkTrainer:
             else:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
-                    user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir,
-                                                                                                                      args.reg_data_dir,)}]}
+                    user_config = {}
+                    user_config['datasets'] = []
+                    for dict_generated_by_subdir in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir, args.reg_data_dir):
+                        if use_class_concept:
+                            dict_generated_by_subdir['class_concept'] = args.class_concept
+                        user_config['datasets'].append(dict_generated_by_subdir)
                 else:
                     print("Training with captions.")
-                    user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,
-                                                              "metadata_file": args.in_json,}]}]}
+                    user_config = {}
+                    user_config["datasets"] = []
+                    user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir, "metadata_file": args.in_json,}]})
+                    # add class_concept to each subset
+                    if use_class_concept:
+                        for subset in user_config["datasets"][0]["subsets"]:
+                            subset["class_concept"] = args.class_concept
             print(f'User config: {user_config}')
             # blueprint_generator = BlueprintGenerator
             print('start of generate function ...')
@@ -1054,6 +1064,8 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_log_template_path", type=str)
     parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
+    # class_concept
+    parser.add_argument("--class_concept", type=str, default='girl')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--train_mask_dir", type=str)
