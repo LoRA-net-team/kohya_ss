@@ -153,8 +153,10 @@ class NetworkTrainer:
 
     # TODO 他のスクリプトと共通化する
     def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
-                           keys_scaled=None, mean_norm=None, maximum_norm=None):
+                           keys_scaled=None, mean_norm=None, maximum_norm=None, **kwargs):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
+        if kwargs is not None:
+            logs.update(kwargs)
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
             logs["max_norm/average_key_norm"] = mean_norm
@@ -897,14 +899,20 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
+                        attention_losses = {}
                         layer_names = atten_collection.keys()
                         assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         attn_loss = 0
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
-                                attn_loss = attn_loss + sum(atten_collection[layer_name])
+                                sum_of_attn = sum(atten_collection[layer_name])
+                                attn_loss = attn_loss + sum_of_attn
+                                # attention_losses[layer_name] = sum_of_attn but detach
+                                attention_losses["attention_loss_"+layer_name] = sum_of_attn.detach().item()
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
+                    else:
+                        attention_losses = {}
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -953,7 +961,7 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
-                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm)
+                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
                 if global_step >= args.max_train_steps:
                     break
