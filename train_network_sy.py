@@ -1057,6 +1057,7 @@ if __name__ == "__main__":
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
+    parser.add_argument("--text_only_training", action='store_true')
     args = parser.parse_args()
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()

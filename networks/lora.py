@@ -1555,7 +1555,7 @@ class LoRANetworkText(torch.nn.Module):
                                                     module_dropout=module_dropout,)
                                 loras.append(lora)
                             if is_unet :
-                                print(f'{lora_name}')                             
+                                print(f'{lora_name}')
             return loras, skipped
 
         text_encoders = text_encoder if type(text_encoder) == list else [text_encoder]
