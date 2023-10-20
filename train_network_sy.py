@@ -368,6 +368,7 @@ class NetworkTrainer:
                     **net_kwargs,
                 )
             else :
+                print('Text Only Training')
                 network = network_module.create_network_text_only(
                     1.0,
                     args.network_dim,
