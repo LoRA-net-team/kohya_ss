@@ -9,6 +9,6 @@ print(f'what_map_torch : {what_map_torch.shape}')
 b, pix_len, dim = con.shape
 res = int(math.sqrt(pix_len))
 
-
 re_con = con.reshape(b, res, res, dim)
+re_con = re_con.mean(dim=0)
 print(f're_con : {re_con.shape}')
