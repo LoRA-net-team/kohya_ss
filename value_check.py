@@ -7,7 +7,7 @@ what_map_torch = torch.load(trg_file)
 uncon, con = what_map_torch.chunk(2, dim=0)
 print(f'what_map_torch : {what_map_torch.shape}')
 b, pix_len, dim = con.shape
-res = math.sqrt(pix_len)
+res = int(math.sqrt(pix_len))
 
 
 re_con = con.reshape(b, res, res, dim)
