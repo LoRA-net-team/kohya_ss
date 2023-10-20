@@ -1,6 +1,7 @@
 import importlib
 import argparse
 import gc
+import re
 import math
 import os
 import sys
@@ -13,7 +14,10 @@ from tqdm import tqdm
 import toml
 import tempfile
 import torch
-from setproctitle import *
+try:
+    from setproctitle import setproctitle
+except (ImportError, ModuleNotFoundError):
+    setproctitle = lambda x: None
 try:
     import intel_extension_for_pytorch as ipex
     if torch.xpu.is_available():
@@ -37,14 +41,21 @@ from library.custom_train_functions import (apply_snr_weight, get_weighted_text_
 from torch import nn
 import torch.nn.functional as F
 
-first_layers =  ['mid']
-second_layers = ['down_blocks_2','up_blocks_1']
-third_layers =  ['down_blocks_1','up_blocks_2']
-forth_layers =  ['down_blocks_0','up_blocks_3']
-second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
-first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
+from functools import lru_cache
 
-def register_attention_control(unet : nn.Module, controller):
+@lru_cache(maxsize=128)
+def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
+    """
+    Check if layer_name matches regex_list_str.
+    """
+    regex_list = regex_list_str.split(',')
+    for regex in regex_list:
+        regex = regex.strip() # remove space
+        if re.match(regex, layer_name):
+            return True
+    return False
+
+def register_attention_control(unet : nn.Module, controller, mask_threshold:float=1): #if mask_threshold is 1, use itself
     """
     Register cross attention layers to controller.
     """
@@ -90,6 +101,10 @@ def register_attention_control(unet : nn.Module, controller):
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
                             mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                            # thresholding, convert to 1 if upper than threshold else itself
+                            mask_ = torch.where(mask_ > mask_threshold, torch.ones_like(mask_), mask_)
+                            # check if mask_ is frozen, it should not be updated
+                            assert mask_.requires_grad == False, 'mask_ should not be updated'
                             masked_heat_map = word_heat_map_ * mask_
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
@@ -527,7 +542,7 @@ class NetworkTrainer:
 
         from attention_store import AttentionStore
         attention_storer = AttentionStore()
-        register_attention_control(unet, attention_storer)
+        register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -879,25 +894,9 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
-
-                            if args.only_second_training :
-                                for i in second_layers :
-                                    if i in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-
-                            elif args.only_third_training :
-                                for i in third_layers :
-                                    if i in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-
-                            elif args.second_third_training :
-                                for i in second_third_layers :
-                                    if i in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-                            else :
+                            if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
-
-
+                        assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1040,11 +1039,37 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--train_mask_dir", type=str)
+    
+    #first_layers =  ['mid'] # "mid"
+    #second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
+    #third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
+    #forth_layers =  ['down_blocks_0','up_blocks_3'] #"down_blocks_0,up_blocks_3"
+    #second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
+    #first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
+
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
+    parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ',', matches regex with given string. default is 'all'")
+    # mask_threshold (0~1, default 1)
+    parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
     args = parser.parse_args()
+    
+    # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
+    if args.only_second_training:
+        args.attn_loss_layers = 'down_blocks_2,up_blocks_1'
+    elif args.only_third_training:
+        args.attn_loss_layers = 'down_blocks_1,up_blocks_2'
+    elif args.second_third_training:
+        args.attn_loss_layers = 'down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
+    elif args.first_second_third_training:
+        args.attn_loss_layers = 'mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
+    
+    # if any of only_second_training, only_third_training, second_third_training, first_second_third_training is True, print message to notify user that args.attn_loss_layers is overwritten
+    if args.only_second_training or args.only_third_training or args.second_third_training or args.first_second_third_training:
+        print(f"args.attn_loss_layers is overwritten to {args.attn_loss_layers} because only_second_training, only_third_training, second_third_training, first_second_third_training is True")
+    
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
         print(f"Created temporary file: {tempfile_new.name}")
