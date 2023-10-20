@@ -54,6 +54,7 @@ class DreamBoothSubsetParams(BaseSubsetParams):
   is_reg: bool = False
   class_tokens: Optional[str] = None
   caption_extension: str = ".caption"
+  class_caption: Optional[str] = None
 
 @dataclass
 class FineTuningSubsetParams(BaseSubsetParams):
@@ -461,6 +462,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           is_reg: {subset.is_reg}
           class_tokens: {subset.class_tokens}
           caption_extension: {subset.caption_extension}
+          class_caption: {subset.class_caption}
         \n"""), "    ")
       elif not is_controlnet:
         info += indent(dedent(f"""metadata_file: {subset.metadata_file}\n"""), "    ")
@@ -487,7 +489,7 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
     caption_by_folder = '_'.join(tokens[1:])
     return n_repeats, caption_by_folder
 
-  def generate(base_dir: Optional[str], is_reg: bool):
+  def generate(base_dir: Optional[str], is_reg: bool, class_caption: Optional[str] = None):
 
     if base_dir is None:
       return []
@@ -506,7 +508,8 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
       subset_config = {"image_dir": str(subdir),
                        "num_repeats": num_repeats,
                        "is_reg": is_reg,
-                       "class_tokens": class_tokens,}
+                       "class_tokens": class_tokens,
+                       "class_caption": class_caption,}
       subsets_config.append(subset_config)
 
     return subsets_config
