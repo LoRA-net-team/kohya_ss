@@ -130,7 +130,9 @@ class ImageInfo:
         self.text_encoder_outputs1: Optional[torch.Tensor] = None
         self.text_encoder_outputs2: Optional[torch.Tensor] = None
         self.text_encoder_pool2: Optional[torch.Tensor] = None
-        self.mask_dir: str = mask_dir
+        self.mask_dir: Optional[str] = mask_dir
+        if self.mask_dir is not None:
+            assert os.path.exists(self.mask_dir), f"mask_dir {self.mask_dir} does not exist"
         self.trg_concept: str = trg_concept
         self.class_caption: Optional[str] = class_caption
 
@@ -1398,6 +1400,8 @@ class DreamBoothDataset(BaseDataset):
                 print(f"not directory: {subset.image_dir}")
                 return [], []
             train_mask_dir = subset.train_mask_dir
+            if train_mask_dir:
+                assert os.path.isdir(train_mask_dir), f"not directory: {train_mask_dir}"
             img_paths = glob_images(subset.image_dir, "*")
             print(f"found directory {subset.image_dir} contains {len(img_paths)} image files")
 
@@ -1453,15 +1457,18 @@ class DreamBoothDataset(BaseDataset):
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
-                mask_path = os.path.join(train_mask_dir,f'{name}_gaussian_mask.png')
+                if train_mask_dir:
+                    mask_path = os.path.join(train_mask_dir,f'{name}_gaussian_mask.png')
+                else:
+                    mask_path = None
                 info = ImageInfo(img_path,
-                                 subset.num_repeats,
-                                 caption,
-                                 subset.is_reg,
-                                 img_path,
-                                 mask_path,
-                                 subset.trg_concept,
-                                 subset.class_caption)
+                                subset.num_repeats,
+                                caption,
+                                subset.is_reg,
+                                img_path,
+                                mask_path,
+                                subset.trg_concept,
+                                subset.class_caption)
                 if subset.is_reg:
                     reg_infos.append(info)
                 else:
