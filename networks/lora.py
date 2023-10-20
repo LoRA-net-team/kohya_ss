@@ -1555,7 +1555,16 @@ class LoRANetworkText(torch.nn.Module):
                                                     module_dropout=module_dropout,)
                                 loras.append(lora)
                             if is_unet :
-                                print(f'{lora_name}')
+                                if 'attn1_to_k' in lora_name or 'attn1_to_v' in lora_name :
+                                    lora = module_class(lora_name,
+                                                        child_module,
+                                                        self.multiplier,
+                                                        dim,
+                                                        alpha,
+                                                        dropout=dropout,
+                                                        rank_dropout=rank_dropout,
+                                                        module_dropout=module_dropout, )
+                                    loras.append(lora)
             return loras, skipped
 
         text_encoders = text_encoder if type(text_encoder) == list else [text_encoder]
