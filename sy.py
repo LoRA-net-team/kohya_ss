@@ -1,3 +1,4 @@
+"""
 from imgutils.metrics import ccip_difference, ccip_clustering
 import os
 
@@ -49,3 +50,11 @@ with open(csv_file, 'w', newline='') as f:
         writer.writerow(record)
 
 
+"""
+import torch
+torch1 = torch.randn(1, 3, 256, 256)
+torch2 = torch.randn(1, 3, 256, 256)
+torch_list = [torch1, torch2]
+a = torch.stack(torch_list, dim=0)
+a = a.mean(dim=0)
+print(a.shape)

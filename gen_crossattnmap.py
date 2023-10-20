@@ -2517,8 +2517,6 @@ def main(args):
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
                 clip_prompts.append(clip_prompt)
-                print(f'prompt : {prompt}')
-                print(f'negative_prompt : {negative_prompt}')
                 if init_image is not None:
                     init_images.append(init_image)
                     if i > 0 and all_images_are_same:
@@ -2629,6 +2627,12 @@ def main(args):
                 attention_storer.what_map_dict = {}
                 for layer_name in layer_names:
                     what_map_list = whatmap_collection[layer_name]
+                    what_map = torch.stack(what_map_list, dim=0)
+                    what_map = what_map.mean(dim=0)
+                    torch.save(what_map, f'{layer_name}_what_map.pt')
+
+                    # list of torch
+
                     print(f'{layer_name} have {len(what_map_list)} what map')
 
 
