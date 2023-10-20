@@ -2362,6 +2362,7 @@ def main(args):
     pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,
                         clip_model, args.clip_guidance_scale, args.clip_image_guidance_scale,
                         vgg16_model,args.vgg16_guidance_scale,args.vgg16_guidance_layer,)
+    pipe.to(device)
     pipe.set_control_nets(control_nets)
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
