@@ -268,11 +268,13 @@ class NetworkTrainer:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
                     user_config = {}
-                    user_config['datasets'] = []
-                    for dict_generated_by_subdir in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir, args.reg_data_dir):
+                    user_config['datasets'] = [{"subsets" : None}]
+                    subsets_dict_list = []
+                    for subsets_dict in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir, args.reg_data_dir):
                         if use_class_caption:
-                            dict_generated_by_subdir['class_caption'] = args.class_caption
-                        user_config['datasets'].append(dict_generated_by_subdir)
+                            subsets_dict['class_caption'] = args.class_caption
+                        subsets_dict_list.append(subsets_dict)
+                        user_config['datasets'][0]['subsets'] = subsets_dict_list
                 else:
                     print("Training with captions.")
                     user_config = {}
