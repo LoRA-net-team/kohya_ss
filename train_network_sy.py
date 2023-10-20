@@ -356,16 +356,29 @@ class NetworkTrainer:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
         else:
             # LyCORIS will work with this...
-            network = network_module.create_network(
-                1.0,
-                args.network_dim,
-                args.network_alpha,
-                vae,
-                text_encoder,
-                unet,
-                neuron_dropout=args.network_dropout,
-                **net_kwargs,
-            )
+            if not args.text_only_training :
+                network = network_module.create_network(
+                    1.0,
+                    args.network_dim,
+                    args.network_alpha,
+                    vae,
+                    text_encoder,
+                    unet,
+                    neuron_dropout=args.network_dropout,
+                    **net_kwargs,
+                )
+            else :
+                network = network_module.create_network_text_only(
+                    1.0,
+                    args.network_dim,
+                    args.network_alpha,
+                    vae,
+                    text_encoder,
+                    unet,
+                    neuron_dropout=args.network_dropout,
+                    **net_kwargs,
+                )
+
         if network is None:
             return
 
