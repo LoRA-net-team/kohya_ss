@@ -295,8 +295,7 @@ class PipelineLike:
             Model that extracts features from generated images to be used as inputs for the `safety_checker`.
     """
 
-    def __init__(
-            self,
+    def __init__(self,
             device,
             vae: AutoencoderKL,
             text_encoder: CLIPTextModel,
@@ -316,7 +315,6 @@ class PipelineLike:
         super().__init__()
         self.device = device
         self.clip_skip = clip_skip
-
         if hasattr(scheduler.config, "steps_offset") and scheduler.config.steps_offset != 1:
             deprecation_message = (
                 f"The configuration file of this scheduler: {scheduler} is outdated. `steps_offset`"
@@ -324,8 +322,7 @@ class PipelineLike:
                 "to update the config accordingly as leaving `steps_offset` might led to incorrect results"
                 " in future versions. If you have downloaded this checkpoint from the Hugging Face Hub,"
                 " it would be very nice if you could open a Pull request for the `scheduler/scheduler_config.json`"
-                " file"
-            )
+                " file")
             deprecate("steps_offset!=1", "1.0.0", deprecation_message, standard_warn=False)
             new_config = dict(scheduler.config)
             new_config["steps_offset"] = 1
@@ -2362,7 +2359,7 @@ def main(args):
     pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,
                         clip_model, args.clip_guidance_scale, args.clip_image_guidance_scale,
                         vgg16_model,args.vgg16_guidance_scale,args.vgg16_guidance_layer,)
-    pipe.to(device)
+    #pipe.to(device)
     pipe.set_control_nets(control_nets)
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
