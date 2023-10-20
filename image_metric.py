@@ -73,6 +73,10 @@ def main(args) :
 
     for condition in conditions:
         print(f' *** condition : {condition}')
+        asethetic_csv_dir = os.path.join(condition_dir, 'metric')
+        os.makedirs(asethetic_csv_dir, exist_ok=True)
+        asethetic_csv = os.path.join(asethetic_csv_dir, 'average_sim_aesthetic.csv')
+        print(f'save on {asethetic_csv}')
         elems = []
         elems.append(['condition', 'epoch', 'average_dino_sim', 'average_ccip_diff', 'average_aes', 'avg_t2i_sim'])
         condition_dir = os.path.join(base_img_folder, condition, 'sample')
@@ -185,9 +189,7 @@ def main(args) :
                          avg_t2i_sim,
                          ccip_best_epoch, c_average_dino_sim, c_average_ccip_diff, c_average_aes,])
         """
-        asethetic_csv_dir = os.path.join(condition_dir, 'metric')
-        os.makedirs(asethetic_csv_dir, exist_ok=True)
-        asethetic_csv = os.path.join(asethetic_csv_dir, 'average_sim_aesthetic.csv')
+
         with open(asethetic_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerows(elems)
