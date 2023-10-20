@@ -8,6 +8,7 @@ class AttentionStore :
         self.step_store = self.get_empty_store()
         self.attention_store = {}
         self.heatmap_store = {}
+        self.what_map_dict = {}
     def get_empty_store(self):
         return {}
 
@@ -19,6 +20,15 @@ class AttentionStore :
             self.step_store[layer_name].append(attn)
             #self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
+
+    def store_whatmap(self, map, layer_name):
+        if layer_name not in self.what_map_dict.keys() :
+            self.what_map_dict[layer_name] = []
+            self.what_map_dict[layer_name].append(map)
+        else :
+            self.what_map_dict[layer_name].append(map)
+        return map
+
 
     def save(self, word_heat_map, layer_name):
         if layer_name not in self.heatmap_store.keys() :

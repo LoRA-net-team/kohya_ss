@@ -1673,29 +1673,6 @@ def get_weighted_text_embeddings(
         layer=None,
         **kwargs,
 ):
-    r"""
-    Prompts can be assigned with local weights using brackets. For example,
-    prompt 'A (very beautiful) masterpiece' highlights the words 'very beautiful',
-    and the embedding tokens corresponding to the words get multiplied by a constant, 1.1.
-    Also, to regularize of the embedding, the weighted embedding would be scaled to preserve the original mean.
-    Args:
-        pipe (`DiffusionPipeline`):
-            Pipe to provide access to the tokenizer and the text encoder.
-        prompt (`str` or `List[str]`):
-            The prompt or prompts to guide the image generation.
-        uncond_prompt (`str` or `List[str]`):
-            The unconditional prompt or prompts for guide the image generation. If unconditional prompt
-            is provided, the embeddings of prompt and uncond_prompt are concatenated.
-        max_embeddings_multiples (`int`, *optional*, defaults to `1`):
-            The max multiple length of prompt embeddings compared to the max output length of text encoder.
-        no_boseos_middle (`bool`, *optional*, defaults to `False`):
-            If the length of text token is multiples of the capacity of text encoder, whether reserve the starting and
-            ending token in each of the chunk in the middle.
-        skip_parsing (`bool`, *optional*, defaults to `False`):
-            Skip the parsing of brackets.
-        skip_weighting (`bool`, *optional*, defaults to `False`):
-            Skip the weighting. When the parsing is skipped, it is forced True.
-    """
     max_length = (pipe.tokenizer.model_max_length - 2) * max_embeddings_multiples + 2
     if isinstance(prompt, str):
         prompt = [prompt]
@@ -2030,8 +2007,8 @@ def register_attention_control(unet, controller):
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             if is_cross_attention :
-                what_map = hidden_states
-                print(f'{layer_name}, what_map : {what_map.shape}')
+                controller.store_whatmap(self, hidden_states, layer_name)
+
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
@@ -2645,9 +2622,21 @@ def main(args):
                 print(f'save attn map')
                 print(f'prompt : {prompt}')
                 text_embeddings, trg_indexs = generate_text_embedding(args, prompt, tokenizer, text_encoder, device)
+
                 atten_collection = attention_storer.step_store
                 attention_storer.step_store = {}
                 layer_names = atten_collection.keys()
+
+                whatmap_collection = attention_storer.what_map_dict
+                attention_storer.what_map_dict = {}
+                for layer_name in layer_names:
+                    what_map_list = whatmap_collection[layer_name]
+                    print(f'{layer_name} have {len(what_map_list)} what map')
+                
+
+
+
+
                 total_heat_map = []
                 for layer_name in layer_names:
                     attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
