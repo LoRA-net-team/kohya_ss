@@ -42,6 +42,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from functools import lru_cache
+from attention_store import AttentionStore
 
 @lru_cache(maxsize=128)
 def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
@@ -55,7 +56,7 @@ def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
             return True
     return False
 
-def register_attention_control(unet : nn.Module, controller, mask_threshold:float=1): #if mask_threshold is 1, use itself
+def register_attention_control(unet : nn.Module, controller:AttentionStore, mask_threshold:float=1): #if mask_threshold is 1, use itself
     """
     Register cross attention layers to controller.
     """
@@ -108,6 +109,8 @@ def register_attention_control(unet : nn.Module, controller, mask_threshold:floa
                             masked_heat_map = word_heat_map_ * mask_
                             attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                             controller.store(attn_loss, layer_name)
+                else:
+                    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
 
             hidden_states = torch.bmm(attention_probs, value)
             #if is_cross_attention :
@@ -539,10 +542,11 @@ class NetworkTrainer:
         num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
-
-        from attention_store import AttentionStore
-        attention_storer = AttentionStore()
-        register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+        if args.heatmap_loss:
+            attention_storer = AttentionStore()
+            register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+        else:
+            attention_storer = None
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -866,8 +870,9 @@ class NetworkTrainer:
                                                     weight_dtype,
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
-                        atten_collection = attention_storer.step_store
-                        attention_storer.step_store = {}
+                        if attention_storer is not None:
+                            atten_collection = attention_storer.step_store
+                            attention_storer.step_store = {}
 
                     if args.v_parameterization:
                         # v-parameterization training
@@ -892,6 +897,7 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         layer_names = atten_collection.keys()
+                        assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         attn_loss = 0
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
@@ -917,7 +923,8 @@ class NetworkTrainer:
                     progress_bar.update(1)
                     global_step += 1
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-                    attention_storer.step_store = {}
+                    if attention_storer is not None:
+                        attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
@@ -967,7 +974,8 @@ class NetworkTrainer:
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-            attention_storer.step_store = {}
+            if attention_storer is not None:
+                attention_storer.step_store = {}
             # end of epoch
 
         # metadata["ss_epoch"] = str(num_train_epochs)
