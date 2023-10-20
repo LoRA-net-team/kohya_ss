@@ -109,7 +109,7 @@ class ImageInfo:
                  image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str,
                  mask_dir:str,
                  trg_concept:str,
-                 class_concept:Optional[str]) -> None:
+                 class_caption:Optional[str]) -> None:
         self.image_key: str = image_key
         self.num_repeats: int = num_repeats
         self.caption: str = caption
@@ -132,7 +132,7 @@ class ImageInfo:
         self.text_encoder_pool2: Optional[torch.Tensor] = None
         self.mask_dir: str = mask_dir
         self.trg_concept: str = trg_concept
-        self.class_concept: Optional[str] = class_concept
+        self.class_caption: Optional[str] = class_caption
 
 
 class BucketManager:
@@ -341,7 +341,7 @@ class BaseSubset:
         token_warmup_step: Union[float, int],
         train_mask_dir,
         trg_concept,
-        class_concept = None) -> None:
+        class_caption = None) -> None:
         self.image_dir = image_dir
         self.num_repeats = num_repeats
         self.shuffle_caption = shuffle_caption
@@ -360,9 +360,9 @@ class BaseSubset:
         self.img_count = 0
         self.train_mask_dir = train_mask_dir
         self.trg_concept = trg_concept
-        self.class_concept = class_concept
-        if self.class_concept is not None:
-            print(f"Using class concept: {self.class_concept}")
+        self.class_caption = class_caption
+        if self.class_caption is not None:
+            print(f"Using class concept: {self.class_caption}")
 class DreamBoothSubset(BaseSubset):
     def __init__(
         self,
@@ -386,7 +386,7 @@ class DreamBoothSubset(BaseSubset):
         token_warmup_step,
         train_mask_dir,
         trg_concept,
-        class_concept = None) -> None:
+        class_caption = None) -> None:
         assert image_dir is not None, "image_dir must be specified / image_dirは指定が必須です"
 
         super().__init__(
@@ -407,7 +407,7 @@ class DreamBoothSubset(BaseSubset):
             token_warmup_step,
             train_mask_dir,
             trg_concept,
-            class_concept)
+            class_caption)
 
         self.is_reg = is_reg
         self.class_tokens = class_tokens
@@ -1131,11 +1131,11 @@ class BaseDataset(torch.utils.data.Dataset):
             # captionとtext encoder outputを処理する
             caption = image_info.caption  # default
             trg_concept = image_info.trg_concept
-            class_concept = image_info.class_concept
-            if class_concept is None:
+            class_caption = image_info.class_caption
+            if class_caption is None:
                 # hardcoded 'girl' for research
-                class_concept = 'girl' ## TODO remove
-            class_caption = caption.replace(trg_concept, class_concept)
+                class_caption = 'girl' ## TODO remove
+            class_caption = caption.replace(trg_concept, class_caption)
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
@@ -1461,7 +1461,7 @@ class DreamBoothDataset(BaseDataset):
                                  img_path,
                                  mask_path,
                                  subset.trg_concept,
-                                 subset.class_concept)
+                                 subset.class_caption)
                 if subset.is_reg:
                     reg_infos.append(info)
                 else:
