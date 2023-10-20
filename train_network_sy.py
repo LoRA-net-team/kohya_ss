@@ -908,7 +908,8 @@ class NetworkTrainer:
                                 sum_of_attn = sum(atten_collection[layer_name])
                                 attn_loss = attn_loss + sum_of_attn
                                 # attention_losses[layer_name] = sum_of_attn but detach
-                                attention_losses["attention_loss_"+layer_name] = sum_of_attn.detach().item()
+                                attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn.detach().item()
+                            attention_losses["loss/attention_loss"] = attn_loss.detach().item()
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     else:
