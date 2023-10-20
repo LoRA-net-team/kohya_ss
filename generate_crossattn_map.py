@@ -3179,6 +3179,7 @@ def main(args):
     print("done!")
     print(f'\n step 5. generate cross attention map')
     trg_token = args.trg_token
+
     def generate_text_embedding(prompt, tokenizer, text_encoder, device):
         cls_token = 49406
         pad_token = 49407

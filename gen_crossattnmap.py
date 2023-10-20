@@ -2106,12 +2106,19 @@ def register_attention_control(unet, controller):
                 # print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
                 # heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 # heat_map_img = Image.fromarray(heat_map)
-                heat_map_img.save(f'{layer_name}.jpg')
+                #heat_map_img.save(f'{layer_name}.jpg')
 
             if is_cross_attention:
                 attn = controller.store(attention_probs, layer_name)
+
+
+
+
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
+            if is_cross_attention :
+                what_map = hidden_states
+                print(f'{layer_name} : what_map : {what_map.shape}')
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
