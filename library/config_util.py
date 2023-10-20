@@ -153,7 +153,8 @@ class ConfigSanitizer:
                                  "caption_tag_dropout_rate": Any(float, int),}
   # DB means DreamBooth
   DB_SUBSET_ASCENDABLE_SCHEMA = {"caption_extension": str,
-                                 "class_tokens": str,}
+                                 "class_tokens": str,
+                                 "class_caption" : str}
   DB_SUBSET_DISTINCT_SCHEMA = {Required("image_dir"): str,
                                "is_reg": bool,}
                                #""}
