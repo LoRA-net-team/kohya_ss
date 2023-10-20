@@ -356,19 +356,8 @@ class NetworkTrainer:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
         else:
             # LyCORIS will work with this...
-            if not args.text_only_training :
-                network = network_module.create_network(
-                    1.0,
-                    args.network_dim,
-                    args.network_alpha,
-                    vae,
-                    text_encoder,
-                    unet,
-                    neuron_dropout=args.network_dropout,
-                    **net_kwargs,
-                )
-            else :
-                print('Text Only Training')
+            if args.text_only_training :
+
                 network = network_module.create_network_text_only(
                     1.0,
                     args.network_dim,
@@ -379,6 +368,30 @@ class NetworkTrainer:
                     neuron_dropout=args.network_dropout,
                     **net_kwargs,
                 )
+#
+            elif args.text_self_attn_only_training :
+                network = network_module.create_network_text_self_attn_only_training(
+                    1.0,
+                    args.network_dim,
+                    args.network_alpha,
+                    vae,
+                    text_encoder,
+                    unet,
+                    neuron_dropout=args.network_dropout,
+                    **net_kwargs,
+                )
+
+            else :
+                network = network_module.create_network(
+                    1.0,
+                    args.network_dim,
+                    args.network_alpha,
+                    vae,
+                    text_encoder,
+                    unet,
+                    neuron_dropout=args.network_dropout,
+                    **net_kwargs,)
+
 
         if network is None:
             return
@@ -1059,6 +1072,11 @@ if __name__ == "__main__":
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
     parser.add_argument("--text_only_training", action='store_true')
+    parser.add_argument("--text_self_attn_only_training", action='store_true')
+
+
+
+
     args = parser.parse_args()
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
