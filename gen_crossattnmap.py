@@ -629,12 +629,10 @@ class PipelineLike:
             text_embeddings_clip = text_embeddings_clip / text_embeddings_clip.norm(p=2, dim=-1,
                                                                                     keepdim=True)  # prompt複数件でもOK
 
-        if (
-                self.clip_image_guidance_scale > 0
+        if (self.clip_image_guidance_scale > 0
                 or self.vgg16_guidance_scale > 0
                 and clip_guide_images is not None
-                or self.control_nets
-        ):
+                or self.control_nets):
             if isinstance(clip_guide_images, PIL.Image.Image):
                 clip_guide_images = [clip_guide_images]
             if self.clip_image_guidance_scale > 0:
@@ -2359,7 +2357,6 @@ def main(args):
     pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,
                         clip_model, args.clip_guidance_scale, args.clip_image_guidance_scale,
                         vgg16_model,args.vgg16_guidance_scale,args.vgg16_guidance_layer,)
-    #pipe.to(device)
     pipe.set_control_nets(control_nets)
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
@@ -2483,7 +2480,6 @@ def main(args):
         def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index=1):
 
             batch_size = len(batch)
-
             (return_latents, (step_first, _, _, _, init_image, mask_image, _, guide_image),(width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
             prompts = []
