@@ -45,7 +45,7 @@ class BaseSubsetParams:
   caption_tag_dropout_rate: float = 0.0
   token_warmup_min: int = 1
   token_warmup_step: float = 0
-  train_mask_dir: Optional[str] = None
+  mask_dir: Optional[str] = None
   trg_concept: Optional[str] = None
 
 @dataclass
@@ -327,7 +327,7 @@ class BlueprintGenerator:
                argparse_namespace: argparse.Namespace,
                **runtime_params) -> Blueprint:
 
-    train_mask_dir = argparse_namespace.train_mask_dir
+    mask_dir = argparse_namespace.mask_dir
     sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
     print(f'sanitized_user_config : {sanitized_user_config}')
     sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
@@ -354,7 +354,7 @@ class BlueprintGenerator:
       subset_blueprints = []
 
       for subset_config in subsets:
-        subset_config['mask_dir'] = argparse_namespace.train_mask_dir
+        subset_config['mask_dir'] = argparse_namespace.mask_dir
         subset_config['trg_concept'] = argparse_namespace.trg_concept
         params = self.generate_params_by_fallbacks(subset_params_klass,
                                                    [subset_config, # subset_config
@@ -453,7 +453,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           random_crop: {subset.random_crop}
           token_warmup_min: {subset.token_warmup_min},
           token_warmup_step: {subset.token_warmup_step},
-          mask_dir: "{subset.train_mask_dir},
+          mask_dir: "{subset.mask_dir},
           trg_concept: "{subset.trg_concept}"
       """), "  ")
       if is_dreambooth:

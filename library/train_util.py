@@ -341,7 +341,7 @@ class BaseSubset:
         caption_suffix: Optional[str],
         token_warmup_min: int,
         token_warmup_step: Union[float, int],
-        train_mask_dir,
+        mask_dir,
         trg_concept,
         class_caption = None) -> None:
         self.image_dir = image_dir
@@ -360,7 +360,7 @@ class BaseSubset:
         self.token_warmup_min = token_warmup_min  # step=0におけるタグの数
         self.token_warmup_step = token_warmup_step  # N（N<1ならN*max_train_steps）ステップ目でタグの数が最大になる
         self.img_count = 0
-        self.train_mask_dir = train_mask_dir
+        self.mask_dir = mask_dir
         self.trg_concept = trg_concept
         self.class_caption = class_caption
         if self.class_caption is not None:
@@ -386,7 +386,7 @@ class DreamBoothSubset(BaseSubset):
         caption_suffix,
         token_warmup_min,
         token_warmup_step,
-        train_mask_dir,
+        mask_dir,
         trg_concept,
         class_caption = None) -> None:
         assert image_dir is not None, "image_dir must be specified / image_dirは指定が必須です"
@@ -407,7 +407,7 @@ class DreamBoothSubset(BaseSubset):
             caption_suffix,
             token_warmup_min,
             token_warmup_step,
-            train_mask_dir,
+            mask_dir,
             trg_concept,
             class_caption)
 
@@ -1399,9 +1399,9 @@ class DreamBoothDataset(BaseDataset):
             if not os.path.isdir(subset.image_dir):
                 print(f"not directory: {subset.image_dir}")
                 return [], []
-            train_mask_dir = subset.train_mask_dir
-            if train_mask_dir:
-                assert os.path.isdir(train_mask_dir), f"not directory: {train_mask_dir}"
+            mask_dir = subset.mask_dir
+            if mask_dir:
+                assert os.path.isdir(mask_dir), f"not directory: {mask_dir}"
             img_paths = glob_images(subset.image_dir, "*")
             print(f"found directory {subset.image_dir} contains {len(img_paths)} image files")
 
@@ -1433,7 +1433,7 @@ class DreamBoothDataset(BaseDataset):
                         print(missing_caption + f"... and {remaining_missing_captions} more")
                         break
                     print(missing_caption)
-            return img_paths, captions, train_mask_dir
+            return img_paths, captions, mask_dir
         print("prepare images.")
         num_train_images = 0
         num_reg_images = 0
@@ -1446,7 +1446,7 @@ class DreamBoothDataset(BaseDataset):
             if subset in self.subsets:
                 print(f"ignore duplicated subset with image_dir='{subset.image_dir}': use the first one / 既にサブセットが登録されているため、重複した後発のサブセットを無視します")
                 continue
-            img_paths, captions, train_mask_dir = load_dreambooth_dir(subset)
+            img_paths, captions, mask_dir = load_dreambooth_dir(subset)
             if len(img_paths) < 1:
                 print(f"ignore subset with image_dir='{subset.image_dir}': no images found / 画像が見つからないためサブセットを無視します")
                 continue
@@ -1457,8 +1457,8 @@ class DreamBoothDataset(BaseDataset):
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
-                if train_mask_dir:
-                    mask_path = os.path.join(train_mask_dir,f'{name}_gaussian_mask.png')
+                if mask_dir:
+                    mask_path = os.path.join(mask_dir,f'{name}_gaussian_mask.png')
                 else:
                     mask_path = None
                 info = ImageInfo(img_path,

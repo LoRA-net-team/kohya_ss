@@ -1076,7 +1076,7 @@ if __name__ == "__main__":
     parser.add_argument("--class_caption", type=str, default='girl')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
-    parser.add_argument("--train_mask_dir", type=str)
+    parser.add_argument("--mask_dir", type=str)
     
     #first_layers =  ['mid'] # "mid"
     #second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
