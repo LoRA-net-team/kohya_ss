@@ -1447,6 +1447,9 @@ class DreamBoothDataset(BaseDataset):
                 print(f"ignore duplicated subset with image_dir='{subset.image_dir}': use the first one / 既にサブセットが登録されているため、重複した後発のサブセットを無視します")
                 continue
             img_paths, captions, mask_dir = load_dreambooth_dir(subset)
+            if mask_dir:
+                print(f"found mask directory {mask_dir}")
+                assert os.path.isdir(mask_dir), f"not directory: {mask_dir}"
             if len(img_paths) < 1:
                 print(f"ignore subset with image_dir='{subset.image_dir}': no images found / 画像が見つからないためサブセットを無視します")
                 continue
