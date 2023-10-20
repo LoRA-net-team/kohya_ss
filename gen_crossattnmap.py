@@ -2007,7 +2007,7 @@ def register_attention_control(unet, controller):
             # 2) after value calculating
             hidden_states = torch.bmm(attention_probs, value)
             if is_cross_attention :
-                controller.store_whatmap(self, hidden_states, layer_name)
+                controller.store_whatmap(hidden_states, layer_name)
 
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
@@ -2632,7 +2632,7 @@ def main(args):
                 for layer_name in layer_names:
                     what_map_list = whatmap_collection[layer_name]
                     print(f'{layer_name} have {len(what_map_list)} what map')
-                
+
 
 
 
