@@ -84,6 +84,8 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
+                if mask is None:
+                    raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
                 if trg_indexs_list is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -894,6 +896,28 @@ class NetworkTrainer:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
+                        
+                    ### Masked loss ###
+                    if args.masked_loss:
+                        # get mask images then set to device
+                        # batch['mask_imgs'] is actually List[Tensor] 
+                        # for each images, get mask image and resize to noise_pred size
+                        # we may not be able to use batch['mask_imgs'] directly because of different image size
+                        
+                        # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
+                        # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
+                        noise_pred:torch.Tensor
+                        print("noise_pred size: ", noise_pred.size()) # debug
+                        print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug
+                        mask_imgs = [F.interpolate(mask, noise_pred.size()[-2:], mode='bilinear') for mask in batch['mask_imgs']]
+                        print("mask_imgs size: ", mask_imgs[0].size()) # debug
+                        # multiply mask to noise_pred and target
+                        # element-wise multiplication
+                        noise_pred = noise_pred * torch.stack(mask_imgs)
+                        target = target * torch.stack(mask_imgs)
+                        
+                        
+                        
 
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
@@ -1077,6 +1101,9 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--mask_dir", type=str)
+    
+    # masked_loss
+    parser.add_argument("--masked_loss", action='store_true')
     
     #first_layers =  ['mid'] # "mid"
     #second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
