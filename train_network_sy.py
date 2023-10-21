@@ -69,13 +69,14 @@ def register_attention_control(unet : nn.Module, controller):
 
             if is_cross_attention:
                 if trg_indexs_list is not None:
-                    trg_indexs = trg_indexs_list
+                    trg_indexs = trg_indexs_list # [ [1,2], [1,2] ]
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
-                        batch_trg_index = trg_indexs[batch_idx] # two times
-                        head_num = attention_prob.shape[0]
+                        batch_trg_index = trg_indexs[batch_idx] # [1,2]
+
                         res = int(math.sqrt(attention_prob.shape[1]))
+                        word_heat_map_list = []
                         for word_idx in batch_trg_index :
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
@@ -85,10 +86,15 @@ def register_attention_control(unet : nn.Module, controller):
                                                            size=((512, 512)),mode='bicubic').squeeze()
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
-                            mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                            masked_heat_map = word_heat_map_ * mask_
-                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
-                            controller.store(attn_loss, layer_name)
+                            word_heat_map_list.append(word_heat_map_)
+                        first_item = word_heat_map_list[0]
+                        print(f'first item shape : {first_item.shape}')
+                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0)
+                        print(f'after stack, word_heat_map_ : {word_heat_map_.shape}')
+                        mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                        masked_heat_map = word_heat_map_ * mask_
+                        attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                        controller.store(attn_loss, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
             #if is_cross_attention :
