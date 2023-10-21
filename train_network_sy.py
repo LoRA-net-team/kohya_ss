@@ -30,10 +30,8 @@ import library.config_util as config_util
 from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
 import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,
-                                            prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction,
-                                            add_v_prediction_like_loss,)
+from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
+                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
 from torch import nn
 import torch.nn.functional as F
 
@@ -45,9 +43,7 @@ second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_
 first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
 
 def register_attention_control(unet : nn.Module, controller):
-    """
-    Register cross attention layers to controller.
-    """
+    """Register cross attention layers to controller"""
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -166,8 +162,7 @@ class NetworkTrainer:
                 logs[f"lr/group{i}"] = float(lrs[i])
                 if args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower():
                     logs[f"lr/d*lr/group{i}"] = (
-                        lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"]
-                    )
+                        lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"])
 
         return logs
 
@@ -937,14 +932,11 @@ class NetworkTrainer:
                         noise_pred = noise_pred * mask_imgs
                         target = target * mask_imgs
                     """
-
-
-
-
-
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
+
+                        heatmal_loss_dict = {}
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
@@ -953,6 +945,7 @@ class NetworkTrainer:
                                 for i in second_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
+                                        heatmal_loss_dict[layer_name] = sum(atten_collection[layer_name])
 
                             elif args.only_third_training :
                                 for i in third_layers :
@@ -965,8 +958,6 @@ class NetworkTrainer:
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
                             else :
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
-
-
                         loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1015,7 +1006,17 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
-                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm)
+                    logs = self.generate_step_logs(args,
+                                                   current_loss,
+                                                   avr_loss,
+                                                   lr_scheduler,
+                                                   keys_scaled,
+                                                   mean_norm,
+                                                   maximum_norm)
+                    if args.heatmap_loss :
+                        logs.update(heatmal_loss_dict)
+
+
                     accelerator.log(logs, step=global_step)
                 if global_step >= args.max_train_steps:
                     break
