@@ -1102,7 +1102,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_half_vae",action="store_true",
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     parser.add_argument("--process_title", type=str, default='parksooyeon')
-    parser.add_argument("--wandb_project", type=str)
+    parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_name", type=str)
     parser.add_argument("--wandb_log_template_path", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
@@ -1119,8 +1119,11 @@ if __name__ == "__main__":
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
 
+
+
+
     args = parser.parse_args()
-    if args.wandb_project is not None:
+    if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
         print(f"Created temporary file: {tempfile_new.name}")
         if args.wandb_log_template_path is not None:
@@ -1132,7 +1135,7 @@ if __name__ == "__main__":
         tempfile_path = tempfile_new.name
         with open(tempfile_path, 'w', encoding='utf-8') as f:
             # format
-            f.write(lines.format(args.wandb_project))
+            f.write(lines.format(args.wandb_init_name))
         args.log_tracker_config = tempfile_path #overwrite
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
