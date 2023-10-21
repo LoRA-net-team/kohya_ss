@@ -89,10 +89,14 @@ def register_attention_control(unet : nn.Module, controller):
                             # mask = [512,512]
                             word_heat_map_list.append(word_heat_map_)
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0).mean(dim=0)
+
                         mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                         masked_heat_map = word_heat_map_ * mask_
-                        attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+
+                        attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_heat_map.float(), reduction="none")
+                        attn_loss = attn_loss.mean([1,2,3])
                         controller.store(attn_loss, layer_name)
+
 
             hidden_states = torch.bmm(attention_probs, value)
             #if is_cross_attention :
