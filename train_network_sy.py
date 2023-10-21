@@ -861,6 +861,9 @@ class NetworkTrainer:
                         # sam USING
                         # 여러 이미지에서의 동일한 feature 을 이용한 Mask
                         #
+
+                        index_list = batch["trg_indexs_list"]
+                        print(f'batch indexs list : {index_list}')
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,

@@ -1091,9 +1091,7 @@ class BaseDataset(torch.utils.data.Dataset):
                     if face_cx > 0:  # 顔位置情報あり
                         img = self.crop_target(subset, img, face_cx, face_cy, face_w, face_h)
                     elif im_h > self.height or im_w > self.width:
-                        assert (
-                            subset.random_crop
-                        ), f"image too large, but cropping and bucketing are disabled / 画像サイズが大きいのでface_crop_aug_rangeかrandom_crop、またはbucketを有効にしてください: {image_info.absolute_path}"
+                        assert (subset.random_crop), f"image too large, but cropping and bucketing are disabled / 画像サイズが大きいのでface_crop_aug_rangeかrandom_crop、またはbucketを有効にしてください: {image_info.absolute_path}"
                         if im_h > self.height:
                             p = random.randint(0, im_h - self.height)
                             img = img[p : p + self.height]
@@ -1164,10 +1162,13 @@ class BaseDataset(torch.utils.data.Dataset):
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
+                        print(f'caption : {caption}')
                         token_caption = self.get_input_ids(caption,
                                                            self.tokenizers[0])
                         class_token_caption = self.get_input_ids(class_caption,
                                                                  self.tokenizers[0])
+
+
                     input_ids_list.append(token_caption)
                     class_input_ids_list.append(class_token_caption)
                     # token_caption
@@ -1218,9 +1219,14 @@ class BaseDataset(torch.utils.data.Dataset):
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
         if len(text_encoder_outputs1_list) == 0:
+
             if self.token_padding_disabled :
                 # padding=True means pad in the batch
-                example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
+
+                example["input_ids"] = self.tokenizer[0](captions,
+                                                         padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
+
+
                 example["class_input_ids"] = self.tokenizer[0](class_captions,
                                                                padding=True,
                                                                truncation=True,
@@ -1230,6 +1236,9 @@ class BaseDataset(torch.utils.data.Dataset):
                         captions, padding=True, truncation=True, return_tensors="pt").input_ids
                 else:
                     example["input_ids2"] = None
+
+
+
             else:
                 example["input_ids"] = torch.stack(input_ids_list)
                 example["input_ids2"] = torch.stack(input_ids2_list) if len(self.tokenizers) > 1 else None
