@@ -55,7 +55,7 @@ def main(args):
     for condition in conditions:
 
         elems = []
-        elems.append(['condition', 'epoch', 'average_dino_sim', 'average_ccip_diff', 'average_aes', 'avg_t2i_sim'])
+        elems.append(['epoch', 'avg_i2i_sim', 'avg_t2i_sim'])
         condition_dir = os.path.join(base_img_folder, condition)
         sample_dir = os.path.join(condition_dir, 'sample')
         epochs = os.listdir(sample_dir)
@@ -63,6 +63,7 @@ def main(args):
             epoch_dir = os.path.join(sample_dir, str(epoch))
             files = os.listdir(epoch_dir)
             img_num = 0
+            i2i_sim_list, t2i_sim_list = [], []
             for image in files:
                 name, ext = os.path.splitext(image)
                 if ext != '.txt':
@@ -86,9 +87,16 @@ def main(args):
                     i2i_sim = torch.nn.functional.cosine_similarity(image_features,ref_emb, dim=1, eps=1e-8)
                     # 2) T2I similarity
                     t2i_sim = torch.nn.functional.cosine_similarity(image_features,text_features, dim=1, eps=1e-8)
-                    print(f'epoch {epoch} image {img_num} : {i2i_sim.item()}')
-                    time.sleep(10)
-
+                    i2i_sim_list.append(i2i_sim)
+                    t2i_sim_list.append(t2i_sim)
+            avg_i2i_sim = torch.mean(torch.stack(i2i_sim_list))
+            avg_t2i_sim = torch.mean(torch.stack(t2i_sim_list))
+            elems.append([epoch, avg_i2i_sim, avg_t2i_sim])
+        # make csv file
+        csv_dir = os.path.join(condition_dir, 'score.csv')
+        with open(csv_dir, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(elems)
 
 
 if __name__ == '__main__':
