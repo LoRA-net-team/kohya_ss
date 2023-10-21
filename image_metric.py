@@ -48,6 +48,7 @@ def main(args) :
     for file in files :
         name, ext = os.path.splitext(file)
         if ext != '.txt' :
+            """
             txt_dir = os.path.join(ref_img_folder, f'{name}.txt')
             with open(txt_dir, 'r') as f :
                 caption = f.readlines()[0]
@@ -60,7 +61,15 @@ def main(args) :
                 img_emb = get_dino_dim(img_dir, dino_model, dino_transform, args)
             ref_img_dict[caption] = img_emb
             ref_img_dir_dict[caption] = img_dir
+            """
+            img_dir = os.path.join(ref_img_folder, f'{name}.jpg')
+            pil_img = Image.open(img_dir)
+            image_features = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
+            print(image_features.shape)
 
+
+
+    """
     print(f'\n step 3. generated image')
     base_img_folder = args.base_img_folder
     conditions = os.listdir(base_img_folder)
@@ -166,7 +175,7 @@ def main(args) :
         # best epoch dit
         #best_epoch_dir = os.path.join(str(condition_dir), str(dino_best_epoch))
         #files = os.listdir(best_epoch_dir)
-        """
+        
         t2i_sim_list = []
         for file in files :
             name, ext = os.path.splitext(file)
@@ -189,12 +198,12 @@ def main(args) :
                          dino_best_epoch, d_average_dino_sim, d_average_ccip_diff, d_average_aes,
                          avg_t2i_sim,
                          ccip_best_epoch, c_average_dino_sim, c_average_ccip_diff, c_average_aes,])
-        """
+        
 
         with open(asethetic_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerows(elems)
-    """
+    
     best_similarity_DINO_csv = os.path.join(args.base_img_folder, 'metric', 'best_score.csv')
     with open(best_similarity_DINO_csv, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
@@ -209,7 +218,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--ref_img_folder',
                         type=str,
-                        default=r'/data7/sooyeon/MyData/haibara_dataset/not_test/haibara_19/2_girl')
+                        default=r'/data7/sooyeon/MyData/perfusion_dataset/iom/200_iom')
     parser.add_argument('--base_img_folder',
                         type=str,
                         default=r'./result/haibara_experience/one_image/name_3_without_caption')
