@@ -38,6 +38,18 @@ def main(args) :
     print(f' (1.3) clip model')
     clip_model, clip_preprocess = clip.load("ViT-L/14", device=args.device)
 
+
+
+    # Encode text descriptions
+    #text_emb = model.encode(['Two dogs in the snow', 'A cat on a table', 'A picture of London at night'])
+
+    # Compute cosine similarities
+    #cos_scores = util.cos_sim(img_emb, text_emb)
+    #print(cos_scores)
+
+
+
+
     print(f' (1.4) CCIP score')
 
     print(f'\n step 2. reference image')
@@ -64,8 +76,13 @@ def main(args) :
             """
             img_dir = os.path.join(ref_img_folder, f'{name}.jpg')
             pil_img = Image.open(img_dir)
+
+            # image_features = [1,768]
             image_features = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
             print(image_features.shape)
+
+            img_emb = clip_model.encode(pil_img)
+            print(img_emb.shape)
 
 
 
