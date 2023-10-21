@@ -78,7 +78,6 @@ def register_attention_control(unet : nn.Module, controller):
                         res = int(math.sqrt(attention_prob.shape[1]))
                         word_heat_map_list = []
                         for word_idx in batch_trg_index :
-                            print(f'word_idx : {word_idx}')
                             time.sleep(5)
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
@@ -86,7 +85,6 @@ def register_attention_control(unet : nn.Module, controller):
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
                                                            size=((512, 512)),mode='bicubic').squeeze()
-                            print(f'word_heat_map_ : {word_heat_map_.shape}')
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
                             word_heat_map_list.append(word_heat_map_)
@@ -102,6 +100,9 @@ def register_attention_control(unet : nn.Module, controller):
                         from utils import _convert_heat_map_colors
                         import numpy as np
                         from PIL import Image
+
+                        sum_of_masked_heat_map = masked_heat_map.sum()
+                        print(f'sum_of_masked_heat_map of {layer_name} : {sum_of_masked_heat_map}')
 
                         heat_map = _convert_heat_map_colors(masked_heat_map)
                         heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
@@ -889,9 +890,6 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         # -----------------------------------------------------------------------------------------------------------------------
-                        trg_caption = batch["captions"]
-                        print(f'trg_caption : {trg_caption}')
-                        time.sleep(1)
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
