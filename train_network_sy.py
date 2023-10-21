@@ -868,6 +868,9 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         # -----------------------------------------------------------------------------------------------------------------------
+                        trg_caption = batch["captions"]
+                        print(f'trg_caption : {trg_caption}')
+                        time.sleep(1)
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
