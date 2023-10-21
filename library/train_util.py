@@ -3624,13 +3624,11 @@ def prepare_accelerator(args: argparse.Namespace):
     else:
         log_prefix = "" if args.log_prefix is None else args.log_prefix
         logging_dir = args.logging_dir + "/" + log_prefix + time.strftime("%Y%m%d%H%M%S", time.localtime())
-
     if args.log_with is None:
         if logging_dir is not None:
             log_with = "tensorboard"
         else:
             log_with = None
-
     else:
         log_with = args.log_with
         if log_with in ["tensorboard", "all"]:
@@ -3642,24 +3640,17 @@ def prepare_accelerator(args: argparse.Namespace):
                 import wandb
             except ImportError:
                 raise ImportError("No wandb / wandb がインストールされていないようです")
-
-
             if logging_dir is not None:
                 os.makedirs(logging_dir, exist_ok=True)
                 os.environ["WANDB_DIR"] = logging_dir
-
-
             if args.wandb_api_key is not None:
-                print(f' ************* wandb log in ************* ')
-                print(args.wandb_api_key)
                 wandb.login(key=args.wandb_api_key)
+                wandb.init(project=args.wandb_init_name,
+                           name=args.wandb_name)
 
-    accelerator = Accelerator(
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        mixed_precision=args.mixed_precision,
-        log_with=log_with,
-        project_dir=logging_dir,
-    )
+    accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
+                              mixed_precision=args.mixed_precision,log_with=log_with,
+                              project_dir=logging_dir,)
     return accelerator
 
 
@@ -3688,8 +3679,7 @@ def _load_target_model(args: argparse.Namespace, weight_dtype, device="cpu", une
     if load_stable_diffusion_format:
         print(f"load StableDiffusion checkpoint: {name_or_path}")
         text_encoder, vae, unet = model_util.load_models_from_stable_diffusion_checkpoint(
-            args.v2, name_or_path, device, unet_use_linear_projection_in_v2=unet_use_linear_projection_in_v2
-        )
+            args.v2, name_or_path, device, unet_use_linear_projection_in_v2=unet_use_linear_projection_in_v2)
     else:
         # Diffusers model is loaded to CPU
         print(f"load Diffusers pretrained models: {name_or_path}")

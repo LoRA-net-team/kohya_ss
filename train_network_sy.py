@@ -1102,7 +1102,8 @@ if __name__ == "__main__":
     parser.add_argument("--no_half_vae",action="store_true",
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     parser.add_argument("--process_title", type=str, default='parksooyeon')
-    parser.add_argument("--wandb_init_name", type=str)
+    parser.add_argument("--wandb_project", type=str)
+    parser.add_argument("--wandb_name", type=str)
     parser.add_argument("--wandb_log_template_path", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--heatmap_loss", action='store_true')
