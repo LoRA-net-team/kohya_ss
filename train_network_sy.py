@@ -357,7 +357,6 @@ class NetworkTrainer:
         else:
             # LyCORIS will work with this...
             if args.text_only_training :
-
                 network = network_module.create_network_text_only(
                     1.0,
                     args.network_dim,
@@ -366,8 +365,7 @@ class NetworkTrainer:
                     text_encoder,
                     unet,
                     neuron_dropout=args.network_dropout,
-                    **net_kwargs,
-                )
+                    **net_kwargs,)
 #
             elif args.text_self_attn_only_training :
                 network = network_module.create_network_text_self_attn_only_training(
@@ -887,6 +885,34 @@ class NetworkTrainer:
                     else:
                         target = noise
 
+                    ### Masked loss ###
+                    if args.masked_loss:
+                        # only masked range backpropagation
+                        # get mask images then set to device
+                        # batch['mask_imgs'] is actually List[Tensor]
+                        # for each images, get mask image and resize to noise_pred size
+                        # we may not be able to use batch['mask_imgs'] directly because of different image size
+
+                        # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
+                        # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
+                        # noise_pred:torch.Tensor
+                        # print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        # print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
+                        # print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        # [256, 256] -> [1, 1, 256, 256]
+                        mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
+                        # interpolate
+                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img
+                                     in
+                                     mask_imgs]
+                        # to Tensor
+                        mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
+                        # print("mask_imgs size: ", mask_imgs[0].size()) # debug
+                        # multiply mask to noise_pred and target
+                        # element-wise multiplication
+                        noise_pred = noise_pred * mask_imgs
+                        target = target * mask_imgs
+
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
 
@@ -900,6 +926,22 @@ class NetworkTrainer:
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
+                    """
+                    ### Masked loss ###
+                    if args.masked_loss:
+                        mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
+                        # interpolate
+                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in mask_imgs]
+                        # to Tensor
+                        mask_imgs = torch.cat(mask_imgs, dim=0) # [batch_size, 1, 256, 256]
+                        noise_pred = noise_pred * mask_imgs
+                        target = target * mask_imgs
+                    """
+
+
+
+
+
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
@@ -1073,6 +1115,9 @@ if __name__ == "__main__":
     parser.add_argument("--first_second_third_training", action='store_true')
     parser.add_argument("--text_only_training", action='store_true')
     parser.add_argument("--text_self_attn_only_training", action='store_true')
+
+    # masked_loss
+    parser.add_argument("--masked_loss", action='store_true')
 
 
 
