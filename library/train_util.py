@@ -3642,6 +3642,8 @@ def prepare_accelerator(args: argparse.Namespace):
                 import wandb
             except ImportError:
                 raise ImportError("No wandb / wandb がインストールされていないようです")
+
+
             if logging_dir is not None:
                 os.makedirs(logging_dir, exist_ok=True)
                 os.environ["WANDB_DIR"] = logging_dir
