@@ -109,7 +109,7 @@ class ImageInfo:
                  image_key: str, num_repeats: int, caption: str, is_reg: bool, absolute_path: str,
                  mask_dir:str,
                  trg_concept:str,
-                 class_concept:Optional[str]) -> None:
+                 class_caption:Optional[str]) -> None:
         self.image_key: str = image_key
         self.num_repeats: int = num_repeats
         self.caption: str = caption
@@ -130,9 +130,11 @@ class ImageInfo:
         self.text_encoder_outputs1: Optional[torch.Tensor] = None
         self.text_encoder_outputs2: Optional[torch.Tensor] = None
         self.text_encoder_pool2: Optional[torch.Tensor] = None
-        self.mask_dir: str = mask_dir
+        self.mask_dir: Optional[str] = mask_dir
+        if self.mask_dir is not None:
+            assert os.path.exists(self.mask_dir), f"mask_dir {self.mask_dir} does not exist"
         self.trg_concept: str = trg_concept
-        self.class_concept: Optional[str] = class_concept
+        self.class_caption: Optional[str] = class_caption
 
 
 class BucketManager:
@@ -339,9 +341,9 @@ class BaseSubset:
         caption_suffix: Optional[str],
         token_warmup_min: int,
         token_warmup_step: Union[float, int],
-        train_mask_dir,
+        mask_dir,
         trg_concept,
-        class_concept = None) -> None:
+        class_caption = None) -> None:
         self.image_dir = image_dir
         self.num_repeats = num_repeats
         self.shuffle_caption = shuffle_caption
@@ -358,9 +360,11 @@ class BaseSubset:
         self.token_warmup_min = token_warmup_min  # step=0におけるタグの数
         self.token_warmup_step = token_warmup_step  # N（N<1ならN*max_train_steps）ステップ目でタグの数が最大になる
         self.img_count = 0
-        self.train_mask_dir = train_mask_dir
+        self.mask_dir = mask_dir
         self.trg_concept = trg_concept
-        self.class_concept = class_concept
+        self.class_caption = class_caption
+        if self.class_caption is not None:
+            print(f"Using class concept: {self.class_caption}")
 class DreamBoothSubset(BaseSubset):
     def __init__(
         self,
@@ -382,9 +386,9 @@ class DreamBoothSubset(BaseSubset):
         caption_suffix,
         token_warmup_min,
         token_warmup_step,
-        train_mask_dir,
+        mask_dir,
         trg_concept,
-        class_concept = None) -> None:
+        class_caption = None) -> None:
         assert image_dir is not None, "image_dir must be specified / image_dirは指定が必須です"
 
         super().__init__(
@@ -403,9 +407,9 @@ class DreamBoothSubset(BaseSubset):
             caption_suffix,
             token_warmup_min,
             token_warmup_step,
-            train_mask_dir,
+            mask_dir,
             trg_concept,
-            class_concept)
+            class_caption)
 
         self.is_reg = is_reg
         self.class_tokens = class_tokens
@@ -1091,7 +1095,9 @@ class BaseDataset(torch.utils.data.Dataset):
                     if face_cx > 0:  # 顔位置情報あり
                         img = self.crop_target(subset, img, face_cx, face_cy, face_w, face_h)
                     elif im_h > self.height or im_w > self.width:
-                        assert (subset.random_crop), f"image too large, but cropping and bucketing are disabled / 画像サイズが大きいのでface_crop_aug_rangeかrandom_crop、またはbucketを有効にしてください: {image_info.absolute_path}"
+                        assert (
+                            subset.random_crop
+                        ), f"image too large, but cropping and bucketing are disabled / 画像サイズが大きいのでface_crop_aug_rangeかrandom_crop、またはbucketを有効にしてください: {image_info.absolute_path}"
                         if im_h > self.height:
                             p = random.randint(0, im_h - self.height)
                             img = img[p : p + self.height]
@@ -1127,11 +1133,11 @@ class BaseDataset(torch.utils.data.Dataset):
             # captionとtext encoder outputを処理する
             caption = image_info.caption  # default
             trg_concept = image_info.trg_concept
-            class_concept = image_info.class_concept
-            if class_concept is None:
+            class_caption = image_info.class_caption
+            if class_caption is None:
                 # hardcoded 'girl' for research
-                class_concept = 'girl' ## TODO remove
-            class_caption = caption.replace(trg_concept, class_concept)
+                class_caption = 'girl' ## TODO remove
+            class_caption = caption.replace(trg_concept, class_caption)
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
@@ -1185,7 +1191,6 @@ class BaseDataset(torch.utils.data.Dataset):
                             if token_id != cls_token and token_id != pad_token and token_attn == 1:
                                 # token_id = 24215
                                 trg_token_id.append(token_id)
-
                         text_input = tokenizer(caption,
                                                padding="max_length",
                                                max_length=tokenizer.model_max_length,
@@ -1198,7 +1203,6 @@ class BaseDataset(torch.utils.data.Dataset):
                             for i, id in enumerate(token_id):
                                 if id in trg_token_id:
                                     trg_indexs.append(i)
-                        print(f'caption : {caption} trg_indexs : {trg_indexs}')
                         return trg_indexs
 
                     trg_indexs = generate_text_embedding(caption, self.tokenizers[0])
@@ -1218,14 +1222,9 @@ class BaseDataset(torch.utils.data.Dataset):
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
         if len(text_encoder_outputs1_list) == 0:
-
             if self.token_padding_disabled :
                 # padding=True means pad in the batch
-
-                example["input_ids"] = self.tokenizer[0](captions,
-                                                         padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
-
-
+                example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
                 example["class_input_ids"] = self.tokenizer[0](class_captions,
                                                                padding=True,
                                                                truncation=True,
@@ -1235,9 +1234,6 @@ class BaseDataset(torch.utils.data.Dataset):
                         captions, padding=True, truncation=True, return_tensors="pt").input_ids
                 else:
                     example["input_ids2"] = None
-
-
-
             else:
                 example["input_ids"] = torch.stack(input_ids_list)
                 example["input_ids2"] = torch.stack(input_ids2_list) if len(self.tokenizers) > 1 else None
@@ -1403,7 +1399,9 @@ class DreamBoothDataset(BaseDataset):
             if not os.path.isdir(subset.image_dir):
                 print(f"not directory: {subset.image_dir}")
                 return [], []
-            train_mask_dir = subset.train_mask_dir
+            mask_dir = subset.mask_dir
+            if mask_dir:
+                assert os.path.isdir(mask_dir), f"not directory: {mask_dir}"
             img_paths = glob_images(subset.image_dir, "*")
             print(f"found directory {subset.image_dir} contains {len(img_paths)} image files")
 
@@ -1435,7 +1433,7 @@ class DreamBoothDataset(BaseDataset):
                         print(missing_caption + f"... and {remaining_missing_captions} more")
                         break
                     print(missing_caption)
-            return img_paths, captions, train_mask_dir
+            return img_paths, captions, mask_dir
         print("prepare images.")
         num_train_images = 0
         num_reg_images = 0
@@ -1448,7 +1446,10 @@ class DreamBoothDataset(BaseDataset):
             if subset in self.subsets:
                 print(f"ignore duplicated subset with image_dir='{subset.image_dir}': use the first one / 既にサブセットが登録されているため、重複した後発のサブセットを無視します")
                 continue
-            img_paths, captions, train_mask_dir = load_dreambooth_dir(subset)
+            img_paths, captions, mask_dir = load_dreambooth_dir(subset)
+            if mask_dir:
+                print(f"found mask directory {mask_dir}")
+                assert os.path.isdir(mask_dir), f"not directory: {mask_dir}"
             if len(img_paths) < 1:
                 print(f"ignore subset with image_dir='{subset.image_dir}': no images found / 画像が見つからないためサブセットを無視します")
                 continue
@@ -1459,15 +1460,28 @@ class DreamBoothDataset(BaseDataset):
             for img_path, caption in zip(img_paths, captions):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
-                mask_path = os.path.join(train_mask_dir,f'{name}_gaussian_mask.png')
+                if mask_dir:
+                    # find name_{something optional}_mask.{png or jpg}
+                    mask_re = re.compile(f"{name}(_[^_]+)?_mask\.(png|jpg)$") #matches name_{something optional}_mask.{png or jpg}
+                    mask_path = None
+                    for mask_name in os.listdir(mask_dir):
+                        m = mask_re.match(mask_name)
+                        if m:
+                            mask_path = os.path.join(mask_dir, mask_name)
+                            break
+                    #validate
+                    if mask_path is None:
+                        raise FileNotFoundError(f"mask file not found / マスクファイルが見つかりませんでした: {img_path}")
+                else:
+                    mask_path = None
                 info = ImageInfo(img_path,
-                                 subset.num_repeats,
-                                 caption,
-                                 subset.is_reg,
-                                 img_path,
-                                 mask_path,
-                                 subset.trg_concept,
-                                 subset.class_concept)
+                                subset.num_repeats,
+                                caption,
+                                subset.is_reg,
+                                img_path,
+                                mask_path,
+                                subset.trg_concept,
+                                subset.class_caption)
                 if subset.is_reg:
                     reg_infos.append(info)
                 else:
@@ -2760,19 +2774,18 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         default=None,
         help="enable logging and output TensorBoard log to this directory / ログ出力を有効にしてこのディレクトリにTensorBoard用のログを出力する",
     )
-    parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],
-                        help="what logging tool(s) to use (if 'all', TensorBoard and WandB are both used) / ログ出力に使用するツール (allを指定するとTensorBoardとWandBの両方が使用される)",)
-    parser.add_argument("--wandb_api_key",type=str,default=None,
-                        help="specify WandB API key to log in before starting training (optional). / WandB APIキーを指定して学習開始前にログインする（オプション）",)
-
-
-
-
-
-
-
+    parser.add_argument(
+        "--log_with",
+        type=str,
+        default=None,
+        choices=["tensorboard", "wandb", "all"],
+        help="what logging tool(s) to use (if 'all', TensorBoard and WandB are both used) / ログ出力に使用するツール (allを指定するとTensorBoardとWandBの両方が使用される)",
+    )
     parser.add_argument("--log_prefix", type=str, default=None, help="add prefix for each log directory / ログディレクトリ名の先頭に追加する文字列")
-    parser.add_argument("--log_tracker_name",type=str,default=None,
+    parser.add_argument(
+        "--log_tracker_name",
+        type=str,
+        default=None,
         help="name of tracker to use for logging, default is script-specific default name / ログ出力に使用するtrackerの名前、省略時はスクリプトごとのデフォルト名",
     )
     parser.add_argument(
@@ -2781,7 +2794,12 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         default=None,
         help="path to tracker config file to use for logging / ログ出力に使用するtrackerの設定ファイルのパス",
     )
-
+    parser.add_argument(
+        "--wandb_api_key",
+        type=str,
+        default=None,
+        help="specify WandB API key to log in before starting training (optional). / WandB APIキーを指定して学習開始前にログインする（オプション）",
+    )
     parser.add_argument(
         "--noise_offset",
         type=float,
@@ -3632,6 +3650,7 @@ def prepare_accelerator(args: argparse.Namespace):
     else:
         log_prefix = "" if args.log_prefix is None else args.log_prefix
         logging_dir = args.logging_dir + "/" + log_prefix + time.strftime("%Y%m%d%H%M%S", time.localtime())
+
     if args.log_with is None:
         if logging_dir is not None:
             log_with = "tensorboard"
@@ -3643,7 +3662,6 @@ def prepare_accelerator(args: argparse.Namespace):
             if logging_dir is None:
                 raise ValueError("logging_dir is required when log_with is tensorboard / Tensorboardを使う場合、logging_dirを指定してください")
         if log_with in ["wandb", "all"]:
-            print(f' ** wandb log with ** ')
             try:
                 import wandb
             except ImportError:
@@ -3654,11 +3672,12 @@ def prepare_accelerator(args: argparse.Namespace):
             if args.wandb_api_key is not None:
                 wandb.login(key=args.wandb_api_key)
 
-
-    accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
-                              mixed_precision=args.mixed_precision,
-                              log_with=log_with,
-                              project_dir=logging_dir,)
+    accelerator = Accelerator(
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        mixed_precision=args.mixed_precision,
+        log_with=log_with,
+        project_dir=logging_dir,
+    )
     return accelerator
 
 
@@ -3687,7 +3706,8 @@ def _load_target_model(args: argparse.Namespace, weight_dtype, device="cpu", une
     if load_stable_diffusion_format:
         print(f"load StableDiffusion checkpoint: {name_or_path}")
         text_encoder, vae, unet = model_util.load_models_from_stable_diffusion_checkpoint(
-            args.v2, name_or_path, device, unet_use_linear_projection_in_v2=unet_use_linear_projection_in_v2)
+            args.v2, name_or_path, device, unet_use_linear_projection_in_v2=unet_use_linear_projection_in_v2
+        )
     else:
         # Diffusers model is loaded to CPU
         print(f"load Diffusers pretrained models: {name_or_path}")
@@ -4461,7 +4481,11 @@ def sample_images_common(
                 logging_caption_key = f"prompt : {prompt} seed: {str(seed)}"
                 # remove invalid characters from the caption for filenames
                 logging_caption_key = re.sub(r"[^a-zA-Z0-9_\-. ]+", "", logging_caption_key)
-                wandb_tracker.log({logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),})
+                wandb_tracker.log(
+                    {
+                        logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),
+                    }
+                )
             except:  # wandb 無効時
                 pass
 

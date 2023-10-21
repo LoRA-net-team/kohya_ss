@@ -45,7 +45,7 @@ class BaseSubsetParams:
   caption_tag_dropout_rate: float = 0.0
   token_warmup_min: int = 1
   token_warmup_step: float = 0
-  train_mask_dir: Optional[str] = None
+  mask_dir: Optional[str] = None
   trg_concept: Optional[str] = None
 
 @dataclass
@@ -53,6 +53,7 @@ class DreamBoothSubsetParams(BaseSubsetParams):
   is_reg: bool = False
   class_tokens: Optional[str] = None
   caption_extension: str = ".caption"
+  class_caption: Optional[str] = None
 
 @dataclass
 class FineTuningSubsetParams(BaseSubsetParams):
@@ -152,9 +153,10 @@ class ConfigSanitizer:
                                  "caption_tag_dropout_rate": Any(float, int),}
   # DB means DreamBooth
   DB_SUBSET_ASCENDABLE_SCHEMA = {"caption_extension": str,
-                                 "class_tokens": str,}
+                                 "class_tokens": str}
   DB_SUBSET_DISTINCT_SCHEMA = {Required("image_dir"): str,
-                               "is_reg": bool,}
+                               "is_reg": bool,
+                               "class_caption" : str}
                                #""}
   # FT means FineTuning
   FT_SUBSET_DISTINCT_SCHEMA = {Required("metadata_file"): str,
@@ -325,7 +327,7 @@ class BlueprintGenerator:
                argparse_namespace: argparse.Namespace,
                **runtime_params) -> Blueprint:
 
-    train_mask_dir = argparse_namespace.train_mask_dir
+    mask_dir = argparse_namespace.mask_dir
     sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
     print(f'sanitized_user_config : {sanitized_user_config}')
     sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
@@ -352,7 +354,7 @@ class BlueprintGenerator:
       subset_blueprints = []
 
       for subset_config in subsets:
-        subset_config['mask_dir'] = argparse_namespace.train_mask_dir
+        subset_config['mask_dir'] = argparse_namespace.mask_dir
         subset_config['trg_concept'] = argparse_namespace.trg_concept
         params = self.generate_params_by_fallbacks(subset_params_klass,
                                                    [subset_config, # subset_config
@@ -451,7 +453,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           random_crop: {subset.random_crop}
           token_warmup_min: {subset.token_warmup_min},
           token_warmup_step: {subset.token_warmup_step},
-          mask_dir: "{subset.train_mask_dir},
+          mask_dir: "{subset.mask_dir},
           trg_concept: "{subset.trg_concept}"
       """), "  ")
       if is_dreambooth:
@@ -459,6 +461,7 @@ def generate_dataset_group_by_blueprint(dataset_group_blueprint: DatasetGroupBlu
           is_reg: {subset.is_reg}
           class_tokens: {subset.class_tokens}
           caption_extension: {subset.caption_extension}
+          class_caption: {subset.class_caption}
         \n"""), "    ")
       elif not is_controlnet:
         info += indent(dedent(f"""metadata_file: {subset.metadata_file}\n"""), "    ")
@@ -485,7 +488,7 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
     caption_by_folder = '_'.join(tokens[1:])
     return n_repeats, caption_by_folder
 
-  def generate(base_dir: Optional[str], is_reg: bool):
+  def generate(base_dir: Optional[str], is_reg: bool, class_caption: Optional[str] = None):
 
     if base_dir is None:
       return []
@@ -504,7 +507,8 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
       subset_config = {"image_dir": str(subdir),
                        "num_repeats": num_repeats,
                        "is_reg": is_reg,
-                       "class_tokens": class_tokens,}
+                       "class_tokens": class_tokens,
+                       "class_caption": class_caption,}
       subsets_config.append(subset_config)
 
     return subsets_config

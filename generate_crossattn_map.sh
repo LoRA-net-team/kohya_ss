@@ -5,8 +5,7 @@ CUDA_VISIBLE_DEVICES=0 python gen_crossattnmap.py \
       --network_module networks.lora \
       --network_weights './result/haibara_experience/one_image/name_3_without_caption/haibara_base/haibara-000040.safetensors' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_haibara_inference.txt' \
-      --outdir ./result/haibara_experience/one_image/name_3_without_caption/haibara_base/attn_inference/haibara_epoch_40_test \
-      --negative_prompt 'bad image'
+      --outdir ./result/haibara_experience/one_image/name_3_without_caption/haibara_base/attn_inference/haibara_epoch_40
 
 
 CUDA_VISIBLE_DEVICES=1 python gen_crossattnmap.py \

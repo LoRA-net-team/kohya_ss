@@ -1,6 +1,7 @@
 import importlib
 import argparse
 import gc
+import re
 import math
 import os
 import sys
@@ -8,12 +9,15 @@ import random
 import time
 import json
 from multiprocessing import Value
-import wandb
+import toml
 from tqdm import tqdm
 import toml
 import tempfile
 import torch
-from setproctitle import *
+try:
+    from setproctitle import setproctitle
+except (ImportError, ModuleNotFoundError):
+    setproctitle = lambda x: None
 try:
     import intel_extension_for_pytorch as ipex
     if torch.xpu.is_available():
@@ -30,21 +34,32 @@ import library.config_util as config_util
 from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
 import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
+from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,
+                                            prepare_scheduler_for_custom_training,
+                                            scale_v_prediction_loss_like_noise_prediction,
+                                            add_v_prediction_like_loss,)
 from torch import nn
 import torch.nn.functional as F
 
-first_layers =  ['mid']
-second_layers = ['down_blocks_2','up_blocks_1']
-third_layers =  ['down_blocks_1','up_blocks_2']
-forth_layers =  ['down_blocks_0','up_blocks_3']
-second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
-first_second_layers = ['mid','down_blocks_2','up_blocks_1',]
-first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
+from functools import lru_cache
+from attention_store import AttentionStore
 
-def register_attention_control(unet : nn.Module, controller):
-    """Register cross attention layers to controller"""
+@lru_cache(maxsize=128)
+def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
+    """
+    Check if layer_name matches regex_list_str.
+    """
+    regex_list = regex_list_str.split(',')
+    for regex in regex_list:
+        regex = regex.strip() # remove space
+        if re.match(regex, layer_name):
+            return True
+    return False
+
+def register_attention_control(unet : nn.Module, controller:AttentionStore, mask_threshold:float=1): #if mask_threshold is 1, use itself
+    """
+    Register cross attention layers to controller.
+    """
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -69,16 +84,15 @@ def register_attention_control(unet : nn.Module, controller):
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
-                if trg_indexs_list is not None:
-                    trg_indexs = trg_indexs_list # [ [1,2], [1,2] ]
+                if trg_indexs_list is not None and mask is not None:
+                    trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
-                        batch_trg_index = trg_indexs[batch_idx] # [1,2]
+                        batch_trg_index = trg_indexs[batch_idx] # two times
+                        head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
-                        word_heat_map_list = []
                         for word_idx in batch_trg_index :
-                            time.sleep(5)
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
                             word_heat_map_ = word_heat_map.reshape(-1, res, res)
@@ -87,32 +101,19 @@ def register_attention_control(unet : nn.Module, controller):
                                                            size=((512, 512)),mode='bicubic').squeeze()
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
-                            word_heat_map_list.append(word_heat_map_)
-
-                        # ----------------------------------------------------------------------------------------------------------------------------------
-                        # size = (512,512)
-                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0).mean(dim=0)
-                        mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                        masked_heat_map = word_heat_map_ * mask_
-
-                        # ----------------------------------------------------------------------------------------------------------------------------------
-                        # save and see
-                        from utils import _convert_heat_map_colors
-                        import numpy as np
-                        from PIL import Image
-
-                        sum_of_masked_heat_map = masked_heat_map.sum()
-                        print(f'sum_of_masked_heat_map of {layer_name} : {sum_of_masked_heat_map}')
-
-                        heat_map = _convert_heat_map_colors(masked_heat_map)
-                        heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
-                        heat_map_img = Image.fromarray(heat_map)
-                        heat_map_img.save(f'{layer_name}.png')
-                        attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_heat_map.float(), reduction="none")
-                        #
-                        attn_loss = attn_loss.mean()
-                        controller.store(attn_loss, layer_name)
-
+                            mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                            # thresholding, convert to 1 if upper than threshold else itself
+                            mask_ = torch.where(mask_ > mask_threshold, torch.ones_like(mask_), mask_)
+                            # check if mask_ is frozen, it should not be updated
+                            assert mask_.requires_grad == False, 'mask_ should not be updated'
+                            masked_heat_map = word_heat_map_ * mask_
+                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                            controller.store(attn_loss, layer_name)
+                # check if torch.no_grad() is in effect
+                elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
+                    if mask is None:
+                        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
+                    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
 
             hidden_states = torch.bmm(attention_probs, value)
             #if is_cross_attention :
@@ -154,8 +155,10 @@ class NetworkTrainer:
 
     # TODO 他のスクリプトと共通化する
     def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
-                           keys_scaled=None, mean_norm=None, maximum_norm=None):
+                           keys_scaled=None, mean_norm=None, maximum_norm=None, **kwargs):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
+        if kwargs is not None:
+            logs.update(kwargs)
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
             logs["max_norm/average_key_norm"] = mean_norm
@@ -186,7 +189,8 @@ class NetworkTrainer:
                 logs[f"lr/group{i}"] = float(lrs[i])
                 if args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower():
                     logs[f"lr/d*lr/group{i}"] = (
-                        lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"])
+                        lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"]
+                    )
 
         return logs
 
@@ -243,6 +247,7 @@ class NetworkTrainer:
         cache_latents = args.cache_latents
         use_dreambooth_method = args.in_json is None
         use_user_config = args.dataset_config is not None
+        use_class_caption = args.class_caption is not None # if class_caption is provided, for subsets, add key 'class_caption' to each subset
 
         if args.seed is None:
             args.seed = random.randint(0, 2**32)
@@ -264,12 +269,23 @@ class NetworkTrainer:
             else:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
-                    user_config = {"datasets": [{"subsets": config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir,
-                                                                                                                      args.reg_data_dir,)}]}
+                    user_config = {}
+                    user_config['datasets'] = [{"subsets" : None}]
+                    subsets_dict_list = []
+                    for subsets_dict in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir, args.reg_data_dir):
+                        if use_class_caption:
+                            subsets_dict['class_caption'] = args.class_caption
+                        subsets_dict_list.append(subsets_dict)
+                        user_config['datasets'][0]['subsets'] = subsets_dict_list
                 else:
                     print("Training with captions.")
-                    user_config = {"datasets": [{"subsets": [{"image_dir": args.train_data_dir,
-                                                              "metadata_file": args.in_json,}]}]}
+                    user_config = {}
+                    user_config["datasets"] = []
+                    user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir, "metadata_file": args.in_json,}]})
+                    # add class_caption to each subset
+                    if use_class_caption:
+                        for subset in user_config["datasets"][0]["subsets"]:
+                            subset["class_caption"] = args.class_caption
             print(f'User config: {user_config}')
             # blueprint_generator = BlueprintGenerator
             print('start of generate function ...')
@@ -306,8 +322,6 @@ class NetworkTrainer:
         print("preparing accelerator")
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
-        if args.log_with == 'wandb' and is_main_process :
-            wandb.init(project=args.wandb_init_name, name=args.wandb_name)
         save_base_dir = args.output_dir
         _, folder_name = os.path.split(save_base_dir)
         # save config
@@ -377,48 +391,25 @@ class NetworkTrainer:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
         else:
             # LyCORIS will work with this...
-            if args.text_only_training :
-                network = network_module.create_network_text_only(
-                    1.0,
-                    args.network_dim,
-                    args.network_alpha,
-                    vae,
-                    text_encoder,
-                    unet,
-                    neuron_dropout=args.network_dropout,
-                    **net_kwargs,)
-#
-            elif args.text_self_attn_only_training :
-                network = network_module.create_network_text_self_attn_only_training(
-                    1.0,
-                    args.network_dim,
-                    args.network_alpha,
-                    vae,
-                    text_encoder,
-                    unet,
-                    neuron_dropout=args.network_dropout,
-                    **net_kwargs,
-                )
-
-            else :
-                network = network_module.create_network(
-                    1.0,
-                    args.network_dim,
-                    args.network_alpha,
-                    vae,
-                    text_encoder,
-                    unet,
-                    neuron_dropout=args.network_dropout,
-                    **net_kwargs,)
-
-
+            network = network_module.create_network(
+                1.0,
+                args.network_dim,
+                args.network_alpha,
+                vae,
+                text_encoder,
+                unet,
+                neuron_dropout=args.network_dropout,
+                **net_kwargs,
+            )
         if network is None:
             return
 
         if hasattr(network, "prepare_network"):
             network.prepare_network(args)
         if args.scale_weight_norms and not hasattr(network, "apply_max_norm_regularization"):
-            print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません")
+            print(
+                "warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
+            )
             args.scale_weight_norms = False
         train_unet = not args.network_train_text_encoder_only
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
@@ -568,10 +559,11 @@ class NetworkTrainer:
         num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
-
-        from attention_store import AttentionStore
-        attention_storer = AttentionStore()
-        register_attention_control(unet, attention_storer)
+        if args.heatmap_loss:
+            attention_storer = AttentionStore()
+            register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+        else:
+            attention_storer = None
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -783,7 +775,9 @@ class NetworkTrainer:
                 minimum_metadata[key] = metadata[key]
         progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
         global_step = 0
-        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False)
+        noise_scheduler = DDPMScheduler(
+            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
+        )
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
@@ -864,11 +858,12 @@ class NetworkTrainer:
                                 batch["captions"],
                                 accelerator.device,
                                 args.max_token_length // 75 if args.max_token_length else 1,
-                                clip_skip=args.clip_skip,)
+                                clip_skip=args.clip_skip,
+                            )
                         else:
-                            text_encoder_conds = self.get_text_cond(args,
-                                                                    accelerator, batch, tokenizers, text_encoders,
-                                                                    weight_dtype)
+                            text_encoder_conds = self.get_text_cond(
+                                args, accelerator, batch, tokenizers, text_encoders, weight_dtype
+                            )
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
@@ -879,6 +874,9 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         # -----------------------------------------------------------------------------------------------------------------------
+                        # sam USING
+                        # 여러 이미지에서의 동일한 feature 을 이용한 Mask
+                        #
                         noise_pred = self.call_unet(args,
                                                     accelerator,
                                                     unet,
@@ -889,38 +887,36 @@ class NetworkTrainer:
                                                     weight_dtype,
                                                     batch["trg_indexs_list"],
                                                     batch['mask_imgs'])
-                        atten_collection = attention_storer.step_store
-                        attention_storer.step_store = {}
+                        if attention_storer is not None:
+                            atten_collection = attention_storer.step_store
+                            attention_storer.step_store = {}
 
                     if args.v_parameterization:
                         # v-parameterization training
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
-
+                        
                     ### Masked loss ###
                     if args.masked_loss:
-                        # only masked range backpropagation
                         # get mask images then set to device
-                        # batch['mask_imgs'] is actually List[Tensor]
+                        # batch['mask_imgs'] is actually List[Tensor] 
                         # for each images, get mask image and resize to noise_pred size
                         # we may not be able to use batch['mask_imgs'] directly because of different image size
-
+                        
                         # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
                         # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
-                        # noise_pred:torch.Tensor
-                        # print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
-                        # print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
-                        # print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        #noise_pred:torch.Tensor
+                        #print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        #print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
+                        #print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
                         # [256, 256] -> [1, 1, 256, 256]
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
                         # interpolate
-                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img
-                                     in
-                                     mask_imgs]
+                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in mask_imgs]
                         # to Tensor
-                        mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
-                        # print("mask_imgs size: ", mask_imgs[0].size()) # debug
+                        mask_imgs = torch.cat(mask_imgs, dim=0) # [batch_size, 1, 256, 256]
+                        #print("mask_imgs size: ", mask_imgs[0].size()) # debug
                         # multiply mask to noise_pred and target
                         # element-wise multiplication
                         noise_pred = noise_pred * mask_imgs
@@ -939,53 +935,27 @@ class NetworkTrainer:
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-                    """
-                    ### Masked loss ###
-                    if args.masked_loss:
-                        mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
-                        # interpolate
-                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in mask_imgs]
-                        # to Tensor
-                        mask_imgs = torch.cat(mask_imgs, dim=0) # [batch_size, 1, 256, 256]
-                        noise_pred = noise_pred * mask_imgs
-                        target = target * mask_imgs
-                    """
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        heatmap_loss_dict = {}
+                        attention_losses = {}
                         layer_names = atten_collection.keys()
+                        assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         attn_loss = 0
                         for layer_name in layer_names:
-
-                            if args.only_second_training :
-                                for i in second_layers :
-                                    if i in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-                                        heatmap_loss_dict[f'loss/{layer_name}'] = sum(atten_collection[layer_name])
-
-                            elif args.only_third_training :
-                                for i in third_layers :
-                                    if i in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-
-                            elif args.second_third_training :
-                                for i in second_third_layers :
-                                    if i in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-
-                            elif args.first_second_layers_training :
-                                for i in first_second_layers :
-                                    if i in layer_name :
-                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
-                                        heatmap_loss_dict[f'loss/{layer_name}'] = sum(atten_collection[layer_name])
-
-                            else :
-                                attn_loss = attn_loss + sum(atten_collection[layer_name])
-
-                        if args.heatmap_loss_backprop :
-                            loss = task_loss + args.attn_loss_ratio * attn_loss
-                        #loss = task_loss + args.attn_loss_ratio * attn_loss
+                            if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
+                                sum_of_attn = sum(atten_collection[layer_name])
+                                if attn_loss:
+                                    attn_loss = attn_loss + sum_of_attn
+                                else:
+                                    attn_loss = sum_of_attn
+                                # attention_losses[layer_name] = sum_of_attn but detach
+                                attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
+                            attention_losses["loss/attention_loss"] = attn_loss
+                        assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
+                        loss = task_loss + args.attn_loss_ratio * attn_loss
+                    else:
+                        attention_losses = {}
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1005,7 +975,8 @@ class NetworkTrainer:
                     progress_bar.update(1)
                     global_step += 1
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-                    attention_storer.step_store = {}
+                    if attention_storer is not None:
+                        attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
@@ -1029,19 +1000,14 @@ class NetworkTrainer:
                 loss_total += current_loss
                 avr_loss = loss_total / len(loss_list)
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
+                # detach attention_losses dict
+                attention_losses = {k: v.detach().item() for k, v in attention_losses.items()}
+                
                 progress_bar.set_postfix(**logs)
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
-                    logs = self.generate_step_logs(args,
-                                                   current_loss,
-                                                   avr_loss,
-                                                   lr_scheduler,
-                                                   keys_scaled,
-                                                   mean_norm,
-                                                   maximum_norm)
-                    if args.heatmap_loss :
-                        logs.update(heatmap_loss_dict)
+                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
                 if global_step >= args.max_train_steps:
                     break
@@ -1063,7 +1029,8 @@ class NetworkTrainer:
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-            attention_storer.step_store = {}
+            if attention_storer is not None:
+                attention_storer.step_store = {}
             # end of epoch
 
         # metadata["ss_epoch"] = str(num_train_epochs)
@@ -1129,30 +1096,48 @@ if __name__ == "__main__":
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
-    parser.add_argument("--wandb_name", type=str)
     parser.add_argument("--wandb_log_template_path", type=str)
+    parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
+    # class_caption
+    parser.add_argument("--class_caption", type=str, default='girl')
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
-    parser.add_argument("--train_mask_dir", type=str)
+    parser.add_argument("--mask_dir", type=str)
+    
+    # masked_loss
+    parser.add_argument("--masked_loss", action='store_true')
+    
+    #first_layers =  ['mid'] # "mid"
+    #second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
+    #third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
+    #forth_layers =  ['down_blocks_0','up_blocks_3'] #"down_blocks_0,up_blocks_3"
+    #second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
+    #first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
+
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
-    parser.add_argument("--first_second_layers_training", action='store_true')
-
-    parser.add_argument("--text_only_training", action='store_true')
-    parser.add_argument("--text_self_attn_only_training", action='store_true')
-
-    # masked_loss
-    parser.add_argument("--masked_loss", action='store_true')
-    parser.add_argument("--heatmap_loss_backprop", action='store_true')
-
-
-
-
-
+    parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ',', matches regex with given string. default is 'all'")
+    # mask_threshold (0~1, default 1)
+    parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
     args = parser.parse_args()
+    
+    # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
+    if args.only_second_training:
+        args.attn_loss_layers = 'down_blocks_2,up_blocks_1'
+    elif args.only_third_training:
+        args.attn_loss_layers = 'down_blocks_1,up_blocks_2'
+    elif args.second_third_training:
+        args.attn_loss_layers = 'down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
+    elif args.first_second_third_training:
+        args.attn_loss_layers = 'mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
+    
+    # if any of only_second_training, only_third_training, second_third_training, first_second_third_training is True, print message to notify user that args.attn_loss_layers is overwritten
+    if args.only_second_training or args.only_third_training or args.second_third_training or args.first_second_third_training:
+        print(f"args.attn_loss_layers is overwritten to {args.attn_loss_layers} because only_second_training, only_third_training, second_third_training, first_second_third_training is True")
+    
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
         print(f"Created temporary file: {tempfile_new.name}")
