@@ -56,7 +56,7 @@ def main(args):
 
         elems = []
         elems.append(['condition', 'epoch', 'average_dino_sim', 'average_ccip_diff', 'average_aes', 'avg_t2i_sim'])
-        condition_dir = os.path.join(base_img_folder, condition, 'sample')
+        condition_dir = os.path.join(base_img_folder, condition)
         """
         asethetic_csv_dir = os.path.join(condition_dir, 'metric')
         os.makedirs(asethetic_csv_dir, exist_ok=True)
