@@ -3651,6 +3651,7 @@ def prepare_accelerator(args: argparse.Namespace):
 
             if args.wandb_api_key is not None:
                 print(f' ************* wandb log in ************* ')
+                print(args.wandb_api_key)
                 wandb.login(key=args.wandb_api_key)
 
     accelerator = Accelerator(
