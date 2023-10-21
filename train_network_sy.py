@@ -91,12 +91,15 @@ def register_attention_control(unet : nn.Module, controller):
                             # mask = [512,512]
                             word_heat_map_list.append(word_heat_map_)
 
+                        # ----------------------------------------------------------------------------------------------------------------------------------
+                        # size = (512,512)
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0).mean(dim=0)
-                        print(f'word_heat_map_ : {word_heat_map_.shape}')
-                        time.sleep(5)
+
 
                         mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                         masked_heat_map = word_heat_map_ * mask_
+                        print(f'masked_heat_map : {masked_heat_map}')
+                        time.sleep(5)
 
                         attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_heat_map.float(), reduction="none")
                         #
