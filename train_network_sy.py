@@ -8,7 +8,7 @@ import random
 import time
 import json
 from multiprocessing import Value
-import toml
+import wandb
 from tqdm import tqdm
 import toml
 import tempfile
@@ -282,6 +282,8 @@ class NetworkTrainer:
         print("preparing accelerator")
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
+        if args.log_with == 'wandb' and is_main_process :
+            wandb.init(project=args.wandb_init_name, name=args.wandb_name)
         save_base_dir = args.output_dir
         _, folder_name = os.path.split(save_base_dir)
         # save config
@@ -935,7 +937,6 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-
                         heatmal_loss_dict = {}
                         layer_names = atten_collection.keys()
                         attn_loss = 0
@@ -955,7 +956,9 @@ class NetworkTrainer:
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
                             else :
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
-                        loss = task_loss + args.attn_loss_ratio * attn_loss
+                        if args.heatmap_loss_backprop :
+                            loss = task_loss + args.attn_loss_ratio * attn_loss
+                        #loss = task_loss + args.attn_loss_ratio * attn_loss
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1116,6 +1119,8 @@ if __name__ == "__main__":
 
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
+    parser.add_argument("--heatmap_loss_backprop", action='store_true')
+
 
 
 
