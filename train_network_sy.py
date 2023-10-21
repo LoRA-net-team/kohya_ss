@@ -937,24 +937,29 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
+
                             if args.only_second_training :
                                 for i in second_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
                                         heatmap_loss_dict[f'loss/{layer_name}'] = sum(atten_collection[layer_name])
+
                             elif args.only_third_training :
                                 for i in third_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
+
                             elif args.second_third_training :
                                 for i in second_third_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
+
                             elif args.first_second_layers_training :
                                 for i in first_second_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
                                         heatmap_loss_dict[f'loss/{layer_name}'] = sum(atten_collection[layer_name])
+
                             else :
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
 
