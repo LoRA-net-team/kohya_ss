@@ -14,17 +14,14 @@ from tqdm import tqdm
 import toml
 import tempfile
 import torch
-
 try:
     from setproctitle import setproctitle
 except (ImportError, ModuleNotFoundError):
     setproctitle = lambda x: None
 try:
     import intel_extension_for_pytorch as ipex
-
     if torch.xpu.is_available():
         from library.ipex import ipex_init
-
         ipex_init()
 except Exception:
     pass
@@ -37,13 +34,10 @@ import library.config_util as config_util
 from library.config_util import (ConfigSanitizer, BlueprintGenerator, )
 import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,
-                                            prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction,
-                                            add_v_prediction_like_loss, )
+from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
+                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss, )
 from torch import nn
 import torch.nn.functional as F
-
 from functools import lru_cache
 from attention_store import AttentionStore
 
@@ -162,6 +156,7 @@ def arg_as_list(s):
 
 
 class NetworkTrainer:
+
     def __init__(self):
         self.vae_scale_factor = 0.18215
         self.is_sdxl = False
@@ -253,6 +248,7 @@ class NetworkTrainer:
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet)
 
     def train(self, args):
+
         if args.process_title:
             setproctitle(args.process_title)
         else:
@@ -1143,17 +1139,10 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--mask_dir", type=str)
-
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
-
-    # first_layers =  ['mid'] # "mid"
-    # second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
-    # third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
-    # forth_layers =  ['down_blocks_0','up_blocks_3'] #"down_blocks_0,up_blocks_3"
-    # second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
-    # first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
-
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
@@ -1163,7 +1152,7 @@ if __name__ == "__main__":
     # mask_threshold (0~1, default 1)
     parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
     args = parser.parse_args()
-
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
         args.attn_loss_layers = 'down_blocks_2,up_blocks_1'
@@ -1178,7 +1167,7 @@ if __name__ == "__main__":
     if args.only_second_training or args.only_third_training or args.second_third_training or args.first_second_third_training:
         print(
             f"args.attn_loss_layers is overwritten to {args.attn_loss_layers} because only_second_training, only_third_training, second_third_training, first_second_third_training is True")
-
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
         print(f"Created temporary file: {tempfile_new.name}")
@@ -1186,13 +1175,12 @@ if __name__ == "__main__":
             with open(args.wandb_log_template_path, 'r', encoding='utf-8') as f:
                 lines = f.read()
         else:
-            lines = '''[wandb]
-    name = "{0}"'''
+            lines = '''[wandb] name = "{0}"'''
         tempfile_path = tempfile_new.name
         with open(tempfile_path, 'w', encoding='utf-8') as f:
-            # format
             f.write(lines.format(args.wandb_init_name))
         args.log_tracker_config = tempfile_path  # overwrite
+    # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
     trainer.train(args)
