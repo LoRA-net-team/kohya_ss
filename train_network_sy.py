@@ -185,6 +185,9 @@ class NetworkTrainer:
             t_enc.to(accelerator.device)
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
+
+        input_ids = batch["input_ids"]
+        print(f'input id for training : {input_ids}')
         input_ids = batch["input_ids"].to(accelerator.device)
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         return encoder_hidden_states
@@ -394,9 +397,7 @@ class NetworkTrainer:
         if hasattr(network, "prepare_network"):
             network.prepare_network(args)
         if args.scale_weight_norms and not hasattr(network, "apply_max_norm_regularization"):
-            print(
-                "warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
-            )
+            print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません")
             args.scale_weight_norms = False
         train_unet = not args.network_train_text_encoder_only
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
@@ -761,9 +762,7 @@ class NetworkTrainer:
                 minimum_metadata[key] = metadata[key]
         progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
         global_step = 0
-        noise_scheduler = DDPMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
-        )
+        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False)
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
@@ -844,12 +843,11 @@ class NetworkTrainer:
                                 batch["captions"],
                                 accelerator.device,
                                 args.max_token_length // 75 if args.max_token_length else 1,
-                                clip_skip=args.clip_skip,
-                            )
+                                clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(
-                                args, accelerator, batch, tokenizers, text_encoders, weight_dtype
-                            )
+                            text_encoder_conds = self.get_text_cond(args,
+                                                                    accelerator, batch, tokenizers, text_encoders,
+                                                                    weight_dtype)
 
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
@@ -937,7 +935,7 @@ class NetworkTrainer:
                     task_loss = loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        heatmal_loss_dict = {}
+                        heatmap_loss_dict = {}
                         layer_names = atten_collection.keys()
                         attn_loss = 0
                         for layer_name in layer_names:
@@ -945,7 +943,7 @@ class NetworkTrainer:
                                 for i in second_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
-                                        heatmal_loss_dict[f'loss/{layer_name}'] = sum(atten_collection[layer_name])
+                                        heatmap_loss_dict[f'loss/{layer_name}'] = sum(atten_collection[layer_name])
                             elif args.only_third_training :
                                 for i in third_layers :
                                     if i in layer_name :
@@ -956,6 +954,7 @@ class NetworkTrainer:
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
                             else :
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
+
                         if args.heatmap_loss_backprop :
                             loss = task_loss + args.attn_loss_ratio * attn_loss
                         #loss = task_loss + args.attn_loss_ratio * attn_loss
@@ -1014,9 +1013,7 @@ class NetworkTrainer:
                                                    mean_norm,
                                                    maximum_norm)
                     if args.heatmap_loss :
-                        logs.update(heatmal_loss_dict)
-
-
+                        logs.update(heatmap_loss_dict)
                     accelerator.log(logs, step=global_step)
                 if global_step >= args.max_train_steps:
                     break
