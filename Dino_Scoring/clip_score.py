@@ -1,6 +1,5 @@
 import torch
 from torchvision import transforms as pth_transforms
-from kohya_ss.imgutils.metrics import ccip_difference
 import numpy as np
 import argparse, os, shutil
 import csv
