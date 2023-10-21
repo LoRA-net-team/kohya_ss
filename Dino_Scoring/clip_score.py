@@ -8,7 +8,7 @@ import clip
 from PIL import Image, ImageFile
 
 from aesthetic_model import Aesthetic_MLP, normalized
-import VITs16, get_dino_dim
+from Dino_Scoring import VITs16, get_dino_dim
 import time
 
 def compute_cosine_distance(image_features, image_features2):
