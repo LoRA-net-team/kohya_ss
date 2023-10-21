@@ -1162,13 +1162,10 @@ class BaseDataset(torch.utils.data.Dataset):
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
-                        print(f'caption : {caption}')
                         token_caption = self.get_input_ids(caption,
                                                            self.tokenizers[0])
                         class_token_caption = self.get_input_ids(class_caption,
                                                                  self.tokenizers[0])
-
-
                     input_ids_list.append(token_caption)
                     class_input_ids_list.append(class_token_caption)
                     # token_caption

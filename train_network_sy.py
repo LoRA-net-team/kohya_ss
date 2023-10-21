@@ -87,10 +87,7 @@ def register_attention_control(unet : nn.Module, controller):
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
                             word_heat_map_list.append(word_heat_map_)
-                        first_item = word_heat_map_list[0]
-                        print(f'first item shape : {first_item.shape}')
-                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0)
-                        print(f'after stack, word_heat_map_ : {word_heat_map_.shape}')
+                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0).mean(dim=0)
                         mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                         masked_heat_map = word_heat_map_ * mask_
                         attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
@@ -191,9 +188,6 @@ class NetworkTrainer:
             t_enc.to(accelerator.device)
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
-
-        input_ids = batch["input_ids"]
-        print(f'input id for training : {input_ids}')
         input_ids = batch["input_ids"].to(accelerator.device)
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         return encoder_hidden_states
