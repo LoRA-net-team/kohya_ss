@@ -30,6 +30,6 @@ def main(args) :
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
     parser.add_argument('--generated_image_folder',
-                        default='/data7/sooyeon/PersonalizeOverfitting/kohya_ss/result/iom_experiment/one_image')
+                        default='./result/iom_experiment/one_image')
     args = parser.parse_args()
     main(args)
