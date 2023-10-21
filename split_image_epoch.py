@@ -30,6 +30,6 @@ def main(args) :
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
     parser.add_argument('--generated_image_folder',
-                        default='/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/perfusion_data_experience/one_image/mcat_without_caption')
+                        default='./result/perfusion_data_experience/one_image/mcat_without_caption')
     args = parser.parse_args()
     main(args)
