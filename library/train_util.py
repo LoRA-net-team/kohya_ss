@@ -2752,18 +2752,19 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         default=None,
         help="enable logging and output TensorBoard log to this directory / ログ出力を有効にしてこのディレクトリにTensorBoard用のログを出力する",
     )
-    parser.add_argument(
-        "--log_with",
-        type=str,
-        default=None,
-        choices=["tensorboard", "wandb", "all"],
-        help="what logging tool(s) to use (if 'all', TensorBoard and WandB are both used) / ログ出力に使用するツール (allを指定するとTensorBoardとWandBの両方が使用される)",
-    )
+    parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],
+                        help="what logging tool(s) to use (if 'all', TensorBoard and WandB are both used) / ログ出力に使用するツール (allを指定するとTensorBoardとWandBの両方が使用される)",)
+    parser.add_argument("--wandb_api_key",type=str,default=None,
+                        help="specify WandB API key to log in before starting training (optional). / WandB APIキーを指定して学習開始前にログインする（オプション）",)
+
+
+
+
+
+
+
     parser.add_argument("--log_prefix", type=str, default=None, help="add prefix for each log directory / ログディレクトリ名の先頭に追加する文字列")
-    parser.add_argument(
-        "--log_tracker_name",
-        type=str,
-        default=None,
+    parser.add_argument("--log_tracker_name",type=str,default=None,
         help="name of tracker to use for logging, default is script-specific default name / ログ出力に使用するtrackerの名前、省略時はスクリプトごとのデフォルト名",
     )
     parser.add_argument(
@@ -2772,12 +2773,7 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         default=None,
         help="path to tracker config file to use for logging / ログ出力に使用するtrackerの設定ファイルのパス",
     )
-    parser.add_argument(
-        "--wandb_api_key",
-        type=str,
-        default=None,
-        help="specify WandB API key to log in before starting training (optional). / WandB APIキーを指定して学習開始前にログインする（オプション）",
-    )
+
     parser.add_argument(
         "--noise_offset",
         type=float,
@@ -3634,12 +3630,14 @@ def prepare_accelerator(args: argparse.Namespace):
             log_with = "tensorboard"
         else:
             log_with = None
+
     else:
         log_with = args.log_with
         if log_with in ["tensorboard", "all"]:
             if logging_dir is None:
                 raise ValueError("logging_dir is required when log_with is tensorboard / Tensorboardを使う場合、logging_dirを指定してください")
         if log_with in ["wandb", "all"]:
+            print(f' ** wandb log with ** ')
             try:
                 import wandb
             except ImportError:
@@ -3647,7 +3645,10 @@ def prepare_accelerator(args: argparse.Namespace):
             if logging_dir is not None:
                 os.makedirs(logging_dir, exist_ok=True)
                 os.environ["WANDB_DIR"] = logging_dir
+
+
             if args.wandb_api_key is not None:
+                print(f' ************* wandb log in ************* ')
                 wandb.login(key=args.wandb_api_key)
 
     accelerator = Accelerator(
@@ -4459,11 +4460,7 @@ def sample_images_common(
                 logging_caption_key = f"prompt : {prompt} seed: {str(seed)}"
                 # remove invalid characters from the caption for filenames
                 logging_caption_key = re.sub(r"[^a-zA-Z0-9_\-. ]+", "", logging_caption_key)
-                wandb_tracker.log(
-                    {
-                        logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),
-                    }
-                )
+                wandb_tracker.log({logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),})
             except:  # wandb 無効時
                 pass
 
