@@ -72,7 +72,7 @@ def main(args):
                     image_dir = os.path.join(epoch_dir, file)
                     pil_img = Image.open(image_dir)  # RGB
                     # -----------------------------------------------------------------------------------------------------
-                    txt_dir = os.path.join(epoch_dir, f'{name}.txt')
+                    txt_dir = os.path.join(epoch_dir, f'{name}.txt' )
                     with open(txt_dir, 'r') as f:
                         prompt = f.readlines()[0]
                     prompt = prompt.replace(args.concept_token,args.class_token)
