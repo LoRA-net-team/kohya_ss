@@ -67,6 +67,7 @@ def main(args):
             i2i_sim_list, t2i_sim_list = [], []
             for file in files:
                 name, ext = os.path.splitext(file)
+                print(f'file : {file} : name : {name} : ext : {ext}')
                 if ext != '.txt':
                     img_num += 1
                     # -----------------------------------------------------------------------------------------------------
