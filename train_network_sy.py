@@ -94,10 +94,27 @@ def register_attention_control(unet : nn.Module, controller):
                         # ----------------------------------------------------------------------------------------------------------------------------------
                         # size = (512,512)
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0).mean(dim=0)
-
-
                         mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                         masked_heat_map = word_heat_map_ * mask_
+
+                        # ----------------------------------------------------------------------------------------------------------------------------------
+                        # save and see
+                        from utils import _convert_heat_map_colors
+                        import numpy as np
+                        from PIL import Image
+
+                        heat_map = _convert_heat_map_colors(masked_heat_map)
+                        heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
+                        heat_map_img = Image.fromarray(heat_map)
+                        heat_map_img.save(f'{layer_name}.png')
+
+
+
+
+
+
+
+
                         print(f'masked_heat_map : {masked_heat_map}')
                         time.sleep(5)
 
