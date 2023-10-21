@@ -6,8 +6,9 @@ import csv
 import torch
 import clip
 from PIL import Image, ImageFile
-from . import VITs16, get_dino_dim
+
 from aesthetic_model import Aesthetic_MLP, normalized
+import VITs16, get_dino_dim
 import time
 
 def compute_cosine_distance(image_features, image_features2):
