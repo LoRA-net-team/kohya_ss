@@ -86,6 +86,7 @@ def register_attention_control(unet : nn.Module, controller):
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
                                                            size=((512, 512)),mode='bicubic').squeeze()
+                            print(f'word_heat_map_ : {word_heat_map_.shape}')
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
                             word_heat_map_list.append(word_heat_map_)
