@@ -2800,6 +2800,7 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         default=None,
         help="specify WandB API key to log in before starting training (optional). / WandB APIキーを指定して学習開始前にログインする（オプション）",
     )
+    parser.add_argument("--wandb_run_name",type=str,)
     parser.add_argument(
         "--noise_offset",
         type=float,
@@ -3669,15 +3670,16 @@ def prepare_accelerator(args: argparse.Namespace):
             if logging_dir is not None:
                 os.makedirs(logging_dir, exist_ok=True)
                 os.environ["WANDB_DIR"] = logging_dir
+
+
             if args.wandb_api_key is not None:
+                print(f'wandb login with api key: {args.wandb_api_key}')
                 wandb.login(key=args.wandb_api_key)
 
-    accelerator = Accelerator(
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        mixed_precision=args.mixed_precision,
-        log_with=log_with,
-        project_dir=logging_dir,
-    )
+    accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
+                              mixed_precision=args.mixed_precision,
+                              log_with=log_with,
+                              project_dir=logging_dir,)
     return accelerator
 
 

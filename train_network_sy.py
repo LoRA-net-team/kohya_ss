@@ -322,6 +322,13 @@ class NetworkTrainer:
         print("preparing accelerator")
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
+        if args.log_with == 'wandb' :
+            import wandb
+            wandb.init(project=args.wandb_init_name,
+                       name=args.wandb_run_name)
+
+
+
         save_base_dir = args.output_dir
         _, folder_name = os.path.split(save_base_dir)
         # save config
