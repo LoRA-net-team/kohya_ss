@@ -287,7 +287,8 @@ class NetworkTrainer:
                     print("Training with captions.")
                     user_config = {}
                     user_config["datasets"] = []
-                    user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir, "metadata_file": args.in_json,}]})
+                    user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir,
+                                                                 "metadata_file": args.in_json,}]})
                     # add class_caption to each subset
                     if use_class_caption:
                         for subset in user_config["datasets"][0]["subsets"]:
@@ -301,11 +302,9 @@ class NetworkTrainer:
             # blueprint = Blueprint(dataset_group_blueprint)
             # generate_dataset_group_by_blueprint ?
             # train_dataset_group = DatasetGroup(datasets)
-
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
-
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
@@ -1129,6 +1128,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
+    parser.add_argument("--first_second_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
     parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ',', matches regex with given string. default is 'all'")
@@ -1141,10 +1141,13 @@ if __name__ == "__main__":
         args.attn_loss_layers = 'down_blocks_2,up_blocks_1'
     elif args.only_third_training:
         args.attn_loss_layers = 'down_blocks_1,up_blocks_2'
+    elif args.first_second_training:
+        args.attn_loss_layers = 'mid,down_blocks_2,up_blocks_1'
     elif args.second_third_training:
         args.attn_loss_layers = 'down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
     elif args.first_second_third_training:
         args.attn_loss_layers = 'mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
+
     
     # if any of only_second_training, only_third_training, second_third_training, first_second_third_training is True, print message to notify user that args.attn_loss_layers is overwritten
     if args.only_second_training or args.only_third_training or args.second_third_training or args.first_second_third_training:
