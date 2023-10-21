@@ -56,7 +56,9 @@ def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
             return True
     return False
 
-def register_attention_control(unet : nn.Module, controller:AttentionStore, mask_threshold:float=1): #if mask_threshold is 1, use itself
+def register_attention_control(unet : nn.Module,
+                               controller:AttentionStore,
+                               mask_threshold:float=1): #if mask_threshold is 1, use itself
     """
     Register cross attention layers to controller.
     """
@@ -92,6 +94,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                         batch_trg_index = trg_indexs[batch_idx] # two times
                         head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
+                        word_heat_map_list = []
                         for word_idx in batch_trg_index :
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
@@ -99,16 +102,19 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
                                                            size=((512, 512)),mode='bicubic').squeeze()
-                            # ------------------------------------------------------------------------------------------------------------------------------
-                            # mask = [512,512]
-                            mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                            # thresholding, convert to 1 if upper than threshold else itself
-                            mask_ = torch.where(mask_ > mask_threshold, torch.ones_like(mask_), mask_)
-                            # check if mask_ is frozen, it should not be updated
-                            assert mask_.requires_grad == False, 'mask_ should not be updated'
-                            masked_heat_map = word_heat_map_ * mask_
-                            attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
-                            controller.store(attn_loss, layer_name)
+                            word_heat_map_list.append(word_heat_map_)
+                        # ------------------------------------------------------------------------------------------------------------------------------
+                        # mask = [512,512]
+                        mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                        # thresholding, convert to 1 if upper than threshold else itself
+                        mask_ = torch.where(mask_ > mask_threshold,
+                                            torch.ones_like(mask_), mask_)
+                        # check if mask_ is frozen, it should not be updated
+                        assert mask_.requires_grad == False, 'mask_ should not be updated'
+                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
+                        masked_heat_map = word_heat_map_ * mask_
+                        attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                        controller.store(attn_loss, layer_name)
                 # check if torch.no_grad() is in effect
                 elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
                     if mask is None:
