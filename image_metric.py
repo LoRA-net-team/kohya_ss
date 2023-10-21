@@ -37,15 +37,15 @@ def main(args) :
 
     print(f' (1.3) clip model')
     clip_model, clip_preprocess = clip.load("ViT-L/14", device=args.device)
-
-
-
     # Encode text descriptions
     #text_emb = model.encode(['Two dogs in the snow', 'A cat on a table', 'A picture of London at night'])
-
     # Compute cosine similarities
     #cos_scores = util.cos_sim(img_emb, text_emb)
     #print(cos_scores)
+
+
+    #logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
+    #probs = logits_per_image.softmax(dim=1)  # we can take the softmax to get the label probabilities
 
 
 
@@ -81,8 +81,9 @@ def main(args) :
             image_features = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
             print(image_features.shape)
 
-            img_emb = clip_model.encode(pil_img)
-            print(img_emb.shape)
+            inputs = clip_preprocess(images=pil_img, return_tensors="pt", padding=True)
+            outputs = clip_model(**inputs)
+            print(outputs.shape)
 
 
 
