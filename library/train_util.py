@@ -1461,7 +1461,17 @@ class DreamBoothDataset(BaseDataset):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
                 if mask_dir:
-                    mask_path = os.path.join(mask_dir,f'{name}_gaussian_mask.png')
+                    # find name_{something optional}_mask.{png or jpg}
+                    mask_re = re.compile(f"{name}(_[^_]+)?_mask\.(png|jpg)$") #matches name_{something optional}_mask.{png or jpg}
+                    mask_path = None
+                    for mask_name in os.listdir(mask_dir):
+                        m = mask_re.match(mask_name)
+                        if m:
+                            mask_path = os.path.join(mask_dir, mask_name)
+                            break
+                    #validate
+                    if mask_path is None:
+                        raise FileNotFoundError(f"mask file not found / マスクファイルが見つかりませんでした: {img_path}")
                 else:
                     mask_path = None
                 info = ImageInfo(img_path,
