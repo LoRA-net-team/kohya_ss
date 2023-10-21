@@ -75,10 +75,11 @@ def register_attention_control(unet : nn.Module, controller):
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
                         batch_trg_index = trg_indexs[batch_idx] # [1,2]
-
                         res = int(math.sqrt(attention_prob.shape[1]))
                         word_heat_map_list = []
                         for word_idx in batch_trg_index :
+                            print(f'word_idx : {word_idx}')
+                            time.sleep(5)
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
                             word_heat_map_ = word_heat_map.reshape(-1, res, res)
@@ -88,13 +89,17 @@ def register_attention_control(unet : nn.Module, controller):
                             # ------------------------------------------------------------------------------------------------------------------------------
                             # mask = [512,512]
                             word_heat_map_list.append(word_heat_map_)
+
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0).mean(dim=0)
+                        print(f'word_heat_map_ : {word_heat_map_.shape}')
+                        time.sleep(5)
 
                         mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                         masked_heat_map = word_heat_map_ * mask_
 
                         attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_heat_map.float(), reduction="none")
-                        attn_loss = attn_loss.mean([1,2,3])
+                        #
+                        attn_loss = attn_loss.mean()
                         controller.store(attn_loss, layer_name)
 
 
