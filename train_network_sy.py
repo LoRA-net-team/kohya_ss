@@ -1132,7 +1132,7 @@ if __name__ == "__main__":
         tempfile_path = tempfile_new.name
         with open(tempfile_path, 'w', encoding='utf-8') as f:
             # format
-            f.write(lines.format(args.wandb_init_name))
+            f.write(lines.format(args.wandb_project))
         args.log_tracker_config = tempfile_path #overwrite
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
