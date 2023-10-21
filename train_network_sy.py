@@ -1120,10 +1120,8 @@ if __name__ == "__main__":
     parser.add_argument("--masked_loss", action='store_true')
 
 
-
-
     args = parser.parse_args()
-    if args.wandb_init_name is not None:
+    if args.wandb_projct is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
         print(f"Created temporary file: {tempfile_new.name}")
         if args.wandb_log_template_path is not None:
