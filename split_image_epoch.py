@@ -12,17 +12,27 @@ def main(args) :
     for generated_image_folder in generated_image_folders :
         generated_image_folder_dir = os.path.join(args.generated_image_folder, generated_image_folder)
         sample_dir = os.path.join(generated_image_folder_dir, 'sample')
+        folders = os.listdir(sample_dir)
+        for folder in folders :
+            folder_dir = os.path.join(sample_dir, folder)
+            files = os.listdir(folder_dir)
+            for file in files :
+                org_file_dir = os.path.join(folder_dir, file)
+                trg_file_dir = os.path.join(sample_dir, file)
+                os.rename(org_file_dir, trg_file_dir)
+        """
         images = os.listdir(sample_dir)
         for image in images :
             image_dir = os.path.join(sample_dir, image)
             name, ext = os.path.splitext(image_dir)
-            epoch = name.split('_')[-2]
+            epoch = name.split('_')[-3]
             epoch = int(epoch.split('e')[-1])
 
             epoch_dir = os.path.join(sample_dir, str(epoch))
             os.makedirs(epoch_dir, exist_ok=True)
             new_dir = os.path.join(epoch_dir, image)
             os.rename(image_dir, new_dir)
+        """
 
 
 

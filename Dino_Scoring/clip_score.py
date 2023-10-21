@@ -93,6 +93,7 @@ def main(args):
                     t2i_sim_list.append(t2i_sim)
             avg_i2i_sim = torch.mean(torch.stack(i2i_sim_list))
             avg_t2i_sim = torch.mean(torch.stack(t2i_sim_list))
+
             elems.append([epoch, avg_i2i_sim.item(), avg_t2i_sim.item()])
         # make csv file
         csv_dir = os.path.join(condition_dir, f'{condition}_score.csv')
