@@ -57,16 +57,10 @@ def main(args):
         elems = []
         elems.append(['condition', 'epoch', 'average_dino_sim', 'average_ccip_diff', 'average_aes', 'avg_t2i_sim'])
         condition_dir = os.path.join(base_img_folder, condition)
-        """
-        asethetic_csv_dir = os.path.join(condition_dir, 'metric')
-        os.makedirs(asethetic_csv_dir, exist_ok=True)
-        asethetic_csv = os.path.join(asethetic_csv_dir, 'average_sim_aesthetic.csv')
-        print(f'save on {asethetic_csv}')
-        """
         sample_dir = os.path.join(condition_dir, 'sample')
         epochs = os.listdir(sample_dir)
         for epoch in epochs:
-            epoch_dir = os.path.join(condition_dir, epoch)
+            epoch_dir = os.path.join(sample_dir, str(epoch))
             files = os.listdir(epoch_dir)
             img_num = 0
             for image in files:
