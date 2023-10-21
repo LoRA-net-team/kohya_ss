@@ -64,12 +64,12 @@ def main(args):
             files = os.listdir(epoch_dir)
             img_num = 0
             i2i_sim_list, t2i_sim_list = [], []
-            for image in files:
-                name, ext = os.path.splitext(image)
+            for file in files:
+                name, ext = os.path.splitext(file)
                 if ext != '.txt':
                     img_num += 1
                     # -----------------------------------------------------------------------------------------------------
-                    image_dir = os.path.join(epoch_dir, image)
+                    image_dir = os.path.join(epoch_dir, file)
                     pil_img = Image.open(image_dir)  # RGB
                     # -----------------------------------------------------------------------------------------------------
                     txt_dir = os.path.join(epoch_dir, f'{name}.txt')
