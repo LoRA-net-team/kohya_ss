@@ -40,6 +40,7 @@ second_layers = ['down_blocks_2','up_blocks_1']
 third_layers =  ['down_blocks_1','up_blocks_2']
 forth_layers =  ['down_blocks_0','up_blocks_3']
 second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
+first_second_layers = ['mid','down_blocks_2','up_blocks_1',]
 first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2']
 
 def register_attention_control(unet : nn.Module, controller):
@@ -949,6 +950,11 @@ class NetworkTrainer:
                                 for i in second_third_layers :
                                     if i in layer_name :
                                         attn_loss = attn_loss + sum(atten_collection[layer_name])
+                            elif args.first_second_layers_training :
+                                for i in first_second_layers :
+                                    if i in layer_name :
+                                        attn_loss = attn_loss + sum(atten_collection[layer_name])
+                                        heatmap_loss_dict[f'loss/{layer_name}'] = sum(atten_collection[layer_name])
                             else :
                                 attn_loss = attn_loss + sum(atten_collection[layer_name])
 
@@ -1108,6 +1114,8 @@ if __name__ == "__main__":
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
+    parser.add_argument("--first_second_layers_training", action='store_true')
+
     parser.add_argument("--text_only_training", action='store_true')
     parser.add_argument("--text_self_attn_only_training", action='store_true')
 
