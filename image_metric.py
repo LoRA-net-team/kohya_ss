@@ -48,8 +48,6 @@ def main(args) :
     #probs = logits_per_image.softmax(dim=1)  # we can take the softmax to get the label probabilities
 
 
-
-
     print(f' (1.4) CCIP score')
 
     print(f'\n step 2. reference image')
@@ -60,30 +58,10 @@ def main(args) :
     for file in files :
         name, ext = os.path.splitext(file)
         if ext != '.txt' :
-            """
-            txt_dir = os.path.join(ref_img_folder, f'{name}.txt')
-            with open(txt_dir, 'r') as f :
-                caption = f.readlines()[0]
-            caption = caption.strip()
-            try :
-                img_dir = os.path.join(ref_img_folder, f'{name}.png')
-                img_emb = get_dino_dim(img_dir, dino_model, dino_transform, args)
-            except :
-                img_dir = os.path.join(ref_img_folder, f'{name}.jpg')
-                img_emb = get_dino_dim(img_dir, dino_model, dino_transform, args)
-            ref_img_dict[caption] = img_emb
-            ref_img_dir_dict[caption] = img_dir
-            """
             img_dir = os.path.join(ref_img_folder, f'{name}.jpg')
             pil_img = Image.open(img_dir)
-
             # image_features = [1,768]
             image_features = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
-            print(image_features.shape)
-
-            inputs = clip_preprocess(images=pil_img, return_tensors="pt", padding=True)
-            outputs = clip_model(**inputs)
-            print(outputs.shape)
 
 
 
