@@ -1,14 +1,14 @@
 import torch
 from torchvision import transforms as pth_transforms
-from imgutils.metrics import ccip_difference
+from ../imgutils.metrics import ccip_difference
 import numpy as np
 import argparse, os, shutil
 import csv
 import torch
 import clip
 from PIL import Image, ImageFile
-from Dino_Scoring import VITs16, get_dino_dim
-from Dino_Scoring.aesthetic_model import Aesthetic_MLP, normalized
+from ../Dino_Scoring import VITs16, get_dino_dim
+from ../Dino_Scoring.aesthetic_model import Aesthetic_MLP, normalized
 import time
 
 def compute_cosine_distance(image_features, image_features2):
