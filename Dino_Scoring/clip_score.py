@@ -61,13 +61,13 @@ def main(args):
         epochs = os.listdir(sample_dir)
         for epoch in epochs:
             epoch_dir = os.path.join(sample_dir, str(epoch))
-            print(f'epoch_dir : {epoch_dir}')
             files = os.listdir(epoch_dir)
+
             img_num = 0
             i2i_sim_list, t2i_sim_list = [], []
             for file in files:
+                os.path.split(file)
                 name, ext = os.path.splitext(file)
-                print(f'file : {file} : name : {name} : ext : {ext}')
                 if ext != '.txt':
                     img_num += 1
                     # -----------------------------------------------------------------------------------------------------
