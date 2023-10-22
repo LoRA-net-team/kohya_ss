@@ -40,12 +40,14 @@ def main(args):
     print(f'\n step 2. reference image')
     ref_img_folder = args.ref_img_folder
     files = os.listdir(ref_img_folder)
+    ref_embs = []
     for file in files:
         name, ext = os.path.splitext(file)
         if ext != '.txt':
             img_dir = os.path.join(ref_img_folder, f'{name}.jpg')
             pil_img = Image.open(img_dir)
             ref_emb = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
+            ref_embs.append(ref_emb)
 
 
     print(f'\n step 3. generated image')
@@ -87,10 +89,11 @@ def main(args):
                             text_features = clip_model.encode_text(text)
                         # -----------------------------------------------------------------------------------------------------
                         # 1) I2I similarity
-                        i2i_sim = torch.nn.functional.cosine_similarity(image_features,ref_emb, dim=1, eps=1e-8)
+                        for ref_emb in ref_embs:
+                            i2i_sim = torch.nn.functional.cosine_similarity(image_features,ref_emb, dim=1, eps=1e-8)
+                            i2i_sim_list.append(i2i_sim)
                         # 2) T2I similarity
                         t2i_sim = torch.nn.functional.cosine_similarity(image_features,text_features, dim=1, eps=1e-8)
-                        i2i_sim_list.append(i2i_sim)
                         t2i_sim_list.append(t2i_sim)
                 avg_i2i_sim = torch.mean(torch.stack(i2i_sim_list)).item()
                 avg_t2i_sim = torch.mean(torch.stack(t2i_sim_list)).item()
@@ -112,7 +115,7 @@ if __name__ == '__main__':
                         default=r'/data7/sooyeon/MyData/perfusion_dataset/iom/10_iom')
     parser.add_argument('--base_img_folder',
                         type=str,
-                        default=r'/data7/sooyeon/PersonalizeOverfitting/kohya_ss/result/iom_experiment/one_image')
+                        default=r'/data7/sooyeon/PersonalizeOverfitting/kohya_ss/result/iom_experiment/two_image')
     parser.add_argument('--concept_token', type=str, default='iom')
     parser.add_argument('--class_token', type=str, default='kitten')
     args = parser.parse_args()
