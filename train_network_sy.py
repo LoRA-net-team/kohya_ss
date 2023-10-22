@@ -875,8 +875,12 @@ class NetworkTrainer:
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
                     # Predict the noise residual
                     with accelerator.autocast():
+                        index_lists = batch["trg_indexs_list"]
+                        print(f'index_lists : {index_lists}')
                         noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
-                                                    batch,weight_dtype,batch["trg_indexs_list"],batch['mask_imgs'])
+                                                    batch,weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
                             attention_storer.step_store = {}
@@ -941,19 +945,19 @@ class NetworkTrainer:
                                 attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
-
-                        loss = task_loss + args.attn_loss_ratio * attn_loss
-
+                        if args.heatmap_backprop :
+                            loss = task_loss + args.attn_loss_ratio * attn_loss
                     else:
                         attn_loss = 0
                         attention_losses = {}
+                    # ------------------------------------------------------------------------------------
                     # recording attn loss
                     if type(attn_loss) == float :
                         attn_loss_record_elem = [epoch, global_step, attn_loss.item()]
                     else :
                         attn_loss_record_elem = [epoch, global_step, attn_loss]
-
                     attn_loss_records.append(attn_loss_record_elem)
+                    # ------------------------------------------------------------------------------------
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
