@@ -113,12 +113,12 @@ def register_attention_control(unet : nn.Module,
                         # check if mask_ is frozen, it should not be updated
                         #assert mask_.requires_grad == False, 'mask_ should not be updated'
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
-                        print(f'batch_idx : {batch_idx} | word_heat_map_ : {word_heat_map_.shape}')
                         batch_heatmap_list.append(word_heat_map_)
                         #masked_word_heat_map_ = word_heat_map_ * mask_
                         # is reduction = none, that means just L2 loss
                         #attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
                         #                                         reduction = 'none')
+                    print(f'when store, len of batch_heatmap_list : {len(batch_heatmap_list)}')
                     controller.store(batch_heatmap_list, layer_name)
 
                 # check if torch.no_grad() is in effect
@@ -947,6 +947,7 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 word_heatmap_list = atten_collection[layer_name]
+                                print(f'len of word_heatmap_list : {len(word_heatmap_list)}')
                                 for batch_index in range(batch_num) :
                                     word_heatmap = word_heatmap_list[batch_index]
                                     try :
@@ -954,7 +955,6 @@ class NetworkTrainer:
                                     except :
                                         heatmap_per_batch[batch_index] = []
                                         heatmap_per_batch[batch_index].append(word_heatmap)
-
                         for batch_idx in heatmap_per_batch.keys() :
                             word_heatmap_list = heatmap_per_batch[batch_index]
                             heatmap = torch.stack(word_heatmap_list, dim = 0)
