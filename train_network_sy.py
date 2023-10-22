@@ -1010,7 +1010,7 @@ class NetworkTrainer:
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
                     if is_main_process:
-                        wandb_tracker = accelerator.get_tracker("wandb")
+                        wandb_tracker = accelerator.get_tracker("wandb" )
                         """
                         try:
                             import wandb
