@@ -163,6 +163,9 @@ class NetworkTrainer:
     def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
                            keys_scaled=None, mean_norm=None, maximum_norm=None, **kwargs):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
+
+        # ------------------------------------------------------------------------------------------------------------------------------
+        # updating kwargs with new loss logs ...
         if kwargs is not None:
             logs.update(kwargs)
         if keys_scaled is not None:
@@ -833,6 +836,7 @@ class NetworkTrainer:
                 os.remove(old_ckpt_file)
 
         # training loop
+        attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
@@ -845,59 +849,34 @@ class NetworkTrainer:
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
-
                     with torch.no_grad():
                         if "latents" in batch and batch["latents"] is not None:
                             latents = batch["latents"].to(accelerator.device)
                         else:
                             # latentに変換
                             latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
-
                             # NaNが含まれていれば警告を表示し0に置き換える
                             if torch.any(torch.isnan(latents)):
                                 accelerator.print("NaN found in latents, replacing with zeros")
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(
-                                tokenizer,
-                                text_encoder,
-                                batch["captions"],
-                                accelerator.device,
-                                args.max_token_length // 75 if args.max_token_length else 1,
-                                clip_skip=args.clip_skip,
-                            )
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder,
+                                                                              batch["captions"],accelerator.device,
+                                                                              args.max_token_length // 75 if args.max_token_length else 1,
+                                                                              clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(
-                                args, accelerator, batch, tokenizers, text_encoders, weight_dtype
-                            )
-
+                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(
-                        args, noise_scheduler, latents
-                    )
-
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
                     # Predict the noise residual
                     with accelerator.autocast():
-                        # -----------------------------------------------------------------------------------------------------------------------
-                        # sam USING
-                        # 여러 이미지에서의 동일한 feature 을 이용한 Mask
-                        #
-                        noise_pred = self.call_unet(args,
-                                                    accelerator,
-                                                    unet,
-                                                    noisy_latents,
-                                                    timesteps,
-                                                    text_encoder_conds,
-                                                    batch,
-                                                    weight_dtype,
-                                                    batch["trg_indexs_list"],
-                                                    batch['mask_imgs'])
+                        noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
+                                                    batch,weight_dtype,batch["trg_indexs_list"],batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
                             attention_storer.step_store = {}
@@ -907,14 +886,12 @@ class NetworkTrainer:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
-                        
                     ### Masked loss ###
                     if args.masked_loss:
                         # get mask images then set to device
                         # batch['mask_imgs'] is actually List[Tensor] 
                         # for each images, get mask image and resize to noise_pred size
                         # we may not be able to use batch['mask_imgs'] directly because of different image size
-                        
                         # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
                         # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
                         #noise_pred:torch.Tensor
@@ -964,9 +941,15 @@ class NetworkTrainer:
                                 attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
+
                         loss = task_loss + args.attn_loss_ratio * attn_loss
+
                     else:
+                        attn_loss = 0
                         attention_losses = {}
+                    # recording attn loss
+                    attn_loss_record_elem = [epoch, global_step, attn_loss.item()]
+                    attn_loss_records.append(attn_loss_record_elem)
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1059,6 +1042,14 @@ class NetworkTrainer:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
             print("model saved.")
+
+            # saving attn loss
+            import csv
+            attn_loss_save_dir = os.path.join(args.output_dir, 'record', f'{args.wandb_run_name}_attn_loss.csv')
+            with open(attn_loss_save_dir, 'w') as f:
+                writer = csv.writer(f)
+                writer.writerows(attn_loss_records)
+
 
 
 if __name__ == "__main__":
