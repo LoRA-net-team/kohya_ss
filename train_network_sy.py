@@ -958,6 +958,9 @@ class NetworkTrainer:
                             heatmap = torch.stack(word_heatmap_list, dim = 0)
                             mask = batch_mask[batch_idx]
                             masked_heatmap = heatmap * mask
+                            loss = torch.nn.functional.mse_loss(masked_heatmap.float(),
+                                                                heatmap.float(), reduction="none")
+                            print(f'loss : {loss.shape}')
 
 
                             """
