@@ -963,6 +963,7 @@ class NetworkTrainer:
                             masked_heatmap = heatmap * mask
                             loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(),
                                                                 heatmap.float(), reduction="none")
+                            loss_ = loss_.mean()
                             attn_loss = attn_loss + args.attn_loss_ratio * loss_
                             print(f'attn loss, loss_ : {loss_}')
 
