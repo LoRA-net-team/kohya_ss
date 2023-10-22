@@ -948,7 +948,11 @@ class NetworkTrainer:
                         attn_loss = 0
                         attention_losses = {}
                     # recording attn loss
-                    attn_loss_record_elem = [epoch, global_step, attn_loss.item()]
+                    if type(attn_loss) == float :
+                        attn_loss_record_elem = [epoch, global_step, attn_loss.item()]
+                    else :
+                        attn_loss_record_elem = [epoch, global_step, attn_loss]
+
                     attn_loss_records.append(attn_loss_record_elem)
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
