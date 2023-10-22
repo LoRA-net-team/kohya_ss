@@ -34,10 +34,8 @@ import library.config_util as config_util
 from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
 import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,
-                                            prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction,
-                                            add_v_prediction_like_loss,)
+from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
+                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
 from torch import nn
 import torch.nn.functional as F
 
@@ -888,6 +886,7 @@ class NetworkTrainer:
                             atten_collection = attention_storer.step_store
                             attention_storer.step_store = {}
 
+
                     if args.v_parameterization:
                         # v-parameterization training
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
@@ -929,13 +928,13 @@ class NetworkTrainer:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
+                    attn_loss = 0
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = task_loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         layer_names = atten_collection.keys()
                         assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
-                        attn_loss = 0
                         heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
@@ -956,12 +955,9 @@ class NetworkTrainer:
                             heatmap = heatmap.mean(0)
                             mask = batch_mask[batch_idx]
                             masked_heatmap = heatmap * mask
-                            loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(),
-                                                                heatmap.float(), reduction="none")
+                            loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(), heatmap.float(), reduction="none")
                             loss_ = loss_.mean()
-                            print(f'loss_ : {loss_}')
                             attn_loss = attn_loss + args.attn_loss_ratio * loss_
-
                             """
                             sum_of_attn = sum(atten_collection[layer_name])
                             if attn_loss:
@@ -974,19 +970,9 @@ class NetworkTrainer:
                             """
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
+
                         if args.heatmap_backprop :
                             loss = task_loss + args.attn_loss_ratio * attn_loss
-                    else:
-                        attn_loss = 0
-                        attention_losses = {}
-
-
-
-
-
-
-
-
                     # ------------------------------------------------------------------------------------
                     # recording attn loss
                     if type(attn_loss) == float :
@@ -995,9 +981,6 @@ class NetworkTrainer:
                         attn_loss_record_elem = [epoch, global_step, attn_loss]
                     attn_loss_records.append(attn_loss_record_elem)
                     # ------------------------------------------------------------------------------------
-
-
-
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
