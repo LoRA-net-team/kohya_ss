@@ -918,7 +918,6 @@ class NetworkTrainer:
                         # element-wise multiplication
                         noise_pred = noise_pred * mask_imgs
                         target = target * mask_imgs
-                    print(f'after SD, noise_pred : {noise_pred.shape}')
                     batch_num = noise_pred.shape[0]
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
@@ -944,7 +943,6 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 word_heatmap_list = atten_collection[layer_name]
-                                print(f'len of word_heatmap_list : {len(word_heatmap_list)}')
                                 for batch_index in range(batch_num) :
                                     word_heatmap = word_heatmap_list[batch_index]
                                     if word_heatmap.dim() == 3:
@@ -965,7 +963,6 @@ class NetworkTrainer:
                                                                 heatmap.float(), reduction="none")
                             loss_ = loss_.mean()
                             attn_loss = attn_loss + args.attn_loss_ratio * loss_
-                            print(f'attn loss, loss_ : {loss_}')
 
                             """
                             sum_of_attn = sum(atten_collection[layer_name])
@@ -983,17 +980,8 @@ class NetworkTrainer:
 
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
-
-
                         if args.heatmap_backprop :
                             loss = task_loss + args.attn_loss_ratio * attn_loss
-
-
-
-
-
-
-
                     else:
                         attn_loss = 0
                         attention_losses = {}
