@@ -90,6 +90,7 @@ def register_attention_control(unet : nn.Module,
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
+                    batch_heatmap_list = []
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
                         batch_trg_index = trg_indexs[batch_idx] # two times
                         head_num = attention_prob.shape[0]
@@ -105,25 +106,28 @@ def register_attention_control(unet : nn.Module,
                             word_heat_map_list.append(word_heat_map_)
                         # ------------------------------------------------------------------------------------------------------------------------------
                         # mask = [512,512]
-                        mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                        #mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                         # thresholding, convert to 1 if upper than threshold else itself
-                        mask_ = torch.where(mask_ > mask_threshold,
-                                            torch.ones_like(mask_), mask_)
+                        #mask_ = torch.where(mask_ > mask_threshold,
+                        #                    torch.ones_like(mask_), mask_)
                         # check if mask_ is frozen, it should not be updated
-                        assert mask_.requires_grad == False, 'mask_ should not be updated'
+                        #assert mask_.requires_grad == False, 'mask_ should not be updated'
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
-                        masked_word_heat_map_ = word_heat_map_ * mask_
+                        batch_heatmap_list.append(word_heat_map_)
+                        #masked_word_heat_map_ = word_heat_map_ * mask_
 
                         # is reduction = none, that means just L2 loss
-                        attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
-                                                                 reduction = 'none')
-                        controller.store(attn_loss, layer_name)
+                        #attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
+                        #                                         reduction = 'none')
+                    controller.store(batch_heatmap_list, layer_name)
 
                 # check if torch.no_grad() is in effect
                 elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
                     if mask is None:
                         raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
                     raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
+
+
 
             hidden_states = torch.bmm(attention_probs, value)
             #if is_cross_attention :
@@ -917,7 +921,8 @@ class NetworkTrainer:
                         # element-wise multiplication
                         noise_pred = noise_pred * mask_imgs
                         target = target * mask_imgs
-
+                    print(f'after SD, noise_pred : {noise_pred.shape}')
+                    batch_num = noise_pred.shape[0]
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
 
@@ -938,15 +943,42 @@ class NetworkTrainer:
                         layer_names = atten_collection.keys()
                         assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         attn_loss = 0
+                        heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
-                                sum_of_attn = sum(atten_collection[layer_name])
-                                if attn_loss:
-                                    attn_loss = attn_loss + sum_of_attn
-                                else:
-                                    attn_loss = sum_of_attn
-                                # attention_losses[layer_name] = sum_of_attn but detach
-                                attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
+
+                                word_heatmap_list = atten_collection[layer_name]
+                                for batch_index in range(batch_num) :
+                                    word_heatmap = word_heatmap_list[batch_index]
+                                    try :
+                                        heatmap_per_batch[batch_index].append(word_heatmap)
+                                    except :
+                                        heatmap_per_batch[batch_index] = []
+                                        heatmap_per_batch[batch_index].append(word_heatmap)
+
+                        for batch_idx in heatmap_per_batch.keys() :
+                            word_heatmap_list = heatmap_per_batch[batch_index]
+                            heatmap = torch.stack(word_heatmap_list, dim = 0)
+                            mask = mask[batch_idx]
+                            masked_heatmap = heatmap * mask
+
+                                   
+                            """
+                            sum_of_attn = sum(atten_collection[layer_name])
+                            if attn_loss:
+                                attn_loss = attn_loss + sum_of_attn
+                            else:
+                                attn_loss = sum_of_attn
+                            # attention_losses[layer_name] = sum_of_attn but detach
+                            
+                            
+                            attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
+                            
+                            print(f'{layer_name} : {word_heatmap.shape}')
+                            """
+
+
+
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         if args.heatmap_backprop :

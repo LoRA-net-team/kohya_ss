@@ -2089,11 +2089,11 @@ def register_attention_control(unet, controller):
             value = self.reshape_heads_to_batch_dim(value)
             # ----------------------------------------------------------------------------------------------------------------
             # 1) attention score : get_attention_scores
-            attention_scores = torch.baddbmm(
-                torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                query, key.transpose(-1, -2), beta=0, alpha=self.scale, )
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
+                                             query, key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+
             # ----------------------------------------------------------------------------------------------------------------
             if not is_cross_attention:
                 self_attn_map = attention_probs.sum(dim=0)
