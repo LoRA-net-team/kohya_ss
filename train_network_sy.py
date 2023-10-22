@@ -947,6 +947,8 @@ class NetworkTrainer:
                                 print(f'len of word_heatmap_list : {len(word_heatmap_list)}')
                                 for batch_index in range(batch_num) :
                                     word_heatmap = word_heatmap_list[batch_index]
+                                    if word_heatmap.dim() == 3:
+                                        word_heatmap = word_heatmap.mean(0)  # [512,512]
                                     try :
                                         heatmap_per_batch[batch_index].append(word_heatmap)
                                     except :
@@ -955,13 +957,13 @@ class NetworkTrainer:
                         batch_mask = batch['mask_imgs']
                         for batch_idx in heatmap_per_batch.keys() :
                             word_heatmap_list = heatmap_per_batch[batch_index]
-                            heatmap = torch.stack(word_heatmap_list, dim = 0)
+                            heatmap = torch.stack(word_heatmap_list, dim = 0) # [16,512,512]
+                            heatmap = heatmap.mean(0)
                             mask = batch_mask[batch_idx]
                             masked_heatmap = heatmap * mask
-                            loss = torch.nn.functional.mse_loss(masked_heatmap.float(),
+                            loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(),
                                                                 heatmap.float(), reduction="none")
-                            print(f'loss : {loss.shape}')
-
+                            attn_loss = attn_loss + args.attn_loss_ratio * loss_
 
                             """
                             sum_of_attn = sum(atten_collection[layer_name])
