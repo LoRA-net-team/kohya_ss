@@ -1005,8 +1005,30 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
+
+                    # logs --------------------------------------------------------------------------------------------------------------------------------------------------------
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
+                    if is_main_process:
+                        wandb_tracker = accelerator.get_tracker("wandb")
+                        """
+                        try:
+                            import wandb
+                        except ImportError:  # 事前に一度確認するのでここはエラー出ないはず
+                            raise ImportError("No wandb / wandb がインストールされていないようです")
+                        # log generation information to wandb
+                        logging_caption_key = f"prompt : {prompt} seed: {str(seed)}"
+                        # remove invalid characters from the caption for filenames
+                        logging_caption_key = re.sub(r"[^a-zA-Z0-9_\-. ]+", "", logging_caption_key)
+                        wandb_tracker.log(
+                            {
+                                logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),
+                            }
+                        )
+                        """
+                        wandb_tracker.log(logs, step=global_step)
+
+
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
