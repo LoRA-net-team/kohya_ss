@@ -952,10 +952,11 @@ class NetworkTrainer:
                                     except :
                                         heatmap_per_batch[batch_index] = []
                                         heatmap_per_batch[batch_index].append(word_heatmap)
+                        batch_mask = batch['mask_imgs']
                         for batch_idx in heatmap_per_batch.keys() :
                             word_heatmap_list = heatmap_per_batch[batch_index]
                             heatmap = torch.stack(word_heatmap_list, dim = 0)
-                            mask = mask[batch_idx]
+                            mask = batch_mask[batch_idx]
                             masked_heatmap = heatmap * mask
 
 
