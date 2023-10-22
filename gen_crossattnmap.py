@@ -2106,7 +2106,7 @@ def register_attention_control(unet, controller):
                 # print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
                 # heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 # heat_map_img = Image.fromarray(heat_map)
-                heat_map_img.save(f'{layer_name}.jpg')
+
 
             if is_cross_attention:
                 attn = controller.store(attention_probs, layer_name)
@@ -2798,6 +2798,9 @@ def main(args):
                 attention_storer.step_store = {}
                 layer_names = atten_collection.keys()
                 total_heat_map = []
+
+
+                total_layers = []
                 for layer_name in layer_names:
                     attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
                     attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
@@ -2815,6 +2818,7 @@ def main(args):
                         word_map = global_heat_map[word_index, :, :]
                         word_map = expand_image(word_map, 512, 512)
                         all_merges.append(word_map)
+                        total_layers.append(word_map)
                     # --------------------------------------------------------------------------------- #
                     # torch type heat map
                     #
@@ -2822,7 +2826,6 @@ def main(args):
 
                     if heat_map.dim() == 3:
                         heat_map = heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
-                    print(f'layerwise heat map : {heat_map.shape}')
                     layer_name = layer_name.split('_')[:5]
                     a = '_'.join(layer_name)
                     np_heat_map = heat_map.cpu().numpy()
@@ -2832,6 +2835,19 @@ def main(args):
                     img = image_overlay_heat_map(img=image, heat_map=heat_map)
                     attn_save_dir = os.path.join(base_folder, f'attention_{a}.jpg')
                     img.save(attn_save_dir)
+                total_layers_heat_map = torch.stack(total_layers, dim=0)  # global_heat_map = [sen_len, 512,512]
+
+                if total_layers_heat_map.dim() == 3:
+                    total_layers_heat_map = total_layers_heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
+                total_layers_heat_map = total_layers_heat_map.cpu().numpy()
+                img = image_overlay_heat_map(img=image, heat_map=total_layers_heat_map)
+
+                total_layers_heat_map_dir = os.path.join(base_folder, f'total_heatmap.jpg')
+                img.save(total_layers_heat_map_dir)
+
+
+
+
             if not args.no_preview and not highres_1st and args.interactive:
                 try:
                     import cv2

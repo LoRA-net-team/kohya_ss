@@ -112,9 +112,13 @@ def register_attention_control(unet : nn.Module,
                         # check if mask_ is frozen, it should not be updated
                         assert mask_.requires_grad == False, 'mask_ should not be updated'
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
-                        masked_heat_map = word_heat_map_ * mask_
-                        attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                        masked_word_heat_map_ = word_heat_map_ * mask_
+
+                        # is reduction = none, that means just L2 loss
+                        attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
+                                                                 reduction = 'none')
                         controller.store(attn_loss, layer_name)
+
                 # check if torch.no_grad() is in effect
                 elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
                     if mask is None:
@@ -1154,6 +1158,8 @@ if __name__ == "__main__":
         args.attn_loss_layers = 'down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
     elif args.first_second_third_training:
         args.attn_loss_layers = 'mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
+    else :
+        args.attn_loss_layers = 'all'
 
     
     # if any of only_second_training, only_third_training, second_third_training, first_second_third_training is True, print message to notify user that args.attn_loss_layers is overwritten
