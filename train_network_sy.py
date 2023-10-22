@@ -929,10 +929,11 @@ class NetworkTrainer:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
+                    attention_losses = {}
                     attention_losses["loss/task_loss"] = task_loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-                        attention_losses = {}
+
                         layer_names = atten_collection.keys()
                         assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         attn_loss = 0
