@@ -2829,18 +2829,19 @@ def main(args):
                     layer_name = layer_name.split('_')[:5]
                     a = '_'.join(layer_name)
                     np_heat_map = heat_map.cpu().numpy()
-                    heat_map_dir = os.path.join(base_folder, f'attention_{a}.npy')
-                    np.save(heat_map_dir, np_heat_map)
-
-                    img = image_overlay_heat_map(img=image, heat_map=heat_map)
+                    #heat_map_dir = os.path.join(base_folder, f'attention_{a}.npy')
+                    #np.save(heat_map_dir, np_heat_map)
+                    img = image_overlay_heat_map(img=image,
+                                                 heat_map=heat_map)
                     attn_save_dir = os.path.join(base_folder, f'attention_{a}.jpg')
                     img.save(attn_save_dir)
                 total_layers_heat_map = torch.stack(total_layers, dim=0)  # global_heat_map = [sen_len, 512,512]
 
                 if total_layers_heat_map.dim() == 3:
                     total_layers_heat_map = total_layers_heat_map.mean(0)  # [:, 0]  # global_heat_map = [77, 64, 64]
-                total_layers_heat_map = total_layers_heat_map.cpu().numpy()
-                img = image_overlay_heat_map(img=image, heat_map=total_layers_heat_map)
+                #total_layers_heat_map = total_layers_heat_map.cpu().numpy()
+                img = image_overlay_heat_map(img=image,
+                                             heat_map=total_layers_heat_map)
 
                 total_layers_heat_map_dir = os.path.join(base_folder, f'total_heatmap.jpg')
                 img.save(total_layers_heat_map_dir)
