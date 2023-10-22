@@ -3520,8 +3520,16 @@ def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
     """
     Unified API to get any scheduler from its name.
     """
+
+    # ---------------------------------------------------------------------------------------------------------------------
+    # scheduler name
     name = args.lr_scheduler
+
+    # ---------------------------------------------------------------------------------------------------------------------
+    # 144
     num_warmup_steps: Optional[int] = args.lr_warmup_steps
+
+
     num_training_steps = args.max_train_steps * num_processes  # * args.gradient_accumulation_steps
     num_cycles = args.lr_scheduler_num_cycles
     power = args.lr_scheduler_power
@@ -3553,9 +3561,7 @@ def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
         return wrap_check_needless_num_warmup_steps(lr_scheduler)
 
     if name.startswith("adafactor"):
-        assert (
-            type(optimizer) == transformers.optimization.Adafactor
-        ), f"adafactor scheduler must be used with Adafactor optimizer / adafactor schedulerはAdafactorオプティマイザと同時に使ってください"
+        assert (type(optimizer) == transformers.optimization.Adafactor), f"adafactor scheduler must be used with Adafactor optimizer / adafactor schedulerはAdafactorオプティマイザと同時に使ってください"
         initial_lr = float(name.split(":")[1])
         # print("adafactor scheduler init lr", initial_lr)
         return wrap_check_needless_num_warmup_steps(transformers.optimization.AdafactorSchedule(optimizer, initial_lr))
@@ -3581,13 +3587,10 @@ def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
         raise ValueError(f"{name} requires `num_training_steps`, please provide that argument.")
 
     if name == SchedulerType.COSINE_WITH_RESTARTS:
-        return schedule_func(
-            optimizer,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=num_training_steps,
-            num_cycles=num_cycles,
-            **lr_scheduler_kwargs,
-        )
+        # cosine with restart
+        return schedule_func(optimizer,num_warmup_steps=num_warmup_steps,
+                             num_training_steps=num_training_steps,
+                             num_cycles=num_cycles,**lr_scheduler_kwargs,)
 
     if name == SchedulerType.POLYNOMIAL:
         return schedule_func(
