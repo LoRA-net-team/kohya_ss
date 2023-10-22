@@ -919,10 +919,8 @@ class NetworkTrainer:
                     batch_num = noise_pred.shape[0]
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
-
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
                     loss = loss * loss_weights
-
                     if args.min_snr_gamma:
                         loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.min_snr_gamma)
                     if args.scale_v_pred_loss_like_noise_pred:
@@ -931,6 +929,7 @@ class NetworkTrainer:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
+                    attention_losses["loss/task_loss"] = task_loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         attention_losses = {}
