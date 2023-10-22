@@ -964,6 +964,7 @@ class NetworkTrainer:
                             loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(),
                                                                 heatmap.float(), reduction="none")
                             attn_loss = attn_loss + args.attn_loss_ratio * loss_
+                            print(f'attn loss, loss_ : {loss_}')
 
                             """
                             sum_of_attn = sum(atten_collection[layer_name])
@@ -979,12 +980,19 @@ class NetworkTrainer:
                             print(f'{layer_name} : {word_heatmap.shape}')
                             """
 
-
-
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
+
+
                         if args.heatmap_backprop :
                             loss = task_loss + args.attn_loss_ratio * attn_loss
+
+
+
+
+
+
+
                     else:
                         attn_loss = 0
                         attention_losses = {}
