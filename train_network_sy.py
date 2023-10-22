@@ -1141,8 +1141,8 @@ if __name__ == "__main__":
     parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ',', matches regex with given string. default is 'all'")
     # mask_threshold (0~1, default 1)
     parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
+    parser.add_argument("--heatmap_backprop", action = 'store_true')
     args = parser.parse_args()
-    
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
         args.attn_loss_layers = 'down_blocks_2,up_blocks_1'
