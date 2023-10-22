@@ -880,8 +880,6 @@ class NetworkTrainer:
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
                     # Predict the noise residual
                     with accelerator.autocast():
-                        index_lists = batch["trg_indexs_list"]
-                        print(f'index_lists : {index_lists}')
                         noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
                                                     batch,weight_dtype,
                                                     batch["trg_indexs_list"],
