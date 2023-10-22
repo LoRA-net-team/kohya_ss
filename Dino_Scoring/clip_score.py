@@ -109,7 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--ref_img_folder',
                         type=str,
-                        default=r'/data7/sooyeon/MyData/perfusion_dataset/iom/200_iom')
+                        default=r'/data7/sooyeon/MyData/perfusion_dataset/iom/10_iom')
     parser.add_argument('--base_img_folder',
                         type=str,
                         default=r'/data7/sooyeon/PersonalizeOverfitting/kohya_ss/result/iom_experiment/one_image')
