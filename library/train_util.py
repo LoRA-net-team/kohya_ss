@@ -621,13 +621,15 @@ class BaseDataset(torch.utils.data.Dataset):
             if subset.shuffle_caption or subset.token_warmup_step > 0 or subset.caption_tag_dropout_rate > 0:
                 print(f'when shuffle caption, caption : {caption}')
                 tokens = [t.strip() for t in caption.strip().split(",")]
-                print(f'tokens : {tokens}')
+                print(f'tokens : {tokens}') # trigger word or class word
+
                 if subset.token_warmup_step < 1:  # 初回に上書きする
                     subset.token_warmup_step = math.floor(subset.token_warmup_step * self.max_train_steps)
+
                 if subset.token_warmup_step and self.current_step < subset.token_warmup_step:
-                    tokens_len = (                        math.floor((self.current_step) * ((len(tokens) - subset.token_warmup_min) / (subset.token_warmup_step)))
-                                                          + subset.token_warmup_min                    )
+                    tokens_len = (math.floor((self.current_step) * ((len(tokens) - subset.token_warmup_min) / (subset.token_warmup_step))) + subset.token_warmup_min)
                     tokens = tokens[:tokens_len]
+
                 def dropout_tags(tokens):
                     if subset.caption_tag_dropout_rate <= 0:
                         return tokens
@@ -636,6 +638,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         if random.random() >= subset.caption_tag_dropout_rate:
                             l.append(token)
                     return l
+
                 fixed_tokens = []
                 flex_tokens = tokens[:]
                 if subset.keep_tokens > 0:
@@ -646,9 +649,9 @@ class BaseDataset(torch.utils.data.Dataset):
                     random.shuffle(flex_tokens)
 
                 flex_tokens = dropout_tags(flex_tokens)
-
+                print(f'fixed_tokens : {fixed_tokens}')
                 caption = ", ".join(fixed_tokens + flex_tokens)
-
+                print(f'caption : {caption}')
             # textual inversion対応
             for str_from, str_to in self.replacements.items():
                 if str_from == "":
@@ -659,7 +662,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         caption = str_to
                 else:
                     caption = caption.replace(str_from, str_to)
-
+        print(f'final caption : {caption}')
         return caption
 
     def get_input_ids(self, caption, tokenizer=None):
