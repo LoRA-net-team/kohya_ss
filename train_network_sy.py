@@ -90,7 +90,6 @@ def register_attention_control(unet : nn.Module,
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
-                    batch_heatmap_list = []
                     for batch_idx, attention_prob in enumerate(attention_probs_batch) :
                         batch_trg_index = trg_indexs[batch_idx] # two times
                         head_num = attention_prob.shape[0]
@@ -113,13 +112,11 @@ def register_attention_control(unet : nn.Module,
                         # check if mask_ is frozen, it should not be updated
                         #assert mask_.requires_grad == False, 'mask_ should not be updated'
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
-                        batch_heatmap_list.append(word_heat_map_)
                         #masked_word_heat_map_ = word_heat_map_ * mask_
                         # is reduction = none, that means just L2 loss
                         #attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
                         #                                         reduction = 'none')
-                    print(f'when store, len of batch_heatmap_list : {len(batch_heatmap_list)}')
-                    controller.store(batch_heatmap_list, layer_name)
+                        controller.store(word_heat_map_, layer_name)
 
                 # check if torch.no_grad() is in effect
                 elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
