@@ -1008,10 +1008,12 @@ class NetworkTrainer:
 
                     # logs --------------------------------------------------------------------------------------------------------------------------------------------------------
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
+                    print(logs)
                     accelerator.log(logs, step=global_step)
+                    """
                     if is_main_process:
-                        wandb_tracker = accelerator.get_tracker("wandb" )
-                        """
+                        wandb_tracker = accelerator.get_tracker("wandb")
+                        
                         try:
                             import wandb
                         except ImportError:  # 事前に一度確認するのでここはエラー出ないはず
@@ -1021,14 +1023,10 @@ class NetworkTrainer:
                         # remove invalid characters from the caption for filenames
                         logging_caption_key = re.sub(r"[^a-zA-Z0-9_\-. ]+", "", logging_caption_key)
                         wandb_tracker.log(
-                            {
-                                logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),
-                            }
-                        )
-                        """
+                            {     logging_caption_key: wandb.Image(image, caption=f"negative_prompt: {negative_prompt}"),
+                            })                        
                         wandb_tracker.log(logs, step=global_step)
-
-
+                    """
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
