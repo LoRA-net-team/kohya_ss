@@ -619,10 +619,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
         else:
             if subset.shuffle_caption or subset.token_warmup_step > 0 or subset.caption_tag_dropout_rate > 0:
-                print(f'when shuffle caption, caption : {caption}')
                 tokens = [t.strip() for t in caption.strip().split(",")]
-                print(f'tokens : {tokens}') # trigger word or class word
-
                 if subset.token_warmup_step < 1:  # 初回に上書きする
                     subset.token_warmup_step = math.floor(subset.token_warmup_step * self.max_train_steps)
 
@@ -638,20 +635,15 @@ class BaseDataset(torch.utils.data.Dataset):
                         if random.random() >= subset.caption_tag_dropout_rate:
                             l.append(token)
                     return l
-
                 fixed_tokens = []
                 flex_tokens = tokens[:]
                 if subset.keep_tokens > 0:
                     fixed_tokens = flex_tokens[: subset.keep_tokens]
                     flex_tokens = tokens[subset.keep_tokens :]
-
                 if subset.shuffle_caption:
                     random.shuffle(flex_tokens)
-
                 flex_tokens = dropout_tags(flex_tokens)
-                print(f'fixed_tokens : {fixed_tokens}')
                 caption = ", ".join(fixed_tokens + flex_tokens)
-                print(f'caption : {caption}')
             # textual inversion対応
             for str_from, str_to in self.replacements.items():
                 if str_from == "":
@@ -666,6 +658,7 @@ class BaseDataset(torch.utils.data.Dataset):
         return caption
 
     def get_input_ids(self, caption, tokenizer=None):
+
         if tokenizer is None:
             tokenizer = self.tokenizers[0]
 
@@ -681,11 +674,8 @@ class BaseDataset(torch.utils.data.Dataset):
                 for i in range(
                     1, self.tokenizer_max_length - tokenizer.model_max_length + 2, tokenizer.model_max_length - 2
                 ):  # (1, 152, 75)
-                    ids_chunk = (
-                        input_ids[0].unsqueeze(0),
-                        input_ids[i : i + tokenizer.model_max_length - 2],
-                        input_ids[-1].unsqueeze(0),
-                    )
+                    ids_chunk = (input_ids[0].unsqueeze(0),input_ids[i : i + tokenizer.model_max_length - 2],
+                        input_ids[-1].unsqueeze(0),)
                     ids_chunk = torch.cat(ids_chunk)
                     iids_list.append(ids_chunk)
             else:
@@ -1158,6 +1148,7 @@ class BaseDataset(torch.utils.data.Dataset):
             else:
                 caption = self.process_caption(subset, image_info.caption)
                 class_caption = self.process_caption(subset, class_caption)
+
                 if self.XTI_layers:
                     caption_layer = []
                     for layer in self.XTI_layers:
@@ -1174,13 +1165,17 @@ class BaseDataset(torch.utils.data.Dataset):
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
-                        token_caption = self.get_input_ids(caption,
-                                                           self.tokenizers[0])
-                        class_token_caption = self.get_input_ids(class_caption,
-                                                                 self.tokenizers[0])
+                        token_caption = self.get_input_ids(caption,self.tokenizers[0])
+                        class_token_caption = self.get_input_ids(class_caption,self.tokenizers[0])
+                    # ------------------------------------------------------------------------------------------------------------------------------
+                    # ------------------------------------------------------------------------------------------------------------------------------
+                    print(f'token_caption: {token_caption}')
+                    print(f'class_token_caption: {class_token_caption}')
+                    # ------------------------------------------------------------------------------------------------------------------------------
+                    # ------------------------------------------------------------------------------------------------------------------------------
+                    # ------------------------------------------------------------------------------------------------------------------------------
                     input_ids_list.append(token_caption)
                     class_input_ids_list.append(class_token_caption)
-                    # token_caption
                     #------------------------------------------------------------------------------------------
                     def generate_text_embedding(caption, tokenizer):
                         cls_token = 49406
@@ -1211,7 +1206,9 @@ class BaseDataset(torch.utils.data.Dataset):
                                     trg_indexs.append(i)
                         return trg_indexs
 
-                    trg_indexs = generate_text_embedding(caption, self.tokenizers[0])
+
+                    trg_indexs = generate_text_embedding(caption,
+                                                         self.tokenizers[0])
                     trg_indexs_list.append(trg_indexs)
                     #------------------------------------------------------------------------------------------
                     if len(self.tokenizers) > 1:
@@ -1227,10 +1224,12 @@ class BaseDataset(torch.utils.data.Dataset):
         example["absolute_paths"] = absolute_paths
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
+
         if len(text_encoder_outputs1_list) == 0:
             if self.token_padding_disabled :
                 # padding=True means pad in the batch
-                example["input_ids"] = self.tokenizer[0](captions, padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
+                example["input_ids"] = self.tokenizer[0](captions,
+                                                         padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
                 example["class_input_ids"] = self.tokenizer[0](class_captions,
                                                                padding=True,
                                                                truncation=True,
@@ -1288,7 +1287,6 @@ class BaseDataset(torch.utils.data.Dataset):
         for image_key in bucket[image_index : image_index + bucket_batch_size]:
             image_info = self.image_data[image_key]
             subset = self.image_to_subset[image_key]
-
             if flip_aug is None:
                 flip_aug = subset.flip_aug
                 random_crop = subset.random_crop
@@ -1297,22 +1295,17 @@ class BaseDataset(torch.utils.data.Dataset):
                 assert flip_aug == subset.flip_aug, "flip_aug must be same in a batch"
                 assert random_crop == subset.random_crop, "random_crop must be same in a batch"
                 assert bucket_reso == image_info.bucket_reso, "bucket_reso must be same in a batch"
-
             caption = image_info.caption  # TODO cache some patterns of dropping, shuffling, etc.
-
             if self.caching_mode == "latents":
                 image = load_image(image_info.absolute_path)
             else:
                 image = None
-
             if self.caching_mode == "text":
                 input_ids1 = self.get_input_ids(caption, self.tokenizers[0])
                 input_ids2 = self.get_input_ids(caption, self.tokenizers[1])
             else:
                 input_ids1 = None
                 input_ids2 = None
-
-
             captions.append(caption)
             images.append(image)
             input_ids1_list.append(input_ids1)
@@ -1325,7 +1318,6 @@ class BaseDataset(torch.utils.data.Dataset):
         if images[0] is None:
             images = None
         example["images"] = images
-
         example["captions"] = captions
         example["input_ids1_list"] = input_ids1_list
         example["input_ids2_list"] = input_ids2_list
@@ -1538,12 +1530,9 @@ class FineTuningDataset(BaseDataset):
         debug_dataset,
     ) -> None:
         super().__init__(tokenizer, max_token_length, resolution, debug_dataset)
-
         self.batch_size = batch_size
-
         self.num_train_images = 0
         self.num_reg_images = 0
-
         for subset in subsets:
             if subset.num_repeats < 1:
                 print(
@@ -1972,9 +1961,7 @@ def is_disk_cached_latents_is_expected(reso, npz_path: str, flip_aug: bool):
 
 
 # 戻り値は、latents_tensor, (original_size width, original_size height), (crop left, crop top)
-def load_latents_from_disk(
-    npz_path,
-) -> Tuple[Optional[torch.Tensor], Optional[List[int]], Optional[List[int]], Optional[torch.Tensor]]:
+def load_latents_from_disk( npz_path,) -> Tuple[Optional[torch.Tensor], Optional[List[int]], Optional[List[int]], Optional[torch.Tensor]]:
     npz = np.load(npz_path)
     if "latents" not in npz:
         raise ValueError(f"error: npz is old format. please re-generate {npz_path}")

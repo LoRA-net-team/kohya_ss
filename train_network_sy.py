@@ -224,9 +224,70 @@ class NetworkTrainer:
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
+    """
+    def generate_text_embedding(caption, tokenizer):
+        cls_token = 49406
+        pad_token = 49407
+        token_input = tokenizer([trg_concept],
+                                padding="max_length",
+                                max_length=tokenizer.model_max_length,
+                                truncation=True,
+                                return_tensors="pt", )  # token_input = 24215
+        token_ids = token_input.input_ids[0]
+        token_attns = token_input.attention_mask[0]
+        trg_token_id = []
+        for token_id, token_attn in zip(token_ids, token_attns):
+            if token_id != cls_token and token_id != pad_token and token_attn == 1:
+                # token_id = 24215
+                trg_token_id.append(token_id)
+        text_input = tokenizer(caption,
+                               padding="max_length",
+                               max_length=tokenizer.model_max_length,
+                               truncation=True,
+                               return_tensors="pt", )
+        token_ids = text_input.input_ids
+        attns = text_input.attention_mask
+        for token_id, attn in zip(token_ids, attns):
+            trg_indexs = []
+            for i, id in enumerate(token_id):
+                if id in trg_token_id:
+                    trg_indexs.append(i)
+        return trg_indexs
+
+    """
+
+    def extract_triggerword_index(self, input_ids):
+        cls_token = 49406
+        pad_token = 49407
+        trg_token_id, index_list = [], []
+        for index, token_id in enumerate(input_ids):
+            if token_id != cls_token and token_id != pad_token :
+                trg_token_id.append(token_id)
+                index_list.append(index)
+        return index_list
+
+
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)
+        org_index_list = self.extract_triggerword_index(input_ids)
+        print(f'org_index_list : {org_index_list}')
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
+        batch, sen_len, dim = encoder_hidden_states.shape
+        print(f'encoder_hidden_states : {encoder_hidden_states.shape}')
+        time.sleep(10)
+
+        #org_text = torch.randn((3, 4))
+        #print(org_text)
+        #org_index = 1
+        #org_vector = org_text[org_index, :]
+        #trg_text = org_text[torch.randperm(org_text.size()[0])]
+        #trg_index = torch.where(trg_text == org_vector)[0][0]
+        #print(trg_text)
+        #print(trg_index)
+
+
+
+
         return encoder_hidden_states
 
     def call_unet(self,
@@ -873,6 +934,12 @@ class NetworkTrainer:
                                                                               clip_skip=args.clip_skip,)
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
+
+
+
+
+
+
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
