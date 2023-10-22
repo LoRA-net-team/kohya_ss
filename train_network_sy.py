@@ -1014,7 +1014,7 @@ class NetworkTrainer:
                     if is_main_process:
                         #wandb_tracker = accelerator.get_tracker("wandb")
                         
-                        wandb.log(logs, step=global_step)
+                        wandb.log(logs)
 
                 if global_step >= args.max_train_steps:
                     break
