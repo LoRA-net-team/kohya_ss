@@ -933,7 +933,6 @@ class NetworkTrainer:
                     attention_losses["loss/task_loss"] = task_loss
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
-
                         layer_names = atten_collection.keys()
                         assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         attn_loss = 0
@@ -960,6 +959,7 @@ class NetworkTrainer:
                             loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(),
                                                                 heatmap.float(), reduction="none")
                             loss_ = loss_.mean()
+                            print(f'loss_ : {loss_}')
                             attn_loss = attn_loss + args.attn_loss_ratio * loss_
 
                             """
@@ -969,13 +969,9 @@ class NetworkTrainer:
                             else:
                                 attn_loss = sum_of_attn
                             # attention_losses[layer_name] = sum_of_attn but detach
-                            
-                            
                             attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
-                            
                             print(f'{layer_name} : {word_heatmap.shape}')
                             """
-
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         if args.heatmap_backprop :
@@ -983,6 +979,14 @@ class NetworkTrainer:
                     else:
                         attn_loss = 0
                         attention_losses = {}
+
+
+
+
+
+
+
+
                     # ------------------------------------------------------------------------------------
                     # recording attn loss
                     if type(attn_loss) == float :
@@ -991,6 +995,9 @@ class NetworkTrainer:
                         attn_loss_record_elem = [epoch, global_step, attn_loss]
                     attn_loss_records.append(attn_loss_record_elem)
                     # ------------------------------------------------------------------------------------
+
+
+
                     accelerator.backward(loss)
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1049,7 +1056,6 @@ class NetworkTrainer:
 
                     if is_main_process:
                         #wandb_tracker = accelerator.get_tracker("wandb")
-                        
                         wandb.log(logs)
 
                 if global_step >= args.max_train_steps:
