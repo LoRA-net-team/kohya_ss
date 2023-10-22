@@ -616,18 +616,18 @@ class BaseDataset(torch.utils.data.Dataset):
 
         if is_drop_out:
             caption = ""
+
         else:
             if subset.shuffle_caption or subset.token_warmup_step > 0 or subset.caption_tag_dropout_rate > 0:
+                print(f'when shuffle caption, caption : {caption}')
                 tokens = [t.strip() for t in caption.strip().split(",")]
+                print(f'tokens : {tokens}')
                 if subset.token_warmup_step < 1:  # 初回に上書きする
                     subset.token_warmup_step = math.floor(subset.token_warmup_step * self.max_train_steps)
                 if subset.token_warmup_step and self.current_step < subset.token_warmup_step:
-                    tokens_len = (
-                        math.floor((self.current_step) * ((len(tokens) - subset.token_warmup_min) / (subset.token_warmup_step)))
-                        + subset.token_warmup_min
-                    )
+                    tokens_len = (                        math.floor((self.current_step) * ((len(tokens) - subset.token_warmup_min) / (subset.token_warmup_step)))
+                                                          + subset.token_warmup_min                    )
                     tokens = tokens[:tokens_len]
-
                 def dropout_tags(tokens):
                     if subset.caption_tag_dropout_rate <= 0:
                         return tokens
@@ -636,7 +636,6 @@ class BaseDataset(torch.utils.data.Dataset):
                         if random.random() >= subset.caption_tag_dropout_rate:
                             l.append(token)
                     return l
-
                 fixed_tokens = []
                 flex_tokens = tokens[:]
                 if subset.keep_tokens > 0:
@@ -2015,18 +2014,9 @@ def debug_dataset(train_dataset, show_input_ids=False):
             example = train_dataset[idx]
             if example["latents"] is not None:
                 print(f"sample has latents from npz file: {example['latents'].size()}")
-            for j, (ik, cap, lw, iid, orgsz, crptl, trgsz, flpdz) in enumerate(
-                zip(
-                    example["image_keys"],
-                    example["captions"],
-                    example["loss_weights"],
-                    example["input_ids"],
-                    example["original_sizes_hw"],
-                    example["crop_top_lefts"],
-                    example["target_sizes_hw"],
-                    example["flippeds"],
-                )
-            ):
+            for j, (ik, cap, lw, iid, orgsz, crptl, trgsz, flpdz) in enumerate(zip(example["image_keys"],example["captions"],example["loss_weights"],
+                                                                                   example["input_ids"],example["original_sizes_hw"],
+                                                                                   example["crop_top_lefts"],example["target_sizes_hw"], example["flippeds"],)):
                 print(
                     f'{ik}, size: {train_dataset.image_data[ik].image_size}, loss weight: {lw}, caption: "{cap}", original size: {orgsz}, crop top left: {crptl}, target size: {trgsz}, flipped: {flpdz}'
                 )
@@ -2096,6 +2086,7 @@ def glob_images_pathlib(dir_path, recursive):
 
 
 class MinimalDataset(BaseDataset):
+
     def __init__(self, tokenizer, max_token_length, resolution, debug_dataset=False):
         super().__init__(tokenizer, max_token_length, resolution, debug_dataset)
 
@@ -2267,16 +2258,9 @@ def cache_batch_text_encoder_outputs(
     input_ids2 = input_ids2.to(text_encoders[1].device)
 
     with torch.no_grad():
-        b_hidden_state1, b_hidden_state2, b_pool2 = get_hidden_states_sdxl(
-            max_token_length,
-            input_ids1,
-            input_ids2,
-            tokenizers[0],
-            tokenizers[1],
-            text_encoders[0],
-            text_encoders[1],
-            dtype,
-        )
+        b_hidden_state1, b_hidden_state2, b_pool2 = get_hidden_states_sdxl(max_token_length,input_ids1,input_ids2,
+                                                                           tokenizers[0],tokenizers[1],
+                                                                           text_encoders[0],text_encoders[1],dtype,)
 
         # ここでcpuに移動しておかないと、上書きされてしまう
         b_hidden_state1 = b_hidden_state1.detach().to("cpu")  # b,n*75+2,768
@@ -3005,96 +2989,37 @@ def verify_training_args(args: argparse.Namespace):
 def add_dataset_arguments(parser: argparse.ArgumentParser, support_dreambooth: bool, support_caption: bool, support_caption_dropout: bool):
     # dataset common
     parser.add_argument("--train_data_dir", type=str, default=None, help="directory for train images / 学習画像データのディレクトリ")
-    parser.add_argument(
-        "--shuffle_caption", action="store_true", help="shuffle comma-separated caption / コンマで区切られたcaptionの各要素をshuffleする"
-    )
-    parser.add_argument(
-        "--caption_extension", type=str, default=".caption", help="extension of caption files / 読み込むcaptionファイルの拡張子"
-    )
-    parser.add_argument(
-        "--caption_extention",
-        type=str,
-        default=None,
-        help="extension of caption files (backward compatibility) / 読み込むcaptionファイルの拡張子（スペルミスを残してあります）",
-    )
-    parser.add_argument(
-        "--keep_tokens",
-        type=int,
-        default=0,
-        help="keep heading N tokens when shuffling caption tokens (token means comma separated strings) / captionのシャッフル時に、先頭からこの個数のトークンをシャッフルしないで残す（トークンはカンマ区切りの各部分を意味する）",
-    )
-    parser.add_argument(
-        "--caption_prefix",
-        type=str,
-        default=None,
-        help="prefix for caption text / captionのテキストの先頭に付ける文字列",
-    )
-    parser.add_argument(
-        "--caption_suffix",
-        type=str,
-        default=None,
-        help="suffix for caption text / captionのテキストの末尾に付ける文字列",
-    )
+    parser.add_argument("--shuffle_caption", action="store_true", help="shuffle comma-separated caption / コンマで区切られたcaptionの各要素をshuffleする"    )
+    parser.add_argument("--caption_extension", type=str, default=".caption", help="extension of caption files / 読み込むcaptionファイルの拡張子")
+    parser.add_argument("--caption_extention",type=str,default=None,help="extension of caption files (backward compatibility) / 読み込むcaptionファイルの拡張子（スペルミスを残してあります）",    )
+    parser.add_argument("--keep_tokens",type=int,default=0,
+                        help="keep heading N tokens when shuffling caption tokens (token means comma separated strings) / captionのシャッフル時に、先頭からこの個数のトークンをシャッフルしないで残す（トークンはカンマ区切りの各部分を意味する）",)
+    parser.add_argument("--caption_prefix",type=str,default=None,
+                        help="prefix for caption text / captionのテキストの先頭に付ける文字列",)
+    parser.add_argument("--caption_suffix", type=str, default=None,        help="suffix for caption text / captionのテキストの末尾に付ける文字列",    )
     parser.add_argument("--color_aug", action="store_true", help="enable weak color augmentation / 学習時に色合いのaugmentationを有効にする")
     parser.add_argument("--flip_aug", action="store_true", help="enable horizontal flip augmentation / 学習時に左右反転のaugmentationを有効にする")
-    parser.add_argument(
-        "--face_crop_aug_range",
-        type=str,
-        default=None,
-        help="enable face-centered crop augmentation and its range (e.g. 2.0,4.0) / 学習時に顔を中心とした切り出しaugmentationを有効にするときは倍率を指定する（例：2.0,4.0）",
-    )
-    parser.add_argument(
-        "--random_crop",
-        action="store_true",
-        help="enable random crop (for style training in face-centered crop augmentation) / ランダムな切り出しを有効にする（顔を中心としたaugmentationを行うときに画風の学習用に指定する）",
-    )
-    parser.add_argument(
-        "--debug_dataset", action="store_true", help="show images for debugging (do not train) / デバッグ用に学習データを画面表示する（学習は行わない）"
-    )
-    parser.add_argument(
-        "--resolution",
-        type=str,
-        default=None,
-        help="resolution in training ('size' or 'width,height') / 学習時の画像解像度（'サイズ'指定、または'幅,高さ'指定）",
-    )
-    parser.add_argument(
-        "--cache_latents",
-        action="store_true",
-        help="cache latents to main memory to reduce VRAM usage (augmentations must be disabled) / VRAM削減のためにlatentをメインメモリにcacheする（augmentationは使用不可） ",
-    )
+    parser.add_argument("--face_crop_aug_range", type=str, default=None,
+                        help="enable face-centered crop augmentation and its range (e.g. 2.0,4.0) / 学習時に顔を中心とした切り出しaugmentationを有効にするときは倍率を指定する（例：2.0,4.0）", )
+    parser.add_argument("--random_crop", action="store_true",
+                        help="enable random crop (for style training in face-centered crop augmentation) / ランダムな切り出しを有効にする（顔を中心としたaugmentationを行うときに画風の学習用に指定する）",    )
+    parser.add_argument("--debug_dataset", action="store_true", help="show images for debugging (do not train) / デバッグ用に学習データを画面表示する（学習は行わない）"    )
+    parser.add_argument( "--resolution",        type=str,        default=None,
+                         help="resolution in training ('size' or 'width,height') / 学習時の画像解像度（'サイズ'指定、または'幅,高さ'指定）",    )
+    parser.add_argument(        "--cache_latents",        action="store_true",        help="cache latents to main memory to reduce VRAM usage (augmentations must be disabled) / VRAM削減のためにlatentをメインメモリにcacheする（augmentationは使用不可） ",)
     parser.add_argument("--vae_batch_size", type=int, default=1, help="batch size for caching latents / latentのcache時のバッチサイズ")
-    parser.add_argument(
-        "--cache_latents_to_disk",
-        action="store_true",
-        help="cache latents to disk to reduce VRAM usage (augmentations must be disabled) / VRAM削減のためにlatentをディスクにcacheする（augmentationは使用不可）",
-    )
-    parser.add_argument(
-        "--enable_bucket", action="store_true", help="enable buckets for multi aspect ratio training / 複数解像度学習のためのbucketを有効にする"
-    )
+    parser.add_argument(        "--cache_latents_to_disk",        action="store_true",
+                                        help="cache latents to disk to reduce VRAM usage (augmentations must be disabled) / VRAM削減のためにlatentをディスクにcacheする（augmentationは使用不可）",    )
+    parser.add_argument(        "--enable_bucket", action="store_true", help="enable buckets for multi aspect ratio training / 複数解像度学習のためのbucketを有効にする"    )
     parser.add_argument("--min_bucket_reso", type=int, default=256, help="minimum resolution for buckets / bucketの最小解像度")
     parser.add_argument("--max_bucket_reso", type=int, default=1024, help="maximum resolution for buckets / bucketの最大解像度")
-    parser.add_argument(
-        "--bucket_reso_steps",
-        type=int,
-        default=64,
-        help="steps of resolution for buckets, divisible by 8 is recommended / bucketの解像度の単位、8で割り切れる値を推奨します",
-    )
-    parser.add_argument(
-        "--bucket_no_upscale", action="store_true", help="make bucket for each image without upscaling / 画像を拡大せずbucketを作成します"
-    )
-
-    parser.add_argument(
-        "--token_warmup_min",
-        type=int,
-        default=1,
-        help="start learning at N tags (token means comma separated strinfloatgs) / タグ数をN個から増やしながら学習する",
-    )
-    parser.add_argument(
-        "--token_warmup_step",
-        type=float,
-        default=0,
-        help="tag length reaches maximum on N steps (or N*max_train_steps if N<1) / N（N<1ならN*max_train_steps）ステップでタグ長が最大になる。デフォルトは0（最初から最大）",
-    )
+    parser.add_argument(        "--bucket_reso_steps",        type=int,        default=64,
+                                help="steps of resolution for buckets, divisible by 8 is recommended / bucketの解像度の単位、8で割り切れる値を推奨します",    )
+    parser.add_argument(        "--bucket_no_upscale", action="store_true", help="make bucket for each image without upscaling / 画像を拡大せずbucketを作成します"    )
+    parser.add_argument(        "--token_warmup_min",        type=int,        default=1,
+                                help="start learning at N tags (token means comma separated strinfloatgs) / タグ数をN個から増やしながら学習する",    )
+    parser.add_argument("--token_warmup_step",        type=float,        default=0,
+                        help="tag length reaches maximum on N steps (or N*max_train_steps if N<1) / N（N<1ならN*max_train_steps）ステップでタグ長が最大になる。デフォルトは0（最初から最大）",    )
 
     parser.add_argument(
         "--dataset_class",
@@ -4046,18 +3971,11 @@ def save_sd_model_on_epoch_end_or_stepwise(
     )
 
 
-def save_sd_model_on_epoch_end_or_stepwise_common(
-    args: argparse.Namespace,
-    on_epoch_end: bool,
-    accelerator,
-    save_stable_diffusion_format: bool,
-    use_safetensors: bool,
-    epoch: int,
-    num_train_epochs: int,
-    global_step: int,
-    sd_saver,
-    diffusers_saver,
-):
+def save_sd_model_on_epoch_end_or_stepwise_common(args: argparse.Namespace,    on_epoch_end: bool,
+                                                  accelerator,    save_stable_diffusion_format: bool,
+                                                  use_safetensors: bool,    epoch: int,
+                                                  num_train_epochs: int,    global_step: int,
+                                                  sd_saver,    diffusers_saver,):
     if on_epoch_end:
         epoch_no = epoch + 1
         saving = epoch_no % args.save_every_n_epochs == 0 and epoch_no < num_train_epochs

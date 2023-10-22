@@ -275,8 +275,7 @@ class ConfigSanitizer:
       self.CN_SUBSET_ASCENDABLE_SCHEMA if support_controlnet else {},
       self.DO_SUBSET_ASCENDABLE_SCHEMA if support_dropout else {},)
 
-    self.user_config_validator = Schema({"general": self.general_schema,
-                                         "datasets": [self.dataset_schema],})
+    self.user_config_validator = Schema({"general": self.general_schema,"datasets": [self.dataset_schema],})
 
     self.argparse_schema = self.__merge_dict(
       self.general_schema,
