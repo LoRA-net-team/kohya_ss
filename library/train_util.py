@@ -1466,11 +1466,16 @@ class DreamBoothDataset(BaseDataset):
                 parent, neat_path = os.path.split(img_path)
                 name, _ = os.path.splitext(neat_path)
                 if mask_dir:
+
+                    # --------------------------------------------------------------------------------------------
+                    # re.compile
                     # find name_{something optional}_mask.{png or jpg}
                     mask_re = re.compile(f"{name}(_[^_]+)?_mask\.(png|jpg)$") #matches name_{something optional}_mask.{png or jpg}
+                    print(f'mask_re : {mask_re}')
                     mask_path = None
                     for mask_name in os.listdir(mask_dir):
                         m = mask_re.match(mask_name)
+                        print(f'after matching, m : {m}')                        
                         if m:
                             mask_path = os.path.join(mask_dir, mask_name)
                             break
