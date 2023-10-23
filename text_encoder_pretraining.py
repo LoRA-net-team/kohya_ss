@@ -587,7 +587,7 @@ class NetworkTrainer:
 
         for batch in pretraining_dataloader:
             print(f'batch : {batch}')
-            class_captions = batch['class_captions']
+            class_captions = batch['class_token_ids']
             class_captions_input_ids = tokenizers[0](class_captions,
                                                      padding=True,
                                                      truncation=True,
@@ -597,7 +597,7 @@ class NetworkTrainer:
                                                                         weight_dtype)
 
 
-            concept_captions = batch['concept_captions']
+            concept_captions = batch['concept_token_ids']
             concept_captions_input_ids = tokenizers[0](concept_captions,
                                                        padding=True,
                                                        truncation=True,
