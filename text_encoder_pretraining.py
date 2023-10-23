@@ -605,9 +605,9 @@ class NetworkTrainer:
                                                                               weight_dtype)
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_hidden_states.float(), reduction="none")
-                accelerator.backward(pretraining_loss)
-                optimizer.step()
-                lr_scheduler.step()
+                #accelerator.backward(pretraining_loss)
+                #optimizer.step()
+                #lr_scheduler.step()
                 print(f'pretraining_loss : {pretraining_loss}')
 
 
