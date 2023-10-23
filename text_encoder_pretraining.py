@@ -582,7 +582,7 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
-
+        """
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -599,15 +599,15 @@ class NetworkTrainer:
                                                                             tokenizers[0], text_encoders[0],
                                                                               weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                # shape = [3,77,768]
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_hidden_states.float(), reduction="none")
-                #accelerator.backward(pretraining_loss)
-                #optimizer.step()
-                #lr_scheduler.step()
-                print(f'pretraining_loss : {pretraining_loss.shape}')
+                pretraining_loss = pretraining_loss.mean()
+                accelerator.backward(pretraining_loss)
+                optimizer.step()
+                lr_scheduler.step()
         """
 
-    
     
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -901,10 +901,9 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
-
-
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
+                            print(f'original text encoder embedding (expect 6,77,768) : {text_encoder_conds.shape}')
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
@@ -1130,7 +1129,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-    """
+
 
 
 if __name__ == "__main__":
