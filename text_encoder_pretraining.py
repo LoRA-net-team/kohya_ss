@@ -993,7 +993,7 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for step, batch in enumerate(pretraining_dataloader) :
                 print(f'epoch : {epoch}, step : {step}')
-        
+
 
 
 
@@ -1351,6 +1351,7 @@ if __name__ == "__main__":
     # mask_threshold (0~1, default 1)
     parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
     parser.add_argument("--heatmap_backprop", action='store_true')
+    parser.add_argument('--class_token', default='cat', type=str)
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
@@ -1365,7 +1366,7 @@ if __name__ == "__main__":
         args.attn_loss_layers = 'mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
     else:
         args.attn_loss_layers = 'all'
-    parser.add_argument('--class_token', default='cat', type=str)
+
     # if any of only_second_training, only_third_training, second_third_training, first_second_third_training is True, print message to notify user that args.attn_loss_layers is overwritten
     if args.only_second_training or args.only_third_training or args.second_third_training or args.first_second_third_training:
         print(
