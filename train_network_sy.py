@@ -262,7 +262,7 @@ class NetworkTrainer:
 
 
         if input_ids.dim() == 3 :
-            input_ids = torch.flatten(input_ids, start_dim=0, end_dim=1)
+            input_ids = torch.flatten(input_ids, start_dim=1)
         batch_num, sen_len = input_ids.size()
         batch_index_list = []
 
