@@ -592,17 +592,15 @@ class NetworkTrainer:
                                                      padding=True,
                                                      truncation=True,
                                                      return_tensors="pt").input_ids
-            class_captions_hidden_states = train_util.get_hidden_states(args, class_captions_input_ids,
+            class_captions_hidden_states = train_util.get_hidden_states(args, class_captions_input_ids.to(accelerator.device),
                                                                         tokenizers[0], text_encoders[0],
                                                                         weight_dtype)
-
-
             concept_captions = batch['concept_token_ids']
             concept_captions_input_ids = tokenizers[0](concept_captions,
                                                        padding=True,
                                                        truncation=True,
                                                        return_tensors="pt").input_ids
-            concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids,
+            concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
                                                                         tokenizers[0], text_encoders[0],
                                                                           weight_dtype)
             print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
