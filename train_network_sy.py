@@ -263,14 +263,16 @@ class NetworkTrainer:
         flattened_input_ids = torch.flatten(input_ids)
         for index, token_id in enumerate(flattened_input_ids):
             if token_id != cls_token and token_id != pad_token :
+                print(f'target token id : {token_id}')
                 trg_token_id.append(token_id)
                 index_list.append(index)
+
         return index_list
 
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
-        input_ids = batch["input_ids"].to(accelerator.device)
-        print(f'input_ids : {input_ids.shape}')
+        input_ids = batch["input_ids"].to(accelerator.device) # batch, torch_num, sen_len
+        print(f'input_ids : {input_ids}')
         org_index_list = self.extract_triggerword_index(input_ids)
         print(f'org_index_list : {org_index_list}')
 
