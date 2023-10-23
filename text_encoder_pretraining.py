@@ -222,13 +222,15 @@ class NetworkTrainer:
         return batch_index_list
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
-        # 2,3,77
+
+        # --------------------------------------------------------------------------------------------------------------------------------------
+        # input_ids = [2,3,77]
         input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
-        encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
-                                                             tokenizers[0], text_encoders[0],
-                                                             weight_dtype)
-        print(f'input_ids : {input_ids.shape}')
-        print(f'encoder_hidden_states : {encoder_hidden_states.shape}')
+
+        # --------------------------------------------------------------------------------------------------------------------------------------
+        # encoder_hidden_states = [2,227,768]
+        encoder_hidden_states = train_util.get_hidden_states(args, input_ids,tokenizers[0], text_encoders[0],weight_dtype)
+
         return encoder_hidden_states
 
     def get_input_ids(self, args, caption, tokenizer):
@@ -586,7 +588,7 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
-        """
+
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -594,13 +596,11 @@ class NetworkTrainer:
                 class_captions = batch['class_token_ids']
                 # [3,77]
                 class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer).unsqueeze(0)
-                print(f'class_captions_input_ids : {class_captions_input_ids.shape}')
                 # [3,77,768]
                 class_captions_hidden_states = train_util.get_hidden_states(args,
                                                                             class_captions_input_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders[0],
                                                                             weight_dtype)
-                print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_token_ids']
                 concept_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer).unsqueeze(0)
@@ -612,12 +612,12 @@ class NetworkTrainer:
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_hidden_states.float(), reduction="none")
                 pretraining_loss = pretraining_loss.mean()
+                print(f'pretraining_loss : {pretraining_loss}')
                 accelerator.backward(pretraining_loss)
                 optimizer.step()
                 lr_scheduler.step()
 
-        """
-    
+
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -1139,7 +1139,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-    
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
