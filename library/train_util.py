@@ -1204,8 +1204,6 @@ class BaseDataset(torch.utils.data.Dataset):
                                 if id in trg_token_id:
                                     trg_indexs.append(i)
                         return trg_indexs
-
-
                     trg_indexs = generate_text_embedding(caption,  self.tokenizers[0])
                     trg_indexs_list.append(trg_indexs)
                     #------------------------------------------------------------------------------------------
@@ -1215,9 +1213,6 @@ class BaseDataset(torch.utils.data.Dataset):
                         else:
                             token_caption2 = self.get_input_ids(caption, self.tokenizers[1])
                         input_ids2_list.append(token_caption2)
-
-
-
         example = {}
         example["mask_dirs"] = mask_dirs
         example["trg_indexs_list"] = trg_indexs_list
@@ -1257,13 +1252,11 @@ class BaseDataset(torch.utils.data.Dataset):
             example["text_encoder_outputs1_list"] = torch.stack(text_encoder_outputs1_list)
             example["text_encoder_outputs2_list"] = torch.stack(text_encoder_outputs2_list)
             example["text_encoder_pool2_list"] = torch.stack(text_encoder_pool2_list)
-
         if images[0] is not None:
             images = torch.stack(images)
             images = images.to(memory_format=torch.contiguous_format).float()
         else:
             images = None
-
         example["images"] = images
         example["latents"] = torch.stack(latents_list) if latents_list[0] is not None else None
         example["captions"] = captions
@@ -1273,7 +1266,6 @@ class BaseDataset(torch.utils.data.Dataset):
         example["flippeds"] = flippeds
         if self.debug_dataset:
             example["image_keys"] = bucket[image_index : image_index + self.batch_size]
-
         return example
 
     def get_item_for_caching(self, bucket, bucket_batch_size, image_index):

@@ -223,7 +223,9 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
-        encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0],
+        print(f'input ids from real dataset, input_ids : {input_ids.shape}')
+        encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
+                                                             tokenizers[0], text_encoders[0],
                                                              weight_dtype)
         return encoder_hidden_states
 
@@ -553,17 +555,20 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
+        """
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
-                print(f'batch : {batch}')
+                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 class_captions = batch['class_token_ids']
                 class_captions_input_ids = tokenizers[0](class_captions,
                                                          padding=True,
                                                          truncation=True,
                                                          return_tensors="pt").input_ids
-                class_captions_hidden_states = train_util.get_hidden_states(args, class_captions_input_ids.to(accelerator.device),
+                class_captions_hidden_states = train_util.get_hidden_states(args,
+                                                                            class_captions_input_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders[0],
                                                                             weight_dtype)
+                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_token_ids']
                 concept_captions_input_ids = tokenizers[0](concept_captions,
                                                            padding=True,
@@ -572,22 +577,15 @@ class NetworkTrainer:
                 concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders[0],
                                                                               weight_dtype)
+                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_hidden_states.float(), reduction="none")
                 #accelerator.backward(pretraining_loss)
                 #optimizer.step()
                 #lr_scheduler.step()
                 print(f'pretraining_loss : {pretraining_loss.shape}')
-
-
-
-
-
         """
-    
-    
-    
-    
+
     
     
         # 学習する
@@ -882,8 +880,10 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
+
+
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
-                                                                                    text_encoders, weight_dtype)
+                                                                    text_encoders, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
@@ -894,8 +894,8 @@ class NetworkTrainer:
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                     text_encoder_conds,
                                                     batch, weight_dtype,
-                                                    # batch["trg_indexs_list"]
-                                                    trg_index_list,
+                                                    batch["trg_indexs_list"]
+                                                    # trg_index_list,
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
