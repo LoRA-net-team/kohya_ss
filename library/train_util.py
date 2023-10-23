@@ -667,19 +667,11 @@ class BaseDataset(torch.utils.data.Dataset):
             input_ids = input_ids.squeeze(0)
             iids_list = []
             if tokenizer.pad_token_id == tokenizer.eos_token_id:
-                # v1
-                # 77以上の時は "<BOS> .... <EOS> <EOS> <EOS>" でトータル227とかになっているので、"<BOS>...<EOS>"の三連に変換する
-                # 1111氏のやつは , で区切る、とかしているようだが　とりあえず単純に
-                for i in range(
-                    1, self.tokenizer_max_length - tokenizer.model_max_length + 2, tokenizer.model_max_length - 2
-                ):  # (1, 152, 75)
-                    ids_chunk = (input_ids[0].unsqueeze(0),input_ids[i : i + tokenizer.model_max_length - 2],
-                        input_ids[-1].unsqueeze(0),)
+                for i in range( 1, self.tokenizer_max_length - tokenizer.model_max_length + 2, tokenizer.model_max_length - 2) :
+                    ids_chunk = (input_ids[0].unsqueeze(0),input_ids[i : i + tokenizer.model_max_length - 2],  input_ids[-1].unsqueeze(0),)
                     ids_chunk = torch.cat(ids_chunk)
                     iids_list.append(ids_chunk)
             else:
-                # v2 or SDXL
-                # 77以上の時は "<BOS> .... <EOS> <PAD> <PAD>..." でトータル227とかになっているので、"<BOS>...<EOS> <PAD> <PAD> ..."の三連に変換する
                 for i in range(1, self.tokenizer_max_length - tokenizer.model_max_length + 2, tokenizer.model_max_length - 2):
                     ids_chunk = (
                         input_ids[0].unsqueeze(0),  # BOS
@@ -687,15 +679,10 @@ class BaseDataset(torch.utils.data.Dataset):
                         input_ids[-1].unsqueeze(0),
                     )  # PAD or EOS
                     ids_chunk = torch.cat(ids_chunk)
-
-                    # 末尾が <EOS> <PAD> または <PAD> <PAD> の場合は、何もしなくてよい
-                    # 末尾が x <PAD/EOS> の場合は末尾を <EOS> に変える（x <EOS> なら結果的に変化なし）
                     if ids_chunk[-2] != tokenizer.eos_token_id and ids_chunk[-2] != tokenizer.pad_token_id:
                         ids_chunk[-1] = tokenizer.eos_token_id
-                    # 先頭が <BOS> <PAD> ... の場合は <BOS> <EOS> <PAD> ... に変える
                     if ids_chunk[1] == tokenizer.pad_token_id:
                         ids_chunk[1] = tokenizer.eos_token_id
-
                     iids_list.append(ids_chunk)
 
             input_ids = torch.stack(iids_list)  # 3,77
@@ -1167,12 +1154,15 @@ class BaseDataset(torch.utils.data.Dataset):
                         # ------------------------------------------------------------------------------------------------------------------------------
                         # caption token index
                         token_caption = self.get_input_ids(caption,self.tokenizers[0])
+
+
                         # ------------------------------------------------------------------------------------------------------------------------------
                         #  class_token_index
                         class_token_caption = self.get_input_ids(class_caption,self.tokenizers[0])
                     # ------------------------------------------------------------------------------------------------------------------------------
                     # ------------------------------------------------------------------------------------------------------------------------------
                     # ------------------------------------------------------------------------------------------------------------------------------
+
                     input_ids_list.append(token_caption)
                     class_input_ids_list.append(class_token_caption)
                     #------------------------------------------------------------------------------------------
@@ -1237,6 +1227,9 @@ class BaseDataset(torch.utils.data.Dataset):
                 else:
                     example["input_ids2"] = None
             else:
+
+                # ------------------------------------------------------------------------------------------------------------------------------
+                print(f'stacking input_ids_list ... ')
                 example["input_ids"] = torch.stack(input_ids_list)
                 example["input_ids2"] = torch.stack(input_ids2_list) if len(self.tokenizers) > 1 else None
                 example["class_input_ids"] = torch.stack(class_input_ids_list)

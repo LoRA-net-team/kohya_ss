@@ -223,12 +223,39 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
-        print(f'input ids from real dataset, input_ids : {input_ids.shape}')
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
                                                              tokenizers[0], text_encoders[0],
                                                              weight_dtype)
         return encoder_hidden_states
 
+    def get_input_ids(self, args, caption, tokenizer):
+
+        tokenizer_max_length = args.max_token_length + 2
+        input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=tokenizer_max_length, return_tensors="pt").input_ids
+        if tokenizer_max_length > tokenizer.model_max_length:
+            input_ids = input_ids.squeeze(0)
+            iids_list = []
+            if tokenizer.pad_token_id == tokenizer.eos_token_id:
+                for i in range( 1, tokenizer_max_length - tokenizer.model_max_length + 2, tokenizer.model_max_length - 2) :
+                    ids_chunk = (input_ids[0].unsqueeze(0),input_ids[i : i + tokenizer.model_max_length - 2],  input_ids[-1].unsqueeze(0),)
+                    ids_chunk = torch.cat(ids_chunk)
+                    iids_list.append(ids_chunk)
+            else:
+                for i in range(1, tokenizer_max_length - tokenizer.model_max_length + 2, tokenizer.model_max_length - 2):
+                    ids_chunk = (
+                        input_ids[0].unsqueeze(0),  # BOS
+                        input_ids[i : i + tokenizer.model_max_length - 2],
+                        input_ids[-1].unsqueeze(0),
+                    )  # PAD or EOS
+                    ids_chunk = torch.cat(ids_chunk)
+                    if ids_chunk[-2] != tokenizer.eos_token_id and ids_chunk[-2] != tokenizer.pad_token_id:
+                        ids_chunk[-1] = tokenizer.eos_token_id
+                    if ids_chunk[1] == tokenizer.pad_token_id:
+                        ids_chunk[1] = tokenizer.eos_token_id
+                    iids_list.append(ids_chunk)
+
+            input_ids = torch.stack(iids_list)  # 3,77
+        return input_ids
 
     def call_unet(self,
                   args, accelerator, unet,
@@ -555,25 +582,19 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
-        """
+
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 class_captions = batch['class_token_ids']
-                class_captions_input_ids = tokenizers[0](class_captions,
-                                                         padding=True,
-                                                         truncation=True,
-                                                         return_tensors="pt").input_ids
+                class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer)
                 class_captions_hidden_states = train_util.get_hidden_states(args,
                                                                             class_captions_input_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders[0],
                                                                             weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_token_ids']
-                concept_captions_input_ids = tokenizers[0](concept_captions,
-                                                           padding=True,
-                                                           truncation=True,
-                                                           return_tensors="pt").input_ids
+                concept_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer)
                 concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders[0],
                                                                               weight_dtype)
@@ -1109,7 +1130,8 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-    
+    """
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
