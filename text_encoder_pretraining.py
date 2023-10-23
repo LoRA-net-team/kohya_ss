@@ -257,6 +257,8 @@ class NetworkTrainer:
         """
         return encoder_hidden_states
 
+
+
     def call_unet(self,
                   args, accelerator, unet,
                   noisy_latents, timesteps,
@@ -520,8 +522,6 @@ class NetworkTrainer:
                                                              shuffle=True,
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers, )
-        first_data = pretraining_datset.__getitem__(0)
-        print(f'first_data: {first_data}')
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
@@ -587,20 +587,37 @@ class NetworkTrainer:
 
         for batch in pretraining_dataloader:
             print(f'batch : {batch}')
+            class_captions = batch['class_captions']
+            class_captions_input_ids = tokenizers[0](class_captions,
+                                                     padding=True,
+                                                     truncation=True,
+                                                     return_tensors="pt").input_ids
+            class_captions_hidden_states = train_util.get_hidden_states(args, class_captions_input_ids,
+                                                                        tokenizers[0], text_encoders[0],
+                                                                        weight_dtype)
+
+
+            concept_captions = batch['concept_captions']
+            concept_captions_input_ids = tokenizers[0](concept_captions,
+                                                       padding=True,
+                                                       truncation=True,
+                                                       return_tensors="pt").input_ids
+            concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids,
+                                                                        tokenizers[0], text_encoders[0],
+                                                                          weight_dtype)
+            print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
+            print(f'concept_captions_hidden_states : {concept_captions_hidden_states}')
+            time.sleep(1)
 
 
 
-
-
-
-
-
-
-
-
-
-        """                                    
-
+        """
+    
+    
+    
+    
+    
+    
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
