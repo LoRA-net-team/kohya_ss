@@ -268,8 +268,6 @@ class NetworkTrainer:
 
         for batch_index in range(batch_num) :
             token_ids = input_ids[batch_index, :].squeeze()
-            print(f'token_ids : {token_ids}')
-
             index_list = []
             for index, token_id in enumerate(token_ids):
                 if token_id != cls_token and token_id != pad_token :
@@ -280,29 +278,34 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device) # batch, torch_num, sen_len
-        print(f'input_ids : {input_ids}')
-        batch_index_list = self.extract_triggerword_index(input_ids)
-        print(f'org_index_list : {batch_index_list}')
+        batch_index_list = self.extract_triggerword_index(input_ids) # [ [1], [1] ]
+
         # ---------------------------------------------------------------------------------------------------------------
         # shuffling original index
         #def shuffling_text_tokens(self, ) :
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
-        batch_num, sen_len, dim = encoder_hidden_states.shape
-        print(f'encoder_hidden_states : {encoder_hidden_states.shape}')
+        batch_num, sen_len, dim = encoder_hidden_states.shape # [2,227,768]
         for batch_index in range(batch_num) :
-            text_embedding = encoder_hidden_states[batch_index, :, :]
-            trg_index = batch_index_list[batch_index]
-            print(f'batch_index : {batch_index} | trg_index : {trg_index}')
 
 
-        #org_text = torch.randn((3, 4))
-        #print(org_text)
-        #org_index = 1
-        #org_vector = org_text[org_index, :]
-        #trg_text = org_text[torch.randperm(org_text.size()[0])]
-        #trg_index = torch.where(trg_text == org_vector)[0][0]
-        #print(trg_text)
-        #print(trg_index)
+            org_embedding = encoder_hidden_states[batch_index, :, :].squeeze() # [227,768]
+            org_index = batch_index_list[batch_index]                           # [1]
+            org_index = org_index[0]
+            org_vector = org_embedding[org_index, :]
+            print(f'org_embedding  : {org_embedding}')
+            print(f'org_index : {org_index}')
+
+            trg_embedding = org_embedding[torch.randperm(org_embedding.size()[0])]
+            trg_index = torch.where(trg_embedding == org_vector)[0][0]
+            print(f'trg_text  : {trg_embedding}')
+            print(f'trg_index : {trg_index}')
+
+
+            #org_text = torch.randn((3, 4))
+            #print(org_text)
+            #org_index = 1
+
+            #print(trg_index)
 
 
 
