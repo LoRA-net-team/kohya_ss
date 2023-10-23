@@ -20,8 +20,10 @@ except (ImportError, ModuleNotFoundError):
     setproctitle = lambda x: None
 try:
     import intel_extension_for_pytorch as ipex
+
     if torch.xpu.is_available():
         from library.ipex import ipex_init
+
         ipex_init()
 except Exception:
     pass
@@ -29,37 +31,43 @@ from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
 from library import model_util
 import library.train_util as train_util
-from library.train_util import (DreamBoothDataset,)
+from library.train_util import (DreamBoothDataset, )
 import library.config_util as config_util
-from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
+from library.config_util import (ConfigSanitizer, BlueprintGenerator, )
 import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
+from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,
+                                            prepare_scheduler_for_custom_training,
+                                            scale_v_prediction_loss_like_noise_prediction, add_v_prediction_like_loss, )
 from torch import nn
 import torch.nn.functional as F
 
 from functools import lru_cache
 from attention_store import AttentionStore
+from transformers import AutoTokenizer, T5ForConditionalGeneration
+
+
 
 @lru_cache(maxsize=128)
-def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
+def match_layer_name(layer_name: str, regex_list_str: str) -> bool:
     """
     Check if layer_name matches regex_list_str.
     """
     regex_list = regex_list_str.split(',')
     for regex in regex_list:
-        regex = regex.strip() # remove space
+        regex = regex.strip()  # remove space
         if re.match(regex, layer_name):
             return True
     return False
 
-def register_attention_control(unet : nn.Module,
-                               controller:AttentionStore,
-                               mask_threshold:float=1): #if mask_threshold is 1, use itself
+
+def register_attention_control(unet: nn.Module,
+                               controller: AttentionStore,
+                               mask_threshold: float = 1):  # if mask_threshold is 1, use itself
     """
     Register cross attention layers to controller.
     """
+
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -77,9 +85,10 @@ def register_attention_control(unet : nn.Module,
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
-                                                         device=query.device),
-                                             query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
+            attention_scores = torch.baddbmm(
+                torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
+                            device=query.device),
+                query, key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
 
@@ -88,48 +97,49 @@ def register_attention_control(unet : nn.Module,
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
                     attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
-                    for batch_idx, attention_prob in enumerate(attention_probs_batch) :
-                        batch_trg_index = trg_indexs[batch_idx] # two times
+                    for batch_idx, attention_prob in enumerate(attention_probs_batch):
+                        batch_trg_index = trg_indexs[batch_idx]  # two times
                         head_num = attention_prob.shape[0]
                         res = int(math.sqrt(attention_prob.shape[1]))
                         word_heat_map_list = []
-                        for word_idx in batch_trg_index :
+                        for word_idx in batch_trg_index:
                             # head, pix_len
                             word_heat_map = attention_prob[:, :, word_idx]
                             word_heat_map_ = word_heat_map.reshape(-1, res, res)
                             word_heat_map_ = word_heat_map_.mean(dim=0)
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
-                                                           size=((512, 512)),mode='bicubic').squeeze()
+                                                           size=((512, 512)), mode='bicubic').squeeze()
                             word_heat_map_list.append(word_heat_map_)
                         # ------------------------------------------------------------------------------------------------------------------------------
                         # mask = [512,512]
-                        #mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                        # mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
                         # thresholding, convert to 1 if upper than threshold else itself
-                        #mask_ = torch.where(mask_ > mask_threshold,
+                        # mask_ = torch.where(mask_ > mask_threshold,
                         #                    torch.ones_like(mask_), mask_)
                         # check if mask_ is frozen, it should not be updated
-                        #assert mask_.requires_grad == False, 'mask_ should not be updated'
-                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
-                        #masked_word_heat_map_ = word_heat_map_ * mask_
+                        # assert mask_.requires_grad == False, 'mask_ should not be updated'
+                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0)  # (word_num, 512, 512)
+                        # masked_word_heat_map_ = word_heat_map_ * mask_
                         # is reduction = none, that means just L2 loss
-                        #attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
+                        # attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
                         #                                         reduction = 'none')
                         controller.store(word_heat_map_, layer_name)
 
                 # check if torch.no_grad() is in effect
-                elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
+                elif torch.is_grad_enabled():  # if not, while training, trg_indexs_list should not be None
                     if mask is None:
-                        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
-                    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
-
-
+                        raise RuntimeError(
+                            "mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
+                    raise RuntimeError(
+                        "trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
 
             hidden_states = torch.bmm(attention_probs, value)
-            #if is_cross_attention :
+            # if is_cross_attention :
             #    print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
+
         return forward
 
     def register_recr(net_, count, layer_name):
@@ -152,10 +162,12 @@ def register_attention_control(unet : nn.Module,
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
 
+
 def arg_as_list(s):
     import ast
     v = ast.literal_eval(s)
     return v
+
 
 class NetworkTrainer:
     def __init__(self):
@@ -186,10 +198,12 @@ class NetworkTrainer:
                 logs["lr/unet"] = float(lrs[-1])  # may be same to textencoder
 
             if (
-                args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower()
+                    args.optimizer_type.lower().startswith(
+                        "DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower()
             ):  # tracking d*lr value of unet.
                 logs["lr/d*lr"] = (
-                    lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                        lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0][
+                    "lr"]
                 )
         else:
             idx = 0
@@ -199,9 +213,11 @@ class NetworkTrainer:
 
             for i in range(idx, len(lrs)):
                 logs[f"lr/group{i}"] = float(lrs[i])
-                if args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower():
+                if args.optimizer_type.lower().startswith(
+                        "DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower():
                     logs[f"lr/d*lr/group{i}"] = (
-                        lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"]
+                            lr_scheduler.optimizers[-1].param_groups[i]["d"] *
+                            lr_scheduler.optimizers[-1].param_groups[i]["lr"]
                     )
 
         return logs
@@ -219,8 +235,9 @@ class NetworkTrainer:
 
     def is_text_encoder_outputs_cached(self, args):
         return False
+
     def cache_text_encoder_outputs_if_needed(
-        self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype ):
+            self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype):
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
@@ -260,49 +277,48 @@ class NetworkTrainer:
         cls_token = 49406
         pad_token = 49407
 
-
-        if input_ids.dim() == 3 :
+        if input_ids.dim() == 3:
             input_ids = torch.flatten(input_ids, start_dim=1)
         batch_num, sen_len = input_ids.size()
         batch_index_list = []
 
-        for batch_index in range(batch_num) :
+        for batch_index in range(batch_num):
             token_ids = input_ids[batch_index, :].squeeze()
             index_list = []
             for index, token_id in enumerate(token_ids):
-                if token_id != cls_token and token_id != pad_token :
+                if token_id != cls_token and token_id != pad_token:
                     index_list.append(index)
             batch_index_list.append(index_list)
         return batch_index_list
 
-
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
-        input_ids = batch["input_ids"].to(accelerator.device) # batch, torch_num, sen_len
-        batch_index_list = self.extract_triggerword_index(input_ids) # [ [1], [1] ]
+        input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
+        batch_index_list = self.extract_triggerword_index(input_ids)  # [ [1], [1] ]
 
         # ---------------------------------------------------------------------------------------------------------------
         # shuffling original index
-        #def shuffling_text_tokens(self, ) :
-        encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
-        batch_num, sen_len, dim = encoder_hidden_states.shape # [2,227,768]
+        # def shuffling_text_tokens(self, ) :
+        encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0],
+                                                             weight_dtype)
+        batch_num, sen_len, dim = encoder_hidden_states.shape  # [2,227,768]
         trg_index_list = []
-        for batch_index in range(batch_num) :
-            org_embedding = encoder_hidden_states[batch_index, :, :].squeeze() # [227,768]
-            org_index = batch_index_list[batch_index]                           # [1]
+        for batch_index in range(batch_num):
+            org_embedding = encoder_hidden_states[batch_index, :, :].squeeze()  # [227,768]
+            org_index = batch_index_list[batch_index]  # [1]
             org_index = org_index[0]
             org_vector = org_embedding[org_index, :]
-            #print(f'org_embedding  : {org_embedding}')
-            #print(f'org_index : {org_index}')
+            # print(f'org_embedding  : {org_embedding}')
+            # print(f'org_index : {org_index}')
             trg_embedding = org_embedding[torch.randperm(org_embedding.size()[0])]
             trg_index = torch.where(trg_embedding == org_vector)[0][0]
             # ---------------------------------------------------------------------------------------------------------------
-            while trg_index != 0 :
-                #print(f'trg_embedding  : {trg_embedding}')
-                #print(f'trg_index : {trg_index}')
-                #org_text = torch.randn((3, 4))
-                #print(org_text)
-                #org_index = 1
-                #print(trg_index)
+            while trg_index != 0:
+                # print(f'trg_embedding  : {trg_embedding}')
+                # print(f'trg_index : {trg_index}')
+                # org_text = torch.randn((3, 4))
+                # print(org_text)
+                # org_index = 1
+                # print(trg_index)
                 encoder_hidden_states[batch_index] = trg_embedding
                 trg_index_list.append([trg_index])
 
@@ -325,12 +341,12 @@ class NetworkTrainer:
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet)
 
     def train(self, args):
-        if args.process_title :
+        if args.process_title:
             setproctitle(args.process_title)
-        else :
+        else:
             setproctitle('parksooyeon')
 
-        session_id = random.randint(0, 2**32)
+        session_id = random.randint(0, 2 ** 32)
         training_started_at = time.time()
         train_util.verify_training_args(args)
         train_util.prepare_dataset_args(args, True)
@@ -338,10 +354,10 @@ class NetworkTrainer:
         cache_latents = args.cache_latents
         use_dreambooth_method = args.in_json is None
         use_user_config = args.dataset_config is not None
-        use_class_caption = args.class_caption is not None # if class_caption is provided, for subsets, add key 'class_caption' to each subset
+        use_class_caption = args.class_caption is not None  # if class_caption is provided, for subsets, add key 'class_caption' to each subset
 
         if args.seed is None:
-            args.seed = random.randint(0, 2**32)
+            args.seed = random.randint(0, 2 ** 32)
         set_seed(args.seed)
 
         # tokenizerは単体またはリスト、tokenizersは必ずリスト：既存のコードとの互換性のため
@@ -356,14 +372,17 @@ class NetworkTrainer:
                 user_config = config_util.load_user_config(args.dataset_config)
                 ignored = ["train_data_dir", "reg_data_dir", "in_json"]
                 if any(getattr(args, attr) is not None for attr in ignored):
-                    print("ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(", ".join(ignored)))
+                    print(
+                        "ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(
+                            ", ".join(ignored)))
             else:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
                     user_config = {}
-                    user_config['datasets'] = [{"subsets" : None}]
+                    user_config['datasets'] = [{"subsets": None}]
                     subsets_dict_list = []
-                    for subsets_dict in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir, args.reg_data_dir):
+                    for subsets_dict in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir,
+                                                                                                  args.reg_data_dir):
                         if use_class_caption:
                             subsets_dict['class_caption'] = args.class_caption
                         subsets_dict_list.append(subsets_dict)
@@ -373,7 +392,7 @@ class NetworkTrainer:
                     user_config = {}
                     user_config["datasets"] = []
                     user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir,
-                                                                 "metadata_file": args.in_json,}]})
+                                                                 "metadata_file": args.in_json, }]})
                     # add class_caption to each subset
                     if use_class_caption:
                         for subset in user_config["datasets"][0]["subsets"]:
@@ -412,11 +431,10 @@ class NetworkTrainer:
         print("preparing accelerator")
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
-        if args.log_with == 'wandb' and is_main_process :
+        if args.log_with == 'wandb' and is_main_process:
             import wandb
             wandb.init(project=args.wandb_init_name,
                        name=args.wandb_run_name)
-
 
         save_base_dir = args.output_dir
         _, folder_name = os.path.split(save_base_dir)
@@ -455,8 +473,9 @@ class NetworkTrainer:
                     multiplier = args.base_weights_multiplier[i]
                 accelerator.print(f"merging module: {weight_path} with multiplier {multiplier}")
                 module, weights_sd = network_module.create_network_from_weights(
-                    multiplier, weight_path, vae, text_encoder, unet, for_inference=True             )
-                module.merge_to(text_encoder, unet, weights_sd, weight_dtype, accelerator.device if args.lowram else "cpu")
+                    multiplier, weight_path, vae, text_encoder, unet, for_inference=True)
+                module.merge_to(text_encoder, unet, weights_sd, weight_dtype,
+                                accelerator.device if args.lowram else "cpu")
             accelerator.print(f"all weights merged: {', '.join(args.base_weights)}")
 
         # 学習を準備する
@@ -465,7 +484,8 @@ class NetworkTrainer:
             vae.requires_grad_(False)
             vae.eval()
             with torch.no_grad():
-                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk, accelerator.is_main_process)
+                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk,
+                                                  accelerator.is_main_process)
             vae.to("cpu")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -474,7 +494,7 @@ class NetworkTrainer:
 
         # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
         self.cache_text_encoder_outputs_if_needed(
-            args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype        )
+            args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
 
         # prepare network
         net_kwargs = {}
@@ -484,7 +504,8 @@ class NetworkTrainer:
                 net_kwargs[key] = value
         # if a new network is added in future, add if ~ then blocks for each network (;'∀')
         if args.dim_from_weights:
-            network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
+            network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet,
+                                                                    **net_kwargs)
         else:
             # LyCORIS will work with this...
             network = network_module.create_network(
@@ -541,7 +562,7 @@ class NetworkTrainer:
             shuffle=True,
             collate_fn=collater,
             num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers,)
+            persistent_workers=args.persistent_data_loader_workers, )
 
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
@@ -567,7 +588,7 @@ class NetworkTrainer:
             network.to(weight_dtype)
         elif args.full_bf16:
             assert (
-                args.mixed_precision == "bf16"
+                    args.mixed_precision == "bf16"
             ), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
             accelerator.print("enable full bf16 training.")
             network.to(weight_dtype)
@@ -608,7 +629,8 @@ class NetworkTrainer:
                 )
                 text_encoders = [text_encoder]
 
-            unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+            unet.to(accelerator.device,
+                    dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
         else:
             network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                 network, optimizer, train_dataloader, lr_scheduler
@@ -665,11 +687,13 @@ class NetworkTrainer:
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
         accelerator.print("running training / 学習開始")
-        accelerator.print(f"  num train images * repeats / 学習画像の数×繰り返し回数: {train_dataset_group.num_train_images}")
+        accelerator.print(
+            f"  num train images * repeats / 学習画像の数×繰り返し回数: {train_dataset_group.num_train_images}")
         accelerator.print(f"  num reg images / 正則化画像の数: {train_dataset_group.num_reg_images}")
         accelerator.print(f"  num batches per epoch / 1epochのバッチ数: {len(train_dataloader)}")
         accelerator.print(f"  num epochs / epoch数: {num_train_epochs}")
-        accelerator.print(f"  batch size per device / バッチサイズ: {', '.join([str(d.batch_size) for d in train_dataset_group.datasets])}")
+        accelerator.print(
+            f"  batch size per device / バッチサイズ: {', '.join([str(d.batch_size) for d in train_dataset_group.datasets])}")
         # accelerator.print(f"  total train batch size (with parallel & distributed & accumulation) / 総バッチサイズ（並列学習、勾配合計含む）: {total_batch_size}")
         accelerator.print(f"  gradient accumulation steps / 勾配を合計するステップ数 = {args.gradient_accumulation_steps}")
         accelerator.print(f"  total optimization steps / 学習ステップ数: {args.max_train_steps}")
@@ -692,7 +716,8 @@ class NetworkTrainer:
             "ss_lr_warmup_steps": args.lr_warmup_steps,
             "ss_lr_scheduler": args.lr_scheduler,
             "ss_network_module": args.network_module,
-            "ss_network_dim": args.network_dim,  # None means default because another network than LoRA may have another default dim
+            "ss_network_dim": args.network_dim,
+            # None means default because another network than LoRA may have another default dim
             "ss_network_alpha": args.network_alpha,  # some networks may not have alpha
             "ss_network_dropout": args.network_dropout,  # some networks may not have dropout
             "ss_mixed_precision": args.mixed_precision,
@@ -811,7 +836,7 @@ class NetworkTrainer:
         else:
             # conserving backward compatibility when using train_dataset_dir and reg_dataset_dir
             assert (len(train_dataset_group.datasets) == 1
-            ), f"There should be a single dataset but {len(train_dataset_group.datasets)} found. This seems to be a bug. / データセットは1個だけ存在するはずですが、実際には{len(train_dataset_group.datasets)}個でした。プログラムのバグかもしれません。"
+                    ), f"There should be a single dataset but {len(train_dataset_group.datasets)} found. This seems to be a bug. / データセットは1個だけ存在するはずですが、実際には{len(train_dataset_group.datasets)}個でした。プログラムのバグかもしれません。"
             dataset = train_dataset_group.datasets[0]
             dataset_dirs_info = {}
             reg_dataset_dirs_info = {}
@@ -824,7 +849,7 @@ class NetworkTrainer:
                 for subset in dataset.subsets:
                     dataset_dirs_info[os.path.basename(subset.metadata_file)] = {
                         "n_repeats": subset.num_repeats,
-                        "img_count": subset.img_count,}
+                        "img_count": subset.img_count, }
             metadata.update(
                 {
                     "ss_batch_size_per_device": args.train_batch_size,
@@ -842,7 +867,7 @@ class NetworkTrainer:
                     "ss_dataset_dirs": json.dumps(dataset_dirs_info),
                     "ss_reg_dataset_dirs": json.dumps(reg_dataset_dirs_info),
                     "ss_tag_frequency": json.dumps(dataset.tag_frequency),
-                    "ss_bucket_info": json.dumps(dataset.bucket_info),})
+                    "ss_bucket_info": json.dumps(dataset.bucket_info), })
 
         # add extra args
         if args.network_args:
@@ -869,10 +894,12 @@ class NetworkTrainer:
         for key in train_util.SS_METADATA_MINIMUM_KEYS:
             if key in metadata:
                 minimum_metadata[key] = metadata[key]
-        progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
+        progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process,
+                            desc="steps")
         global_step = 0
         noise_scheduler = DDPMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
+            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000,
+            clip_sample=False
         )
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
@@ -917,10 +944,78 @@ class NetworkTrainer:
                 accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
                 os.remove(old_ckpt_file)
 
+        print(f'step 1. call model')
+        sen_gen_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xl")
+        sen_gen_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl", device_map="auto",
+                                                           torch_dtype=torch.float16)
+        num_sentences = 100
+
+        print(f'step 2. token check')
+        class_token = args.class_token
+        trg_concept = args.trg_concept
+
+        print(f'step 3. generate sentences')
+        def generate_captions(input_prompt):
+            input_ids = sen_gen_tokenizer(input_prompt, return_tensors="pt").input_ids.to("cuda")
+            outputs = sen_gen_model.generate(input_ids, temperature=0.8,
+                                             num_return_sequences=num_sentences,
+                                             do_sample=True, max_new_tokens=128, top_k=10)
+            return tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        class_captions = generate_captions(class_token)
+        concept_captions = []
+        for source_caption in class_captions :
+            concept_caption = source_caption.replace(class_token, trg_concept)
+            concept_captions.append(concept_caption)
+
+        print(f'step 4. text encoder pretraining')
+        class TE_dataset(torch.utils.data.Dataset):
+            def __init__(self, tokenizer, class_captions, concept_captions):
+                self.tokenizer = tokenizer
+                self.class_captions = class_captions
+                self.concept_captions = concept_captions
+            def __len__(self):
+                return len(self.class_captions)
+            def __getitem__(self, idx):
+                class_caption = self.class_captions[idx]
+                concept_caption = self.concept_captions[idx]
+                class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
+                concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
+                return class_token_ids, concept_token_ids
+
+        pretraining_datset = TE_dataset(tokenizer=tokenizer,
+                                        class_captions=class_captions,
+                                        concept_captions=concept_captions)
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
+                                                            batch_size=args.train_batch_size)
+
+        pretraining_epochs = 10
+        # training loop
+        for epoch in range(pretraining_epochs):
+            for step, batch in enumerate(pretraining_dataloader) :
+                print(f'epoch : {epoch}, step : {step}')
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         # training loop
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
-            accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
+            accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
 
             metadata["ss_epoch"] = str(epoch + 1)
@@ -946,28 +1041,30 @@ class NetworkTrainer:
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder,
-                                                                              batch["captions"],accelerator.device,
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer, text_encoder,
+                                                                              batch["captions"], accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
-                                                                              clip_skip=args.clip_skip,)
+                                                                              clip_skip=args.clip_skip, )
                         else:
-                            text_encoder_conds, trg_index_list = self.get_text_cond(args,accelerator,
-                                                                                    batch,tokenizers,
-                                                                                    text_encoders,weight_dtype)
+                            text_encoder_conds, trg_index_list = self.get_text_cond(args, accelerator,
+                                                                                    batch, tokenizers,
+                                                                                    text_encoders, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
+                                                                                                       noise_scheduler,
+                                                                                                       latents)
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
-                                                    batch,weight_dtype,
-                                                    #batch["trg_indexs_list"]
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
+                                                    text_encoder_conds,
+                                                    batch, weight_dtype,
+                                                    # batch["trg_indexs_list"]
                                                     trg_index_list,
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
                             attention_storer.step_store = {}
-
 
                     if args.v_parameterization:
                         # v-parameterization training
@@ -977,22 +1074,23 @@ class NetworkTrainer:
                     ### Masked loss ###
                     if args.masked_loss:
                         # get mask images then set to device
-                        # batch['mask_imgs'] is actually List[Tensor] 
+                        # batch['mask_imgs'] is actually List[Tensor]
                         # for each images, get mask image and resize to noise_pred size
                         # we may not be able to use batch['mask_imgs'] directly because of different image size
                         # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
                         # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
-                        #noise_pred:torch.Tensor
-                        #print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
-                        #print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
-                        #print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        # noise_pred:torch.Tensor
+                        # print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        # print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
+                        # print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
                         # [256, 256] -> [1, 1, 256, 256]
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
                         # interpolate
-                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in mask_imgs]
+                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in
+                                     mask_imgs]
                         # to Tensor
-                        mask_imgs = torch.cat(mask_imgs, dim=0) # [batch_size, 1, 256, 256]
-                        #print("mask_imgs size: ", mask_imgs[0].size()) # debug
+                        mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
+                        # print("mask_imgs size: ", mask_imgs[0].size()) # debug
                         # multiply mask to noise_pred and target
                         # element-wise multiplication
                         noise_pred = noise_pred * mask_imgs
@@ -1014,30 +1112,32 @@ class NetworkTrainer:
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = task_loss
                     # ------------------------------------------------------------------------------------
-                    if args.heatmap_loss :
+                    if args.heatmap_loss:
                         layer_names = atten_collection.keys()
-                        assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
+                        assert len(
+                            layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 word_heatmap_list = atten_collection[layer_name]
-                                for batch_index in range(batch_num) :
+                                for batch_index in range(batch_num):
                                     word_heatmap = word_heatmap_list[batch_index]
                                     if word_heatmap.dim() == 3:
                                         word_heatmap = word_heatmap.mean(0)  # [512,512]
-                                    try :
+                                    try:
                                         heatmap_per_batch[batch_index].append(word_heatmap)
-                                    except :
+                                    except:
                                         heatmap_per_batch[batch_index] = []
                                         heatmap_per_batch[batch_index].append(word_heatmap)
                         batch_mask = batch['mask_imgs']
-                        for batch_idx in heatmap_per_batch.keys() :
+                        for batch_idx in heatmap_per_batch.keys():
                             word_heatmap_list = heatmap_per_batch[batch_index]
-                            heatmap = torch.stack(word_heatmap_list, dim = 0) # [16,512,512]
+                            heatmap = torch.stack(word_heatmap_list, dim=0)  # [16,512,512]
                             heatmap = heatmap.mean(0)
                             mask = batch_mask[batch_idx]
                             masked_heatmap = heatmap * mask
-                            loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(), heatmap.float(), reduction="none")
+                            loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(), heatmap.float(),
+                                                                 reduction="none")
                             loss_ = loss_.mean()
                             attn_loss = attn_loss + args.attn_loss_ratio * loss_
                             """
@@ -1053,13 +1153,13 @@ class NetworkTrainer:
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
 
-                        if args.heatmap_backprop :
+                        if args.heatmap_backprop:
                             loss = task_loss + args.attn_loss_ratio * attn_loss
                     # ------------------------------------------------------------------------------------
                     # recording attn loss
-                    if type(attn_loss) == float :
+                    if type(attn_loss) == float:
                         attn_loss_record_elem = [epoch, global_step, attn_loss.item()]
-                    else :
+                    else:
                         attn_loss_record_elem = [epoch, global_step, attn_loss]
                     attn_loss_records.append(attn_loss_record_elem)
                     # ------------------------------------------------------------------------------------
@@ -1073,7 +1173,7 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(
                         args.scale_weight_norms, accelerator.device)
-                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm }
+                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
 
@@ -1081,7 +1181,8 @@ class NetworkTrainer:
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
-                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer,
+                                       text_encoder, unet)
                     if attention_storer is not None:
                         attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
@@ -1095,7 +1196,8 @@ class NetworkTrainer:
 
                             remove_step_no = train_util.get_remove_step_no(args, global_step)
                             if remove_step_no is not None:
-                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
+                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,
+                                                                                 remove_step_no)
                                 remove_model(remove_ckpt_name)
 
                 current_loss = loss.detach().item()
@@ -1109,18 +1211,19 @@ class NetworkTrainer:
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 # detach attention_losses dict
                 attention_losses = {k: v.detach().item() for k, v in attention_losses.items()}
-                
+
                 progress_bar.set_postfix(**logs)
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
 
                     # logs --------------------------------------------------------------------------------------------------------------------------------------------------------
-                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
+                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm,
+                                                   maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
 
                     if is_main_process:
-                        #wandb_tracker = accelerator.get_tracker("wandb")
+                        # wandb_tracker = accelerator.get_tracker("wandb")
                         wandb.log(logs)
 
                 if global_step >= args.max_train_steps:
@@ -1138,11 +1241,13 @@ class NetworkTrainer:
                     save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
                     remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
                     if remove_epoch_no is not None:
-                        remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
+                        remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as,
+                                                                          remove_epoch_no)
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
+                               text_encoder, unet)
             if attention_storer is not None:
                 attention_storer.step_store = {}
             # end of epoch
@@ -1171,7 +1276,6 @@ class NetworkTrainer:
                 writer.writerows(attn_loss_records)
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
@@ -1194,10 +1298,10 @@ if __name__ == "__main__":
                         help="network module to train / 学習対象のネットワークのモジュール")
     parser.add_argument("--network_dim", type=int, default=None,
                         help="network dimensions (depends on each network) / モジュールの次元数（ネットワークにより定義は異なります）")
-    parser.add_argument("--network_alpha",type=float,default=1,
-                        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version)",)
-    parser.add_argument("--network_dropout",type=float,default=None,
-                        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons)",)
+    parser.add_argument("--network_alpha", type=float, default=1,
+                        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version)", )
+    parser.add_argument("--network_dropout", type=float, default=None,
+                        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons)", )
     parser.add_argument("--network_args", type=str, default=None, nargs="*",
                         help="additional argmuments for network (key=value) / ネットワークへの追加の引数")
     parser.add_argument("--network_train_unet_only", action="store_true",
@@ -1206,16 +1310,16 @@ if __name__ == "__main__":
                         help="only training Text Encoder part / Text Encoder関連部分のみ学習する")
     parser.add_argument("--training_comment", type=str, default=None,
                         help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列")
-    parser.add_argument("--dim_from_weights",action="store_true",
-                        help="automatically determine dim (rank) from network_weights / dim (rank)をnetwork_weightsで指定した重みから自動で決定する",)
-    parser.add_argument("--scale_weight_norms",type=float,default=None,
-                        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. ",)
-    parser.add_argument("--base_weights",type=str,default=None,nargs="*",
-                        help="network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みファイル",)
-    parser.add_argument("--base_weights_multiplier",type=float,default=None,nargs="*",
-                        help="multiplier for network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みの倍率",)
-    parser.add_argument("--no_half_vae",action="store_true",
-                        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
+    parser.add_argument("--dim_from_weights", action="store_true",
+                        help="automatically determine dim (rank) from network_weights / dim (rank)をnetwork_weightsで指定した重みから自動で決定する", )
+    parser.add_argument("--scale_weight_norms", type=float, default=None,
+                        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. ", )
+    parser.add_argument("--base_weights", type=str, default=None, nargs="*",
+                        help="network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みファイル", )
+    parser.add_argument("--base_weights_multiplier", type=float, default=None, nargs="*",
+                        help="multiplier for network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みの倍率", )
+    parser.add_argument("--no_half_vae", action="store_true",
+                        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う", )
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--wandb_init_name", type=str)
     parser.add_argument("--wandb_log_template_path", type=str)
@@ -1226,26 +1330,27 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--mask_dir", type=str)
-    
+
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
-    
-    #first_layers =  ['mid'] # "mid"
-    #second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
-    #third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
-    #forth_layers =  ['down_blocks_0','up_blocks_3'] #"down_blocks_0,up_blocks_3"
-    #second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
-    #first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
+
+    # first_layers =  ['mid'] # "mid"
+    # second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
+    # third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
+    # forth_layers =  ['down_blocks_0','up_blocks_3'] #"down_blocks_0,up_blocks_3"
+    # second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
+    # first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
 
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--first_second_training", action='store_true')
     parser.add_argument("--second_third_training", action='store_true')
     parser.add_argument("--first_second_third_training", action='store_true')
-    parser.add_argument("--attn_loss_layers", type=str, default="all", help="attn loss layers, can be splitted with ',', matches regex with given string. default is 'all'")
+    parser.add_argument("--attn_loss_layers", type=str, default="all",
+                        help="attn loss layers, can be splitted with ',', matches regex with given string. default is 'all'")
     # mask_threshold (0~1, default 1)
     parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
-    parser.add_argument("--heatmap_backprop", action = 'store_true')
+    parser.add_argument("--heatmap_backprop", action='store_true')
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
@@ -1258,14 +1363,14 @@ if __name__ == "__main__":
         args.attn_loss_layers = 'down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
     elif args.first_second_third_training:
         args.attn_loss_layers = 'mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2'
-    else :
+    else:
         args.attn_loss_layers = 'all'
-
-    
+    parser.add_argument('--class_token', default='cat', type=str)
     # if any of only_second_training, only_third_training, second_third_training, first_second_third_training is True, print message to notify user that args.attn_loss_layers is overwritten
     if args.only_second_training or args.only_third_training or args.second_third_training or args.first_second_third_training:
-        print(f"args.attn_loss_layers is overwritten to {args.attn_loss_layers} because only_second_training, only_third_training, second_third_training, first_second_third_training is True")
-    
+        print(
+            f"args.attn_loss_layers is overwritten to {args.attn_loss_layers} because only_second_training, only_third_training, second_third_training, first_second_third_training is True")
+
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
         print(f"Created temporary file: {tempfile_new.name}")
@@ -1279,7 +1384,8 @@ if __name__ == "__main__":
         with open(tempfile_path, 'w', encoding='utf-8') as f:
             # format
             f.write(lines.format(args.wandb_init_name))
-        args.log_tracker_config = tempfile_path #overwrite
+        args.log_tracker_config = tempfile_path  # overwrite
     args = train_util.read_config_from_file(args, parser)
     trainer = NetworkTrainer()
     trainer.train(args)
+
