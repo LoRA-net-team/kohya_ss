@@ -584,28 +584,33 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
+        for epoch in range(pretraining_epochs):
+            for batch in pretraining_dataloader:
+                print(f'batch : {batch}')
+                class_captions = batch['class_token_ids']
+                class_captions_input_ids = tokenizers[0](class_captions,
+                                                         padding=True,
+                                                         truncation=True,
+                                                         return_tensors="pt").input_ids
+                class_captions_hidden_states = train_util.get_hidden_states(args, class_captions_input_ids.to(accelerator.device),
+                                                                            tokenizers[0], text_encoders[0],
+                                                                            weight_dtype)
+                concept_captions = batch['concept_token_ids']
+                concept_captions_input_ids = tokenizers[0](concept_captions,
+                                                           padding=True,
+                                                           truncation=True,
+                                                           return_tensors="pt").input_ids
+                concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
+                                                                            tokenizers[0], text_encoders[0],
+                                                                              weight_dtype)
+                pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
+                                                                concept_captions_hidden_states.float(), reduction="none")
+                accelerator.backward(pretraining_loss)
+                optimizer.step()
+                lr_scheduler.step()
+                print(f'pretraining_loss : {pretraining_loss}')
 
-        for batch in pretraining_dataloader:
-            print(f'batch : {batch}')
-            class_captions = batch['class_token_ids']
-            class_captions_input_ids = tokenizers[0](class_captions,
-                                                     padding=True,
-                                                     truncation=True,
-                                                     return_tensors="pt").input_ids
-            class_captions_hidden_states = train_util.get_hidden_states(args, class_captions_input_ids.to(accelerator.device),
-                                                                        tokenizers[0], text_encoders[0],
-                                                                        weight_dtype)
-            concept_captions = batch['concept_token_ids']
-            concept_captions_input_ids = tokenizers[0](concept_captions,
-                                                       padding=True,
-                                                       truncation=True,
-                                                       return_tensors="pt").input_ids
-            concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
-                                                                        tokenizers[0], text_encoders[0],
-                                                                          weight_dtype)
-            print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
-            print(f'concept_captions_hidden_states : {concept_captions_hidden_states}')
-            time.sleep(1)
+
 
 
 
