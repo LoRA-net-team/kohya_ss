@@ -654,7 +654,6 @@ class BaseDataset(torch.utils.data.Dataset):
                         caption = str_to
                 else:
                     caption = caption.replace(str_from, str_to)
-        print(f'final caption : {caption}')
         return caption
 
     def get_input_ids(self, caption, tokenizer=None):

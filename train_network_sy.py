@@ -287,8 +287,6 @@ class NetworkTrainer:
         batch_num, sen_len, dim = encoder_hidden_states.shape # [2,227,768]
         trg_index_list = []
         for batch_index in range(batch_num) :
-
-
             org_embedding = encoder_hidden_states[batch_index, :, :].squeeze() # [227,768]
             org_index = batch_index_list[batch_index]                           # [1]
             org_index = org_index[0]
