@@ -227,6 +227,8 @@ class NetworkTrainer:
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
                                                              tokenizers[0], text_encoders[0],
                                                              weight_dtype)
+        print(f'input_ids : {input_ids.shape}')
+        print(f'encoder_hidden_states : {encoder_hidden_states.shape}')
         return encoder_hidden_states
 
     def get_input_ids(self, args, caption, tokenizer):
@@ -584,7 +586,7 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
-
+        """
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -908,12 +910,10 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
-                            
-                            
-                            
+
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-                            print(f'original text encoder embedding (expect 6,77,768) : {text_encoder_conds.shape}') # -> [2,77,768]
+
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
@@ -1139,7 +1139,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-    """
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
