@@ -1227,9 +1227,6 @@ class BaseDataset(torch.utils.data.Dataset):
                 else:
                     example["input_ids2"] = None
             else:
-
-                # ------------------------------------------------------------------------------------------------------------------------------
-                print(f'stacking input_ids_list ... ')
                 example["input_ids"] = torch.stack(input_ids_list)
                 example["input_ids2"] = torch.stack(input_ids2_list) if len(self.tokenizers) > 1 else None
                 example["class_input_ids"] = torch.stack(class_input_ids_list)
