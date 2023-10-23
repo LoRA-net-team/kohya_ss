@@ -484,7 +484,7 @@ class NetworkTrainer:
         def generate_captions(input_prompt):
             input_ids = sen_gen_tokenizer(input_prompt, return_tensors="pt").input_ids.to("cuda")
             outputs = sen_gen_model.generate(input_ids, temperature=0.8,num_return_sequences=num_sentences,do_sample=True, max_new_tokens=128, top_k=10)
-            return tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            return sen_gen_tokenizer.batch_decode(outputs, skip_special_tokens=True)
         class_captions = generate_captions(class_token)
         print(f'class_captions : {class_captions}')
         concept_captions = []
