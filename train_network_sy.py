@@ -259,31 +259,38 @@ class NetworkTrainer:
     def extract_triggerword_index(self, input_ids):
         cls_token = 49406
         pad_token = 49407
-        trg_token_id, index_list = [], []
-        flattened_input_ids = torch.flatten(input_ids)
-        for index, token_id in enumerate(flattened_input_ids):
-            if token_id != cls_token and token_id != pad_token :
-                print(f'target token id : {token_id}')
-                trg_token_id.append(token_id)
-                index_list.append(index)
 
-        return index_list
+
+        if input_ids.dim() == 3 :
+            input_ids = torch.flatten(input_ids, start_dim=0, end_dim=1)
+        batch_num, sen_len = input_ids.size()
+        batch_index_list = []
+        for batch_index in range(batch_num) :
+            token_ids = input_ids[batch_index, :]
+            index_list = []
+            for index, token_id in enumerate(token_ids):
+                if token_id != cls_token and token_id != pad_token :
+                    index_list.append(index)
+            batch_index_list.append(index_list)
+        return batch_index_list
 
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device) # batch, torch_num, sen_len
         print(f'input_ids : {input_ids}')
-        org_index_list = self.extract_triggerword_index(input_ids)
-        print(f'org_index_list : {org_index_list}')
-
+        batch_index_list = self.extract_triggerword_index(input_ids)
+        print(f'org_index_list : {batch_index_list}')
         # ---------------------------------------------------------------------------------------------------------------
         # shuffling original index
         #def shuffling_text_tokens(self, ) :
-
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
-        batch, sen_len, dim = encoder_hidden_states.shape
+        batch_num, sen_len, dim = encoder_hidden_states.shape
         print(f'encoder_hidden_states : {encoder_hidden_states.shape}')
-        time.sleep(10)
+        for batch_index in range(batch_num) :
+            text_embedding = encoder_hidden_states[batch_index, :, :]
+            trg_index = batch_index_list[batch_index]
+            print(f'batch_index : {batch_index} | trg_index : {trg_index}')
+
 
         #org_text = torch.randn((3, 4))
         #print(org_text)
