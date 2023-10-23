@@ -223,40 +223,9 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
-        """
-        batch_index_list = self.extract_triggerword_index(input_ids)  # [ [1], [1] ]
-        # ---------------------------------------------------------------------------------------------------------------
-        # shuffling original index
-        # def shuffling_text_tokens(self, ) :
-        """
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0],
                                                              weight_dtype)
-        """
-        batch_num, sen_len, dim = encoder_hidden_states.shape  # [2,227,768]
-        trg_index_list = []
-        for batch_index in range(batch_num):
-            org_embedding = encoder_hidden_states[batch_index, :, :].squeeze()  # [227,768]
-            org_index = batch_index_list[batch_index]  # [1]
-            org_index = org_index[0]
-            org_vector = org_embedding[org_index, :]
-            # print(f'org_embedding  : {org_embedding}')
-            # print(f'org_index : {org_index}')
-            trg_embedding = org_embedding[torch.randperm(org_embedding.size()[0])]
-            trg_index = torch.where(trg_embedding == org_vector)[0][0]
-            # ---------------------------------------------------------------------------------------------------------------
-            while trg_index != 0:
-                # print(f'trg_embedding  : {trg_embedding}')
-                # print(f'trg_index : {trg_index}')
-                # org_text = torch.randn((3, 4))
-                # print(org_text)
-                # org_index = 1
-                # print(trg_index)
-                encoder_hidden_states[batch_index] = trg_embedding
-                trg_index_list.append([trg_index])
-        return encoder_hidden_states, trg_index_list
-        """
         return encoder_hidden_states
-
 
 
     def call_unet(self,
@@ -608,7 +577,7 @@ class NetworkTrainer:
                 #accelerator.backward(pretraining_loss)
                 #optimizer.step()
                 #lr_scheduler.step()
-                print(f'pretraining_loss : {pretraining_loss}')
+                print(f'pretraining_loss : {pretraining_loss.shape}')
 
 
 
@@ -878,24 +847,7 @@ class NetworkTrainer:
             if os.path.exists(old_ckpt_file):
                 accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
                 os.remove(old_ckpt_file)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                
         # training loop
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
@@ -930,7 +882,7 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
-                            text_encoder_conds, trg_index_list = self.get_text_cond(args, accelerator,batch, tokenizers,
+                            text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                                     text_encoders, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
