@@ -489,6 +489,7 @@ class NetworkTrainer:
         concept_captions = []
         for source_caption in class_captions:
             concept_caption = source_caption.replace(class_token, trg_concept)
+            print(f'concept_caption: {concept_caption}')
             concept_captions.append(concept_caption)
 
         print(f'step 17. text encoder pretraining dataset and dataloader')
@@ -511,10 +512,14 @@ class NetworkTrainer:
                 te_example['concept_token_ids'] = concept_token_ids
                 return te_example
 
-        pretraining_datset = TE_dataset(tokenizer=tokenizer,class_captions=class_captions,concept_captions=concept_captions)
-        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,batch_size=1,
+        pretraining_datset = TE_dataset(tokenizer=tokenizer,
+                                        class_captions  =class_captions,
+                                        concept_captions=concept_captions)
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
+                                                             batch_size=1,
                                                              shuffle=True,
-                                                             collate_fn=collater,num_workers=n_workers,persistent_workers=args.persistent_data_loader_workers, )
+                                                             num_workers=n_workers,
+                                                             persistent_workers=args.persistent_data_loader_workers, )
         first_data = pretraining_datset.__getitem__(0)
         print(f'first_data: {first_data}')
 
@@ -580,9 +585,9 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
-        for epoch in range(pretraining_epochs):
-            for step, batch in enumerate(pretraining_dataloader):
-                print(f'epoch : {epoch}, step : {step}')
+
+        for batch in pretraining_dataloader:
+            print(f'batch : {batch}')
 
 
 
