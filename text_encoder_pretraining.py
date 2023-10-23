@@ -494,7 +494,7 @@ class NetworkTrainer:
         print(f'step 17. text encoder pretraining dataset and dataloader')
         class TE_dataset(torch.utils.data.Dataset):
             def __init__(self, tokenizer, class_captions, concept_captions):
-                self.tokenizer = tokenizer
+                #self.tokenizer = tokenizer
                 self.class_captions = class_captions
                 self.concept_captions = concept_captions
 
@@ -505,13 +505,13 @@ class NetworkTrainer:
                 te_example = {}
                 class_caption = self.class_captions[idx]
                 concept_caption = self.concept_captions[idx]
-                class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
-                concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
-                te_example['class_token_ids'] = class_token_ids
-                te_example['concept_token_ids'] = concept_token_ids
+                #class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
+                #concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
+                te_example['class_token_ids'] = class_caption
+                te_example['concept_token_ids'] = concept_caption
                 return te_example
 
-        pretraining_datset = TE_dataset(tokenizer=tokenizer,
+        pretraining_datset = TE_dataset(#tokenizer=tokenizer,
                                         class_captions  =class_captions,
                                         concept_captions=concept_captions)
         pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
@@ -814,10 +814,7 @@ class NetworkTrainer:
         progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process,
                             desc="steps")
         global_step = 0
-        noise_scheduler = DDPMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000,
-            clip_sample=False
-        )
+        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False)
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
@@ -912,8 +909,7 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
-                            text_encoder_conds, trg_index_list = self.get_text_cond(args, accelerator,
-                                                                                    batch, tokenizers,
+                            text_encoder_conds, trg_index_list = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                                     text_encoders, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
