@@ -1215,6 +1215,9 @@ class BaseDataset(torch.utils.data.Dataset):
                         else:
                             token_caption2 = self.get_input_ids(caption, self.tokenizers[1])
                         input_ids2_list.append(token_caption2)
+
+
+
         example = {}
         example["mask_dirs"] = mask_dirs
         example["trg_indexs_list"] = trg_indexs_list
@@ -1222,7 +1225,6 @@ class BaseDataset(torch.utils.data.Dataset):
         example["absolute_paths"] = absolute_paths
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
-
         if len(text_encoder_outputs1_list) == 0:
             if self.token_padding_disabled :
                 # padding=True means pad in the batch
@@ -1271,6 +1273,7 @@ class BaseDataset(torch.utils.data.Dataset):
         example["flippeds"] = flippeds
         if self.debug_dataset:
             example["image_keys"] = bucket[image_index : image_index + self.batch_size]
+
         return example
 
     def get_item_for_caching(self, bucket, bucket_batch_size, image_index):

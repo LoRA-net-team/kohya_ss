@@ -502,17 +502,20 @@ class NetworkTrainer:
                 return len(self.class_captions)
 
             def __getitem__(self, idx):
+                te_example = {}
                 class_caption = self.class_captions[idx]
                 concept_caption = self.concept_captions[idx]
                 class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
                 concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
-                return class_token_ids, concept_token_ids
+                te_example['class_token_ids'] = class_token_ids
+                te_example['concept_token_ids'] = concept_token_ids
+                return te_example
 
         pretraining_datset = TE_dataset(tokenizer=tokenizer,class_captions=class_captions,concept_captions=concept_captions)
         pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,batch_size=args.train_batch_size)
         first_data = pretraining_datset.__getitem__(0)
         print(f'first_data: {first_data}')
-        """
+
         # acceleratorがなんかよろしくやってくれるらしい
         # TODO めちゃくちゃ冗長なのでコードを整理する
         if train_unet and train_text_encoder:
@@ -533,7 +536,7 @@ class NetworkTrainer:
             else:
                 pretraining_dataloader, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
                 text_encoders = [text_encoder]
-            unet.to(accelerator.device,           dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+            unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
         else:
             pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler)
         # transform DDP after prepare (train_network here only)
@@ -578,6 +581,19 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for step, batch in enumerate(pretraining_dataloader):
                 print(f'epoch : {epoch}, step : {step}')
+
+
+
+
+
+
+
+
+
+
+
+                                    
+        """                                    
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
