@@ -591,6 +591,7 @@ class NetworkTrainer:
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 class_captions = batch['class_token_ids']
+                print(f'class_captions : {class_captions}')
 
                 # 2,3,77
                 class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer)
