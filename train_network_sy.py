@@ -260,7 +260,8 @@ class NetworkTrainer:
         cls_token = 49406
         pad_token = 49407
         trg_token_id, index_list = [], []
-        for index, token_id in enumerate(input_ids):
+        flattened_input_ids = torch.flatten(input_ids)
+        for index, token_id in enumerate(flattened_input_ids):
             if token_id != cls_token and token_id != pad_token :
                 trg_token_id.append(token_id)
                 index_list.append(index)
@@ -269,8 +270,14 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)
+        print(f'input_ids : {input_ids.shape}')
         org_index_list = self.extract_triggerword_index(input_ids)
         print(f'org_index_list : {org_index_list}')
+
+        # ---------------------------------------------------------------------------------------------------------------
+        # shuffling original index
+        #def shuffling_text_tokens(self, ) :
+
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         batch, sen_len, dim = encoder_hidden_states.shape
         print(f'encoder_hidden_states : {encoder_hidden_states.shape}')
@@ -933,7 +940,12 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
+                            text_encoder_conds = self.get_text_cond(args,
+                                                                    accelerator,
+                                                                    batch,
+                                                                    tokenizers,
+                                                                    text_encoders,
+                                                                    weight_dtype)
 
 
 

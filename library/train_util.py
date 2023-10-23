@@ -1165,12 +1165,12 @@ class BaseDataset(torch.utils.data.Dataset):
                     if self.XTI_layers:
                         token_caption = self.get_input_ids(caption_layer, self.tokenizers[0])
                     else:
+                        # ------------------------------------------------------------------------------------------------------------------------------
+                        # caption token index
                         token_caption = self.get_input_ids(caption,self.tokenizers[0])
+                        # ------------------------------------------------------------------------------------------------------------------------------
+                        #  class_token_index
                         class_token_caption = self.get_input_ids(class_caption,self.tokenizers[0])
-                    # ------------------------------------------------------------------------------------------------------------------------------
-                    # ------------------------------------------------------------------------------------------------------------------------------
-                    print(f'token_caption: {token_caption}')
-                    print(f'class_token_caption: {class_token_caption}')
                     # ------------------------------------------------------------------------------------------------------------------------------
                     # ------------------------------------------------------------------------------------------------------------------------------
                     # ------------------------------------------------------------------------------------------------------------------------------
@@ -1207,8 +1207,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         return trg_indexs
 
 
-                    trg_indexs = generate_text_embedding(caption,
-                                                         self.tokenizers[0])
+                    trg_indexs = generate_text_embedding(caption,  self.tokenizers[0])
                     trg_indexs_list.append(trg_indexs)
                     #------------------------------------------------------------------------------------------
                     if len(self.tokenizers) > 1:
@@ -1229,7 +1228,9 @@ class BaseDataset(torch.utils.data.Dataset):
             if self.token_padding_disabled :
                 # padding=True means pad in the batch
                 example["input_ids"] = self.tokenizer[0](captions,
-                                                         padding=True, truncation=True, return_tensors="pt").input_ids  # token idx
+                                                         padding=True,
+                                                         truncation=True,
+                                                         return_tensors="pt").input_ids  # token idx
                 example["class_input_ids"] = self.tokenizer[0](class_captions,
                                                                padding=True,
                                                                truncation=True,
