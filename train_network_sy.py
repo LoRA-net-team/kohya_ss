@@ -285,6 +285,7 @@ class NetworkTrainer:
         #def shuffling_text_tokens(self, ) :
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
         batch_num, sen_len, dim = encoder_hidden_states.shape # [2,227,768]
+        trg_index_list = []
         for batch_index in range(batch_num) :
 
 
@@ -292,25 +293,20 @@ class NetworkTrainer:
             org_index = batch_index_list[batch_index]                           # [1]
             org_index = org_index[0]
             org_vector = org_embedding[org_index, :]
-            print(f'org_embedding  : {org_embedding}')
-            print(f'org_index : {org_index}')
-
+            #print(f'org_embedding  : {org_embedding}')
+            #print(f'org_index : {org_index}')
             trg_embedding = org_embedding[torch.randperm(org_embedding.size()[0])]
             trg_index = torch.where(trg_embedding == org_vector)[0][0]
-            print(f'trg_text  : {trg_embedding}')
-            print(f'trg_index : {trg_index}')
-
-
+            #print(f'trg_embedding  : {trg_embedding}')
+            #print(f'trg_index : {trg_index}')
             #org_text = torch.randn((3, 4))
             #print(org_text)
             #org_index = 1
 
             #print(trg_index)
-
-
-
-
-        return encoder_hidden_states
+            encoder_hidden_states[batch_index] = trg_embedding
+            trg_index_list.append([trg_index])
+        return encoder_hidden_states, trg_index_list
 
     def call_unet(self,
                   args, accelerator, unet,
@@ -955,7 +951,7 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds = self.get_text_cond(args,
+                            text_encoder_conds, trg_index_list = self.get_text_cond(args,
                                                                     accelerator,
                                                                     batch,
                                                                     tokenizers,
@@ -974,7 +970,8 @@ class NetworkTrainer:
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
                                                     batch,weight_dtype,
-                                                    batch["trg_indexs_list"],
+                                                    #batch["trg_indexs_list"]
+                                                    trg_index_list,
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
