@@ -521,6 +521,8 @@ class NetworkTrainer:
                                                              persistent_workers=args.persistent_data_loader_workers, )
         first_data = pretraining_datset.__getitem__(0)
         print(f'first_data: {first_data}')
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 
         # acceleratorがなんかよろしくやってくれるらしい
         # TODO めちゃくちゃ冗長なのでコードを整理する
@@ -545,12 +547,9 @@ class NetworkTrainer:
             unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
         else:
             pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler)
-        # transform DDP after prepare (train_network here only)
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
-
         if args.gradient_checkpointing:
-            # according to TI example in Diffusers, train is required
             unet.train()
             for t_enc in text_encoders:
                 t_enc.train()
