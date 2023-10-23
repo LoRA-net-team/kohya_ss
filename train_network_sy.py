@@ -295,15 +295,17 @@ class NetworkTrainer:
             #print(f'org_index : {org_index}')
             trg_embedding = org_embedding[torch.randperm(org_embedding.size()[0])]
             trg_index = torch.where(trg_embedding == org_vector)[0][0]
-            #print(f'trg_embedding  : {trg_embedding}')
-            #print(f'trg_index : {trg_index}')
-            #org_text = torch.randn((3, 4))
-            #print(org_text)
-            #org_index = 1
+            # ---------------------------------------------------------------------------------------------------------------
+            while trg_index != 0 :
+                #print(f'trg_embedding  : {trg_embedding}')
+                #print(f'trg_index : {trg_index}')
+                #org_text = torch.randn((3, 4))
+                #print(org_text)
+                #org_index = 1
+                #print(trg_index)
+                encoder_hidden_states[batch_index] = trg_embedding
+                trg_index_list.append([trg_index])
 
-            #print(trg_index)
-            encoder_hidden_states[batch_index] = trg_embedding
-            trg_index_list.append([trg_index])
         return encoder_hidden_states, trg_index_list
 
     def call_unet(self,
