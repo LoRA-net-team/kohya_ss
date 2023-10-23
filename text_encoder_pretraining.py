@@ -236,6 +236,7 @@ class NetworkTrainer:
         tokenizer_max_length = args.max_token_length + 2
         # [1,77]
         input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=tokenizer_max_length, return_tensors="pt").input_ids
+        print(f'input_ids : {input_ids.shape}')
         if tokenizer_max_length > tokenizer.model_max_length:
             input_ids = input_ids.squeeze(0)
             iids_list = []
