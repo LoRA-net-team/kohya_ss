@@ -224,8 +224,6 @@ class NetworkTrainer:
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         # 2,3,77
         input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
-
-
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
                                                              tokenizers[0], text_encoders[0],
                                                              weight_dtype)
@@ -593,10 +591,8 @@ class NetworkTrainer:
                 # ['sentence']
                 class_captions = batch['class_token_ids']
                 # [3,77]
-                class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer)
+                class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer).unsqueeze(0)
                 print(f'class_captions_input_ids : {class_captions_input_ids.shape}')
-
-
                 # [3,77,768]
                 class_captions_hidden_states = train_util.get_hidden_states(args,
                                                                             class_captions_input_ids.to(accelerator.device),
@@ -605,7 +601,7 @@ class NetworkTrainer:
                 print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_token_ids']
-                concept_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer)
+                concept_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer).unsqueeze(0)
                 concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders[0],
                                                                               weight_dtype)
@@ -912,6 +908,9 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
+                            
+                            
+                            
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
                             print(f'original text encoder embedding (expect 6,77,768) : {text_encoder_conds.shape}') # -> [2,77,768]
@@ -1140,7 +1139,6 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
     """
 
 if __name__ == "__main__":
