@@ -510,8 +510,9 @@ class NetworkTrainer:
 
         pretraining_datset = TE_dataset(tokenizer=tokenizer,class_captions=class_captions,concept_captions=concept_captions)
         pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,batch_size=args.train_batch_size)
-
-
+        first_data = pretraining_datset.__getitem__(0)
+        print(f'first_data: {first_data}')
+        """
         # acceleratorがなんかよろしくやってくれるらしい
         # TODO めちゃくちゃ冗長なのでコードを整理する
         if train_unet and train_text_encoder:
@@ -984,16 +985,16 @@ class NetworkTrainer:
                                                                  reduction="none")
                             loss_ = loss_.mean()
                             attn_loss = attn_loss + args.attn_loss_ratio * loss_
-                            """
-                            sum_of_attn = sum(atten_collection[layer_name])
-                            if attn_loss:
-                                attn_loss = attn_loss + sum_of_attn
-                            else:
-                                attn_loss = sum_of_attn
+                            
+                            #sum_of_attn = sum(atten_collection[layer_name])
+                            #if attn_loss:
+                            #    attn_loss = attn_loss + sum_of_attn
+                            #else:
+                            #    attn_loss = sum_of_attn
                             # attention_losses[layer_name] = sum_of_attn but detach
-                            attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
-                            print(f'{layer_name} : {word_heatmap.shape}')
-                            """
+                            #attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
+                            #print(f'{layer_name} : {word_heatmap.shape}')
+                            
                             attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
 
@@ -1118,7 +1119,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
+    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
