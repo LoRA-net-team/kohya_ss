@@ -9,24 +9,13 @@ import random
 import time
 import json
 from multiprocessing import Value
-import toml
 from tqdm import tqdm
 import toml
 import tempfile
 import torch
-try:
-    from setproctitle import setproctitle
-except (ImportError, ModuleNotFoundError):
-    setproctitle = lambda x: None
-try:
-    import intel_extension_for_pytorch as ipex
-
-    if torch.xpu.is_available():
-        from library.ipex import ipex_init
-
-        ipex_init()
-except Exception:
-    pass
+from torch import nn
+import torch.nn.functional as F
+from setproctitle import setproctitle
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
 from library import model_util
@@ -36,16 +25,18 @@ import library.config_util as config_util
 from library.config_util import (ConfigSanitizer, BlueprintGenerator, )
 import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,
-                                            prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction, add_v_prediction_like_loss, )
-from torch import nn
-import torch.nn.functional as F
-
+from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,scale_v_prediction_loss_like_noise_prediction, add_v_prediction_like_loss, )
 from functools import lru_cache
 from attention_store import AttentionStore
 from transformers import AutoTokenizer, T5ForConditionalGeneration
-
+import wandb
+try:
+    import intel_extension_for_pytorch as ipex
+    if torch.xpu.is_available():
+        from library.ipex import ipex_init
+        ipex_init()
+except Exception:
+    pass
 
 
 @lru_cache(maxsize=128)
@@ -61,15 +52,11 @@ def match_layer_name(layer_name: str, regex_list_str: str) -> bool:
     return False
 
 
-def register_attention_control(unet: nn.Module,
-                               controller: AttentionStore,
-                               mask_threshold: float = 1):  # if mask_threshold is 1, use itself
+def register_attention_control(unet: nn.Module,controller: AttentionStore, mask_threshold: float = 1):  # if mask_threshold is 1, use itself
     """
     Register cross attention layers to controller.
     """
-
     def ca_forward(self, layer_name):
-
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
             is_cross_attention = False
             if context is not None:
@@ -78,20 +65,16 @@ def register_attention_control(unet: nn.Module,
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-            attention_scores = torch.baddbmm(
-                torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
-                            device=query.device),
-                query, key.transpose(-1, -2), beta=0, alpha=self.scale, )
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
+                                             query, key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
-
             if is_cross_attention:
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
@@ -124,7 +107,6 @@ def register_attention_control(unet: nn.Module,
                         # attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
                         #                                         reduction = 'none')
                         controller.store(word_heat_map_, layer_name)
-
                 # check if torch.no_grad() is in effect
                 elif torch.is_grad_enabled():  # if not, while training, trg_indexs_list should not be None
                     if mask is None:
@@ -132,16 +114,11 @@ def register_attention_control(unet: nn.Module,
                             "mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
                     raise RuntimeError(
                         "trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
-
             hidden_states = torch.bmm(attention_probs, value)
-            # if is_cross_attention :
-            #    print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
-
         return forward
-
     def register_recr(net_, count, layer_name):
         if net_.__class__.__name__ == 'CrossAttention':
             net_.forward = ca_forward(net_, layer_name)
@@ -151,7 +128,6 @@ def register_attention_control(unet: nn.Module,
                 full_name = f'{layer_name}_{name__}'
                 count = register_recr(net__, count, full_name)
         return count
-
     cross_att_count = 0
     for net in unet.named_children():
         if "down" in net[0]:
@@ -170,15 +146,14 @@ def arg_as_list(s):
 
 
 class NetworkTrainer:
+
     def __init__(self):
         self.vae_scale_factor = 0.18215
         self.is_sdxl = False
 
     # TODO 他のスクリプトと共通化する
-    def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
-                           keys_scaled=None, mean_norm=None, maximum_norm=None, **kwargs):
+    def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,keys_scaled=None, mean_norm=None, maximum_norm=None, **kwargs):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
-
         # ------------------------------------------------------------------------------------------------------------------------------
         # updating kwargs with new loss logs ...
         if kwargs is not None:
@@ -197,29 +172,18 @@ class NetworkTrainer:
                 logs["lr/textencoder"] = float(lrs[0])
                 logs["lr/unet"] = float(lrs[-1])  # may be same to textencoder
 
-            if (
-                    args.optimizer_type.lower().startswith(
-                        "DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower()
-            ):  # tracking d*lr value of unet.
-                logs["lr/d*lr"] = (
-                        lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0][
-                    "lr"]
-                )
+            if (args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower()):  # tracking d*lr value of unet.
+                logs["lr/d*lr"] = (lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"])
         else:
             idx = 0
             if not args.network_train_unet_only:
                 logs["lr/textencoder"] = float(lrs[0])
                 idx = 1
-
             for i in range(idx, len(lrs)):
                 logs[f"lr/group{i}"] = float(lrs[i])
                 if args.optimizer_type.lower().startswith(
                         "DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower():
-                    logs[f"lr/d*lr/group{i}"] = (
-                            lr_scheduler.optimizers[-1].param_groups[i]["d"] *
-                            lr_scheduler.optimizers[-1].param_groups[i]["lr"]
-                    )
-
+                    logs[f"lr/d*lr/group{i}"] = (lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"])
         return logs
 
     def assert_extra_args(self, args, train_dataset_group):
@@ -241,47 +205,13 @@ class NetworkTrainer:
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
-    """
-    def generate_text_embedding(caption, tokenizer):
-        cls_token = 49406
-        pad_token = 49407
-        token_input = tokenizer([trg_concept],
-                                padding="max_length",
-                                max_length=tokenizer.model_max_length,
-                                truncation=True,
-                                return_tensors="pt", )  # token_input = 24215
-        token_ids = token_input.input_ids[0]
-        token_attns = token_input.attention_mask[0]
-        trg_token_id = []
-        for token_id, token_attn in zip(token_ids, token_attns):
-            if token_id != cls_token and token_id != pad_token and token_attn == 1:
-                # token_id = 24215
-                trg_token_id.append(token_id)
-        text_input = tokenizer(caption,
-                               padding="max_length",
-                               max_length=tokenizer.model_max_length,
-                               truncation=True,
-                               return_tensors="pt", )
-        token_ids = text_input.input_ids
-        attns = text_input.attention_mask
-        for token_id, attn in zip(token_ids, attns):
-            trg_indexs = []
-            for i, id in enumerate(token_id):
-                if id in trg_token_id:
-                    trg_indexs.append(i)
-        return trg_indexs
-
-    """
-
     def extract_triggerword_index(self, input_ids):
         cls_token = 49406
         pad_token = 49407
-
         if input_ids.dim() == 3:
             input_ids = torch.flatten(input_ids, start_dim=1)
         batch_num, sen_len = input_ids.size()
         batch_index_list = []
-
         for batch_index in range(batch_num):
             token_ids = input_ids[batch_index, :].squeeze()
             index_list = []
@@ -293,13 +223,15 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
+        """
         batch_index_list = self.extract_triggerword_index(input_ids)  # [ [1], [1] ]
-
         # ---------------------------------------------------------------------------------------------------------------
         # shuffling original index
         # def shuffling_text_tokens(self, ) :
+        """
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0],
                                                              weight_dtype)
+        """
         batch_num, sen_len, dim = encoder_hidden_states.shape  # [2,227,768]
         trg_index_list = []
         for batch_index in range(batch_num):
@@ -321,8 +253,9 @@ class NetworkTrainer:
                 # print(trg_index)
                 encoder_hidden_states[batch_index] = trg_embedding
                 trg_index_list.append([trg_index])
-
         return encoder_hidden_states, trg_index_list
+        """
+        return encoder_hidden_states
 
     def call_unet(self,
                   args, accelerator, unet,
@@ -341,30 +274,31 @@ class NetworkTrainer:
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet)
 
     def train(self, args):
+
+        print(f'step 1. set process title')
         if args.process_title:
             setproctitle(args.process_title)
         else:
             setproctitle('parksooyeon')
-
         session_id = random.randint(0, 2 ** 32)
         training_started_at = time.time()
         train_util.verify_training_args(args)
         train_util.prepare_dataset_args(args, True)
-
         cache_latents = args.cache_latents
         use_dreambooth_method = args.in_json is None
         use_user_config = args.dataset_config is not None
         use_class_caption = args.class_caption is not None  # if class_caption is provided, for subsets, add key 'class_caption' to each subset
 
+        print(f'step 2. set seed')
         if args.seed is None:
             args.seed = random.randint(0, 2 ** 32)
         set_seed(args.seed)
 
-        # tokenizerは単体またはリスト、tokenizersは必ずリスト：既存のコードとの互換性のため
+        print(f'step 3. tokenizer')
         tokenizer = self.load_tokenizer(args)
         tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
 
-        # データセットを準備する
+        print(f'step 4. dataset')
         if args.dataset_class is None:
             blueprint_generator = BlueprintGenerator(ConfigSanitizer(True, True, False, True))
             if use_user_config:
@@ -372,27 +306,22 @@ class NetworkTrainer:
                 user_config = config_util.load_user_config(args.dataset_config)
                 ignored = ["train_data_dir", "reg_data_dir", "in_json"]
                 if any(getattr(args, attr) is not None for attr in ignored):
-                    print(
-                        "ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(
-                            ", ".join(ignored)))
+                    print("ignoring the following options because config file is found: {0} / 設定ファイルが利用されるため以下のオプションは無視されます: {0}".format(", ".join(ignored)))
             else:
                 if use_dreambooth_method:
                     print("Using DreamBooth method.")
                     user_config = {}
                     user_config['datasets'] = [{"subsets": None}]
                     subsets_dict_list = []
-                    for subsets_dict in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir,
-                                                                                                  args.reg_data_dir):
+                    for subsets_dict in config_util.generate_dreambooth_subsets_config_by_subdirs(args.train_data_dir,args.reg_data_dir):
                         if use_class_caption:
                             subsets_dict['class_caption'] = args.class_caption
                         subsets_dict_list.append(subsets_dict)
                         user_config['datasets'][0]['subsets'] = subsets_dict_list
                 else:
-                    print("Training with captions.")
                     user_config = {}
                     user_config["datasets"] = []
-                    user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir,
-                                                                 "metadata_file": args.in_json, }]})
+                    user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir,"metadata_file": args.in_json, }]})
                     # add class_caption to each subset
                     if use_class_caption:
                         for subset in user_config["datasets"][0]["subsets"]:
@@ -400,15 +329,12 @@ class NetworkTrainer:
             print(f'User config: {user_config}')
             # blueprint_generator = BlueprintGenerator
             print('start of generate function ...')
-            blueprint = blueprint_generator.generate(user_config,
-                                                     args,
-                                                     tokenizer=tokenizer)
-            # blueprint = Blueprint(dataset_group_blueprint)
-            # generate_dataset_group_by_blueprint ?
-            # train_dataset_group = DatasetGroup(datasets)
+            blueprint = blueprint_generator.generate(user_config,args,tokenizer=tokenizer)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
+
+        print(f'step 5. epoch info')
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collater = train_dataset_group if args.max_data_loader_n_workers == 0 else None
@@ -417,53 +343,42 @@ class NetworkTrainer:
             train_util.debug_dataset(train_dataset_group)
             return
         if len(train_dataset_group) == 0:
-            print(
-                "No data found. Please verify arguments (train_data_dir must be the parent of folders with images) ）")
+            print("No data found. Please verify arguments (train_data_dir must be the parent of folders with images) ）")
             return
 
         if cache_latents:
-            assert (
-                train_dataset_group.is_latent_cacheable()
-            ), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
+            assert (train_dataset_group.is_latent_cacheable()), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
         self.assert_extra_args(args, train_dataset_group)
 
-        # acceleratorを準備する
-        print("preparing accelerator")
+        print(f'step 6. preparing accelerator')
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
         if args.log_with == 'wandb' and is_main_process:
-            import wandb
-            wandb.init(project=args.wandb_init_name,
-                       name=args.wandb_run_name)
+            wandb.init(project=args.wandb_init_name, name=args.wandb_run_name)
 
+        print(f'step 7. save directory')
         save_base_dir = args.output_dir
         _, folder_name = os.path.split(save_base_dir)
-        # save config
         record_save_dir = os.path.join(args.output_dir, "record")
         os.makedirs(record_save_dir, exist_ok=True)
         with open(os.path.join(record_save_dir, 'config.json'), 'w') as f:
             json.dump(vars(args), f, indent=4)
 
-        # mixed precisionに対応した型を用意しておき適宜castする
+        print(f'step 8. mixed precision')
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
 
-        # モデルを読み込む
+        print(f'step 9. SD model')
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
-
-        # text_encoder is List[CLIPTextModel] or CLIPTextModel
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-
-        # モデルに xformers とか memory efficient attention を組み込む
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
             vae.set_use_memory_efficient_attention_xformers(args.xformers)
 
-        # 差分追加学習のためにモデルを読み込む
+        print(f'step 10. Lora')
         sys.path.append(os.path.dirname(__file__))
         accelerator.print("import network module:", args.network_module)
         network_module = importlib.import_module(args.network_module)
-
         if args.base_weights is not None:
             # base_weights が指定されている場合は、指定された重みを読み込みマージする
             for i, weight_path in enumerate(args.base_weights):
@@ -472,61 +387,40 @@ class NetworkTrainer:
                 else:
                     multiplier = args.base_weights_multiplier[i]
                 accelerator.print(f"merging module: {weight_path} with multiplier {multiplier}")
-                module, weights_sd = network_module.create_network_from_weights(
-                    multiplier, weight_path, vae, text_encoder, unet, for_inference=True)
-                module.merge_to(text_encoder, unet, weights_sd, weight_dtype,
-                                accelerator.device if args.lowram else "cpu")
+                module, weights_sd = network_module.create_network_from_weights(multiplier, weight_path, vae, text_encoder, unet, for_inference=True)
+                module.merge_to(text_encoder, unet, weights_sd, weight_dtype,accelerator.device if args.lowram else "cpu")
             accelerator.print(f"all weights merged: {', '.join(args.base_weights)}")
 
-        # 学習を準備する
+        print(f'step 11. vae model')
         if cache_latents:
             vae.to(accelerator.device, dtype=vae_dtype)
             vae.requires_grad_(False)
             vae.eval()
             with torch.no_grad():
-                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk,
-                                                  accelerator.is_main_process)
+                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk,accelerator.is_main_process)
             vae.to("cpu")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
             accelerator.wait_for_everyone()
 
-        # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
-        self.cache_text_encoder_outputs_if_needed(
-            args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
-
-        # prepare network
+        print(f'step 12. text encoder')
+        self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
         net_kwargs = {}
         if args.network_args is not None:
             for net_arg in args.network_args:
                 key, value = net_arg.split("=")
                 net_kwargs[key] = value
-        # if a new network is added in future, add if ~ then blocks for each network (;'∀')
         if args.dim_from_weights:
-            network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet,
-                                                                    **net_kwargs)
+            network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet,**net_kwargs)
         else:
-            # LyCORIS will work with this...
-            network = network_module.create_network(
-                1.0,
-                args.network_dim,
-                args.network_alpha,
-                vae,
-                text_encoder,
-                unet,
-                neuron_dropout=args.network_dropout,
-                **net_kwargs,
-            )
+            network = network_module.create_network(1.0,args.network_dim,args.network_alpha,vae,text_encoder,unet,neuron_dropout=args.network_dropout,**net_kwargs,)
         if network is None:
             return
-
         if hasattr(network, "prepare_network"):
             network.prepare_network(args)
         if args.scale_weight_norms and not hasattr(network, "apply_max_norm_regularization"):
-            print(
-                "warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
-            )
+            print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません")
             args.scale_weight_norms = False
         train_unet = not args.network_train_text_encoder_only
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
@@ -540,102 +434,107 @@ class NetworkTrainer:
                 t_enc.gradient_checkpointing_enable()
             del t_enc
             network.enable_gradient_checkpointing()  # may have no effect
-        # 学習に必要なクラスを準備する
+
+        print(f'step 13. optimizer')
         accelerator.print("prepare optimizer, data loader etc.")
         # 後方互換性を確保するよ
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         except TypeError:
-            accelerator.print(
-                "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)"
-            )
+            accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
 
-        # dataloaderを準備する
-        # DataLoaderのプロセス数：0はメインプロセスになる
+        print(f'step 14. dataloader')
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-        train_dataloader = torch.utils.data.DataLoader(
-            train_dataset_group,
-            batch_size=1,
-            shuffle=True,
-            collate_fn=collater,
-            num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers, )
+        train_dataloader = torch.utils.data.DataLoader(train_dataset_group,batch_size=1,shuffle=True,
+                                                       collate_fn=collater,num_workers=n_workers,persistent_workers=args.persistent_data_loader_workers, )
 
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
-            args.max_train_steps = args.max_train_epochs * math.ceil(
-                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps
-            )
-            accelerator.print(
-                f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}"
-            )
-
+            args.max_train_steps = args.max_train_epochs * math.ceil(len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
+            accelerator.print(f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
         # データセット側にも学習ステップを送信
         train_dataset_group.set_max_train_steps(args.max_train_steps)
-
         # lr schedulerを用意する
-        lr_scheduler = train_util.get_scheduler_fix(args,
-                                                    optimizer, accelerator.num_processes)
+        lr_scheduler = train_util.get_scheduler_fix(args,optimizer, accelerator.num_processes)
 
         # 実験的機能：勾配も含めたfp16/bf16学習を行う　モデル全体をfp16/bf16にする
         if args.full_fp16:
-            assert (args.mixed_precision == "fp16"
-                    ), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
+            assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
             accelerator.print("enable full fp16 training.")
             network.to(weight_dtype)
         elif args.full_bf16:
-            assert (
-                    args.mixed_precision == "bf16"
-            ), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
+            assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
             accelerator.print("enable full bf16 training.")
             network.to(weight_dtype)
-
         unet.requires_grad_(False)
         unet.to(dtype=weight_dtype)
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
 
+        print(f'step 15. pretraining T5 model calling')
+        sen_gen_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xl")
+        sen_gen_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl", device_map="auto",torch_dtype=torch.float16)
+
+        print(f'step 16. generate sentences')
+        class_token = args.class_token
+        trg_concept = args.trg_concept
+        num_sentences = 100
+        def generate_captions(input_prompt):
+            input_ids = sen_gen_tokenizer(input_prompt, return_tensors="pt").input_ids.to("cuda")
+            outputs = sen_gen_model.generate(input_ids, temperature=0.8,num_return_sequences=num_sentences,do_sample=True, max_new_tokens=128, top_k=10)
+            return tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        class_captions = generate_captions(class_token)
+        concept_captions = []
+        for source_caption in class_captions:
+            concept_caption = source_caption.replace(class_token, trg_concept)
+            concept_captions.append(concept_caption)
+
+        print(f'step 17. text encoder pretraining dataset and dataloader')
+        class TE_dataset(torch.utils.data.Dataset):
+            def __init__(self, tokenizer, class_captions, concept_captions):
+                self.tokenizer = tokenizer
+                self.class_captions = class_captions
+                self.concept_captions = concept_captions
+
+            def __len__(self):
+                return len(self.class_captions)
+
+            def __getitem__(self, idx):
+                class_caption = self.class_captions[idx]
+                concept_caption = self.concept_captions[idx]
+                class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
+                concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
+                return class_token_ids, concept_token_ids
+
+        pretraining_datset = TE_dataset(tokenizer=tokenizer,class_captions=class_captions,concept_captions=concept_captions)
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,batch_size=args.train_batch_size)
+
+
         # acceleratorがなんかよろしくやってくれるらしい
         # TODO めちゃくちゃ冗長なのでコードを整理する
         if train_unet and train_text_encoder:
             if len(text_encoders) > 1:
-                unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler
-                )
+                pretraining_dataloader, unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
                 text_encoder = text_encoders = [t_enc1, t_enc2]
                 del t_enc1, t_enc2
             else:
-                unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler
-                )
+                pretraining_dataloader, unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
                 text_encoders = [text_encoder]
         elif train_unet:
-            unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                unet, network, optimizer, train_dataloader, lr_scheduler
-            )
+            pretraining_dataloader, unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, unet, network, optimizer, train_dataloader, lr_scheduler)
         elif train_text_encoder:
             if len(text_encoders) > 1:
-                t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler
-                )
+                pretraining_dataloader, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
                 text_encoder = text_encoders = [t_enc1, t_enc2]
                 del t_enc1, t_enc2
             else:
-                text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    text_encoder, network, optimizer, train_dataloader, lr_scheduler
-                )
+                pretraining_dataloader, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
                 text_encoders = [text_encoder]
-
-            unet.to(accelerator.device,
-                    dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+            unet.to(accelerator.device,           dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
         else:
-            network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                network, optimizer, train_dataloader, lr_scheduler
-            )
-
+            pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler)
         # transform DDP after prepare (train_network here only)
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
@@ -645,12 +544,8 @@ class NetworkTrainer:
             unet.train()
             for t_enc in text_encoders:
                 t_enc.train()
-
-                # set top parameter requires_grad = True for gradient checkpointing works
                 if train_text_encoder:
                     t_enc.text_model.embeddings.requires_grad_(True)
-
-            # set top parameter requires_grad = True for gradient checkpointing works
             if not train_text_encoder:  # train U-Net only
                 unet.parameters().__next__().requires_grad_(True)
         else:
@@ -659,20 +554,13 @@ class NetworkTrainer:
                 t_enc.eval()
         del t_enc
         network.prepare_grad_etc(text_encoder, unet)
-
         if not cache_latents:  # キャッシュしない場合はVAEを使うのでVAEを準備する
             vae.requires_grad_(False)
             vae.eval()
             vae.to(accelerator.device, dtype=vae_dtype)
-
-        # 実験的機能：勾配も含めたfp16学習を行う　PyTorchにパッチを当ててfp16でのgrad scaleを有効にする
         if args.full_fp16:
             train_util.patch_accelerator_for_fp16_training(accelerator)
-
-        # resumeする
         train_util.resume_from_local_or_hf_if_specified(accelerator, args)
-
-        # epoch数を計算する
         num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
         num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
@@ -682,6 +570,13 @@ class NetworkTrainer:
             register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
         else:
             attention_storer = None
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        print(f' *** step 18. text encoder pretraining *** ')
+        pretraining_epochs = 10
+        # training loop
+        for epoch in range(pretraining_epochs):
+            for step, batch in enumerate(pretraining_dataloader):
+                print(f'epoch : {epoch}, step : {step}')
 
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -943,57 +838,6 @@ class NetworkTrainer:
             if os.path.exists(old_ckpt_file):
                 accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
                 os.remove(old_ckpt_file)
-
-        print(f'step 1. call model')
-        sen_gen_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xl")
-        sen_gen_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl", device_map="auto",
-                                                           torch_dtype=torch.float16)
-        num_sentences = 100
-
-        print(f'step 2. token check')
-        class_token = args.class_token
-        trg_concept = args.trg_concept
-
-        print(f'step 3. generate sentences')
-        def generate_captions(input_prompt):
-            input_ids = sen_gen_tokenizer(input_prompt, return_tensors="pt").input_ids.to("cuda")
-            outputs = sen_gen_model.generate(input_ids, temperature=0.8,
-                                             num_return_sequences=num_sentences,
-                                             do_sample=True, max_new_tokens=128, top_k=10)
-            return tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        class_captions = generate_captions(class_token)
-        concept_captions = []
-        for source_caption in class_captions :
-            concept_caption = source_caption.replace(class_token, trg_concept)
-            concept_captions.append(concept_caption)
-
-        print(f'step 4. text encoder pretraining')
-        class TE_dataset(torch.utils.data.Dataset):
-            def __init__(self, tokenizer, class_captions, concept_captions):
-                self.tokenizer = tokenizer
-                self.class_captions = class_captions
-                self.concept_captions = concept_captions
-            def __len__(self):
-                return len(self.class_captions)
-            def __getitem__(self, idx):
-                class_caption = self.class_captions[idx]
-                concept_caption = self.concept_captions[idx]
-                class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
-                concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
-                return class_token_ids, concept_token_ids
-
-        pretraining_datset = TE_dataset(tokenizer=tokenizer,
-                                        class_captions=class_captions,
-                                        concept_captions=concept_captions)
-        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
-                                                            batch_size=args.train_batch_size)
-
-        pretraining_epochs = 10
-        # training loop
-        for epoch in range(pretraining_epochs):
-            for step, batch in enumerate(pretraining_dataloader) :
-                print(f'epoch : {epoch}, step : {step}')
-
 
 
 
