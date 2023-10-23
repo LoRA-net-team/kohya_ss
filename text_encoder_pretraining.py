@@ -512,8 +512,9 @@ class NetworkTrainer:
                 return te_example
 
         pretraining_datset = TE_dataset(tokenizer=tokenizer,class_captions=class_captions,concept_captions=concept_captions)
-        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,batch_size=args.train_batch_size,shuffle=True,
-                                                       collate_fn=collater,num_workers=n_workers,persistent_workers=args.persistent_data_loader_workers, )
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,batch_size=1,
+                                                             shuffle=True,
+                                                             collate_fn=collater,num_workers=n_workers,persistent_workers=args.persistent_data_loader_workers, )
         first_data = pretraining_datset.__getitem__(0)
         print(f'first_data: {first_data}')
 
