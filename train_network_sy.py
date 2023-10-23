@@ -266,7 +266,7 @@ class NetworkTrainer:
         batch_num, sen_len = input_ids.size()
         batch_index_list = []
         for batch_index in range(batch_num) :
-            token_ids = input_ids[batch_index, :]
+            token_ids = input_ids[batch_index, :].squeeze()
             index_list = []
             for index, token_id in enumerate(token_ids):
                 if token_id != cls_token and token_id != pad_token :
