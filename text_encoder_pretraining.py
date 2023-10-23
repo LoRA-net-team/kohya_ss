@@ -236,7 +236,6 @@ class NetworkTrainer:
         tokenizer_max_length = args.max_token_length + 2
         # [1,77]
         input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=tokenizer_max_length, return_tensors="pt").input_ids
-        print(f'input_ids : {input_ids.shape}')
         if tokenizer_max_length > tokenizer.model_max_length:
             input_ids = input_ids.squeeze(0)
             iids_list = []
@@ -521,7 +520,7 @@ class NetworkTrainer:
                                         class_captions  =class_captions,
                                         concept_captions=concept_captions)
         pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
-                                                             batch_size=2,
+                                                             batch_size=1,
                                                              shuffle=True,
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers, )
@@ -591,17 +590,19 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                # ['sentence']
                 class_captions = batch['class_token_ids']
-                print(f'class_captions : {class_captions}')
-
-                # 2,3,77
+                # [3,77]
                 class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer)
                 print(f'class_captions_input_ids : {class_captions_input_ids.shape}')
 
+
+                # [3,77,768]
                 class_captions_hidden_states = train_util.get_hidden_states(args,
                                                                             class_captions_input_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders[0],
                                                                             weight_dtype)
+                print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_token_ids']
                 concept_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer)
@@ -913,7 +914,7 @@ class NetworkTrainer:
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-                            print(f'original text encoder embedding (expect 6,77,768) : {text_encoder_conds.shape}')
+                            print(f'original text encoder embedding (expect 6,77,768) : {text_encoder_conds.shape}') # -> [2,77,768]
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
