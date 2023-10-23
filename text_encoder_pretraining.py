@@ -493,7 +493,8 @@ class NetworkTrainer:
 
         print(f'step 17. text encoder pretraining dataset and dataloader')
         class TE_dataset(torch.utils.data.Dataset):
-            def __init__(self, tokenizer, class_captions, concept_captions):
+            def __init__(self, #tokenizer,
+                         class_captions, concept_captions):
                 #self.tokenizer = tokenizer
                 self.class_captions = class_captions
                 self.concept_captions = concept_captions
