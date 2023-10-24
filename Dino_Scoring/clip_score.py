@@ -55,8 +55,7 @@ def main(args):
     conditions = os.listdir(base_img_folder)
 
     for condition in conditions:
-        if condition == 'iom_detailed_second' :
-
+        if condition == 'iom_total_attn' :
             elems = []
             elems.append(['epoch', 'avg_i2i_sim', 'avg_t2i_sim','harmonic_mean'])
             condition_dir = os.path.join(base_img_folder, condition)
