@@ -54,12 +54,103 @@ def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
             return True
     return False
 
-def register_attention_control(unet : nn.Module,
-                               controller:AttentionStore,
-                               mask_threshold:float=1): #if mask_threshold is 1, use itself
+def register_attention_control(unet : nn.Module, controller:AttentionStore, mask_threshold:float=1): #if mask_threshold is 1, use itself
     """
     Register cross attention layers to controller.
     """
+    def ca_forward(self, layer_name):
+
+        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
+            is_cross_attention = False
+            if context is not None:
+                is_cross_attention = True
+            query = self.to_q(hidden_states)
+            context = context if context is not None else hidden_states
+            key = self.to_k(context)
+            value = self.to_v(context)
+
+            query = self.reshape_heads_to_batch_dim(query)
+            key = self.reshape_heads_to_batch_dim(key)
+            value = self.reshape_heads_to_batch_dim(value)
+            if self.upcast_attention:
+                query = query.float()
+                key = key.float()
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
+                                                         device=query.device),
+                                             query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
+            attention_probs = attention_scores.softmax(dim=-1)
+            attention_probs = attention_probs.to(value.dtype)
+
+            if is_cross_attention:
+                if trg_indexs_list is not None and mask is not None:
+                    trg_indexs = trg_indexs_list
+                    batch_num = len(trg_indexs)
+                    attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
+                    for batch_idx, attention_prob in enumerate(attention_probs_batch) :
+                        batch_trg_index = trg_indexs[batch_idx] # two times
+                        head_num = attention_prob.shape[0]
+                        res = int(math.sqrt(attention_prob.shape[1]))
+                        word_heat_map_list = []
+                        for word_idx in batch_trg_index :
+                            # head, pix_len
+                            word_heat_map = attention_prob[:, :, word_idx]
+                            word_heat_map_ = word_heat_map.reshape(-1, res, res)
+                            word_heat_map_ = word_heat_map_.mean(dim=0)
+                            word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
+                                                           size=((512, 512)),mode='bicubic').squeeze()
+                            word_heat_map_list.append(word_heat_map_)
+
+                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
+                        # ------------------------------------------------------------------------------------------------------------------------------
+                        # mask = [512,512]
+                        mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
+                        # thresholding, convert to 1 if upper than threshold else itself
+                        mask_ = torch.where(mask_ > mask_threshold, torch.ones_like(mask_), mask_)
+                        # check if mask_ is frozen, it should not be updated
+                        assert mask_.requires_grad == False, 'mask_ should not be updated'
+                        masked_heat_map = word_heat_map_ * mask_
+                        attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
+                        controller.store(attn_loss, layer_name)
+                # check if torch.no_grad() is in effect
+                elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
+                    if mask is None:
+                        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
+                    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
+
+            hidden_states = torch.bmm(attention_probs, value)
+            #if is_cross_attention :
+            #    print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
+            hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
+            hidden_states = self.to_out[0](hidden_states)
+            return hidden_states
+        return forward
+
+    def register_recr(net_, count, layer_name):
+        if net_.__class__.__name__ == 'CrossAttention':
+            net_.forward = ca_forward(net_, layer_name)
+            return count + 1
+        elif hasattr(net_, 'children'):
+            for name__, net__ in net_.named_children():
+                full_name = f'{layer_name}_{name__}'
+                count = register_recr(net__, count, full_name)
+        return count
+
+    cross_att_count = 0
+    for net in unet.named_children():
+        if "down" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "up" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "mid" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+    controller.num_att_layers = cross_att_count
+"""    
+def register_attention_control(unet : nn.Module,
+                               controller:AttentionStore,
+                               mask_threshold:float=1): #if mask_threshold is 1, use itself
+    
+    Register cross attention layers to controller.
+    
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -151,7 +242,7 @@ def register_attention_control(unet : nn.Module,
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
-
+"""
 def arg_as_list(s):
     import ast
     v = ast.literal_eval(s)
@@ -1024,50 +1115,16 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 if 'down_blocks_1_attentions' not in layer_name :
-                                    word_heatmap_list = atten_collection[layer_name]
-                                    for batch_index in range(batch_num) :
-                                        word_heatmap = word_heatmap_list[batch_index]
-                                        if word_heatmap.dim() == 3:
-                                            word_heatmap = word_heatmap.mean(0)  # [512,512]
-                                        try :
-                                            heatmap_per_batch[batch_index].append(word_heatmap)
-                                        except :
-                                            heatmap_per_batch[batch_index] = []
-                                            heatmap_per_batch[batch_index].append(word_heatmap)
-                        batch_mask = batch['mask_imgs']
-                        for batch_idx in heatmap_per_batch.keys() :
-                            word_heatmap_list = heatmap_per_batch[batch_index]
-                            heatmap = torch.stack(word_heatmap_list, dim = 0) # [16,512,512]
-                            heatmap = heatmap.mean(0)
-                            mask = batch_mask[batch_idx]
-                            masked_heatmap = heatmap * mask
-                            loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(), heatmap.float(), reduction="none")
-                            loss_ = loss_.mean()
-                            attn_loss = attn_loss + args.attn_loss_ratio * loss_
-                            """
-                            sum_of_attn = sum(atten_collection[layer_name])
-                            if attn_loss:
-                                attn_loss = attn_loss + sum_of_attn
-                            else:
-                                attn_loss = sum_of_attn
-                            # attention_losses[layer_name] = sum_of_attn but detach
-                            attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
-                            print(f'{layer_name} : {word_heatmap.shape}')
-                            """
-                            attention_losses["loss/attention_loss"] = attn_loss
+                                    sum_of_attn = sum(atten_collection[layer_name])
+                                    attn_loss = attn_loss + sum_of_attn
+                                    attention_losses["loss/attention_loss_" + layer_name] = sum_of_attn
+                        attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
-
-                        if args.heatmap_backprop :
-                            loss = task_loss + args.attn_loss_ratio * attn_loss
-                    # ------------------------------------------------------------------------------------
-                    # recording attn loss
-                    if type(attn_loss) == float :
-                        attn_loss_record_elem = [epoch, global_step, attn_loss.item()]
-                    else :
-                        attn_loss_record_elem = [epoch, global_step, attn_loss]
-                    attn_loss_records.append(attn_loss_record_elem)
-                    # ------------------------------------------------------------------------------------
+                        loss = task_loss + args.attn_loss_ratio * attn_loss
+                    else:
+                        attention_losses = {}
                     accelerator.backward(loss)
+                    
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
@@ -1113,7 +1170,7 @@ class NetworkTrainer:
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 # detach attention_losses dict
                 attention_losses = {k: v.detach().item() for k, v in attention_losses.items()}
-                
+
                 progress_bar.set_postfix(**logs)
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
@@ -1230,10 +1287,10 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--mask_dir", type=str)
-    
+
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
-    
+
     #first_layers =  ['mid'] # "mid"
     #second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
     #third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
@@ -1265,11 +1322,11 @@ if __name__ == "__main__":
     else :
         args.attn_loss_layers = 'all'
 
-    
+
     # if any of only_second_training, only_third_training, second_third_training, first_second_third_training is True, print message to notify user that args.attn_loss_layers is overwritten
     if args.only_second_training or args.only_third_training or args.second_third_training or args.first_second_third_training:
         print(f"args.attn_loss_layers is overwritten to {args.attn_loss_layers} because only_second_training, only_third_training, second_third_training, first_second_third_training is True")
-    
+
     if args.wandb_init_name is not None:
         tempfile_new = tempfile.NamedTemporaryFile()
         print(f"Created temporary file: {tempfile_new.name}")
