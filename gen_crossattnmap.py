@@ -623,14 +623,17 @@ class PipelineLike:
                 " the batch size of `prompt`.")
 
         if not self.token_replacements_XTI:
-            text_embeddings, uncond_embeddings, prompt_tokens = get_weighted_text_embeddings(
-                pipe=self,
-                prompt=prompt,
-                uncond_prompt=negative_prompt if do_classifier_free_guidance else None,
-                max_embeddings_multiples=max_embeddings_multiples,
-                clip_skip=self.clip_skip,
-                **kwargs,
-            )
+
+
+            # prompt
+            # uncon_prompt
+            #
+            text_embeddings, uncond_embeddings, prompt_tokens = get_weighted_text_embeddings(pipe=self,
+                                                                                             prompt=prompt,
+                                                                                             uncond_prompt=negative_prompt if do_classifier_free_guidance else None,
+                                                                                             max_embeddings_multiples=max_embeddings_multiples,
+                                                                                             clip_skip=self.clip_skip,
+                                                                                             **kwargs,)
 
         if negative_scale is not None:
             _, real_uncond_embeddings, _ = get_weighted_text_embeddings(
@@ -1609,6 +1612,7 @@ def get_prompts_with_weights(pipe: PipelineLike, prompt: List[str], max_length: 
 
     for text in prompt:
         texts_and_weights = parse_prompt_attention(text)
+        print(f'texts_and_weights : {texts_and_weights}')
         text_token = []
         text_weight = []
         for word, weight in texts_and_weights:
@@ -1785,7 +1789,7 @@ def get_weighted_text_embeddings(
         if uncond_prompt is not None:
             if isinstance(uncond_prompt, str):
                 uncond_prompt = [uncond_prompt]
-            uncond_tokens, uncond_weights = get_prompts_with_weights(pipe, uncond_prompt, max_length - 2, layer=layer)
+            uncond_tokens, uncond_weights = get_prompts_with_weights(pipe, uncond_prompt, max_length - 2, layer=layer) # ----------------------------------------------------------------------------------
     else:
         prompt_tokens = [token[1:-1] for token in
                          pipe.tokenizer(prompt, max_length=max_length, truncation=True).input_ids]
@@ -2102,11 +2106,9 @@ def register_attention_control(unet, controller):
                 heat_map = _convert_heat_map_colors(im)
                 heat_map = heat_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 heat_map_img = Image.fromarray(heat_map)
-
                 # print(f'{layer_name} : self_attn_map : {self_attn_map.shape}')
                 # heat_map = self_attn_map.to('cpu').detach().numpy().copy().astype(np.uint8)
                 # heat_map_img = Image.fromarray(heat_map)
-
 
             if is_cross_attention:
                 attn = controller.store(attention_probs, layer_name)
@@ -2586,6 +2588,7 @@ def main(args):
         # shuffle prompt list
         if args.shuffle_prompts:
             random.shuffle(prompt_list)
+
         def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index=1):
 
             batch_size = len(batch)
@@ -2742,7 +2745,8 @@ def main(args):
                     print("pre-calculation... done")
 
             print(' (15.3) generating image')
-            images = pipe(prompts,negative_prompts,init_images,mask_images,height,width,steps,scale,negative_scale,
+            images = pipe(prompts,negative_prompts,
+                          init_images,mask_images,height,width,steps,scale,negative_scale,
                           strength,latents=start_code,output_type="pil",max_embeddings_multiples=max_embeddings_multiples,
                           img2img_noise=i2i_noises,vae_batch_size=args.vae_batch_size,return_latents=return_latents,
                           clip_prompts=clip_prompts,clip_guide_images=guide_images,)[0]
@@ -2919,6 +2923,7 @@ def main(args):
                                 print(f"steps: {steps}")
                                 continue
                             m = re.match(r"d ([\d,]+)", parg, re.IGNORECASE)
+
                             if m:  # seed
                                 seeds = [int(d) for d in m.group(1).split(",")]
                                 print(f"seeds: {seeds}")
@@ -2980,15 +2985,23 @@ def main(args):
                 # prepare init image, guide image and mask
                 init_image = mask_image = guide_image = None
                 num_sub_prompts = None
-                b1 = BatchData(False,BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image,clip_prompt, guide_image),
-                               BatchDataExt(width, height, steps, scale, negative_scale, strength, tuple(network_muls) if network_muls else None, num_sub_prompts, ), )
+                print(f'before making b1, negative_prompt : {negative_prompt}')
+
+                b1 = BatchData(False,
+                               BatchDataBase(global_step,prompt,negative_prompt, seed, init_image, mask_image,clip_prompt, guide_image),
+                               BatchDataExt(width, height, steps, scale, negative_scale, strength, tuple(network_muls) if network_muls else None, num_sub_prompts, ),)
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext :
                     process_batch(batch_data, highres_fix)
                     batch_data.clear()
                 batch_data.append(b1)
+
                 if len(batch_data) == args.batch_size:
                     print(f' {unique_index} : process batch *** ')
-                    prev_image = process_batch(batch_data, highres_fix, save_index = unique_index )[0]
+
+
+                    prev_image = process_batch(batch_data,
+                                               highres_fix,
+                                               save_index = unique_index )[0]
                     batch_data.clear()
                 global_step += 1
             prompt_index += 1
