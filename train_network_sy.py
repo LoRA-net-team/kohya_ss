@@ -964,7 +964,7 @@ class NetworkTrainer:
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
                                                     batch,weight_dtype,
-                                                    batch["trg_indexs_list"]
+                                                    batch["trg_indexs_list"],
                                                     #trg_index_list,
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
