@@ -1,11 +1,18 @@
-CUDA_VISIBLE_DEVICES=0 python gen_crossattnmap.py \
-      --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
+
+
+
+       \
+
+
+      cp /data7/sooyeon/LyCORIS/LyCORIS/test/akane_inference.txt /data7/sooyeon/LyCORIS/LyCORIS/test/iom_inference.txt
+
+      vi /data7/sooyeon/LyCORIS/LyCORIS/test/iom_inference.txt
+
+
+
+
       --network_module networks.lora \
-      --network_weights '/data7/sooyeon/pretrained/Loras/AkaneV1.2.safetensors' \
-      --from_file /data7/sooyeon/LyCORIS/LyCORIS/test/akane_inference.txt \
-      --outdir attn_test/20231024_result/akane --trg_token 'akane' \
-      --network_module networks.lora \
-      --network_weights './result/haibara_experience/one_image/name_3_without_caption/haibara_base/haibara-000040.safetensors' \
+
 
 
 

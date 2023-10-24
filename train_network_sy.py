@@ -101,6 +101,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                             word_heat_map_list.append(word_heat_map_)
 
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
+                        # saving word_heat_map
                         # ------------------------------------------------------------------------------------------------------------------------------
                         # mask = [512,512]
                         mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
@@ -1120,7 +1121,8 @@ class NetworkTrainer:
                                     attention_losses["loss/attention_loss_" + layer_name] = sum_of_attn
                         attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
-                        loss = task_loss + args.attn_loss_ratio * attn_loss
+                        if args.heatmap_backprop :
+                            loss = task_loss + args.attn_loss_ratio * attn_loss
                     else:
                         attention_losses = {}
                     accelerator.backward(loss )

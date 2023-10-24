@@ -623,8 +623,6 @@ class PipelineLike:
                 " the batch size of `prompt`.")
 
         if not self.token_replacements_XTI:
-
-
             # prompt
             # uncon_prompt
             #
@@ -2700,8 +2698,6 @@ def main(args):
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
                 clip_prompts.append(clip_prompt)
-                print(f'prompt : {prompt}')
-                print(f'negative_prompt : {negative_prompt}')
                 if init_image is not None:
                     init_images.append(init_image)
                     if i > 0 and all_images_are_same:
