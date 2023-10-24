@@ -2663,12 +2663,16 @@ def main(args):
 
             # このバッチの情報を取り出す
             (return_latents, (step_first, _, _, _, init_image, mask_image, _, guide_image),(width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
+
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
+
             prompts = []
             negative_prompts = []
+
             start_code = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-            noises = [torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-                      for _ in range(steps * scheduler_num_noises_per_step)]
+
+            noises = [torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype) for _ in range(steps * scheduler_num_noises_per_step)]
+
             seeds = []
             clip_prompts = []
             if init_image is not None:  # img2img?
@@ -2686,12 +2690,13 @@ def main(args):
                 guide_images = []
             else:
                 guide_images = None
+
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
             for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
                 prompts.append(prompt)
-                negative_prompt = args.negative_prompt
+                #negative_prompt = args.negative_prompt
                 negative_prompts.append(negative_prompt)
                 seeds.append(seed)
                 clip_prompts.append(clip_prompt)
@@ -2986,10 +2991,10 @@ def main(args):
                 init_image = mask_image = guide_image = None
                 num_sub_prompts = None
                 print(f'before making b1, negative_prompt : {negative_prompt}')
-
                 b1 = BatchData(False,
                                BatchDataBase(global_step,prompt,negative_prompt, seed, init_image, mask_image,clip_prompt, guide_image),
                                BatchDataExt(width, height, steps, scale, negative_scale, strength, tuple(network_muls) if network_muls else None, num_sub_prompts, ),)
+
                 if len(batch_data) > 0 and batch_data[-1].ext != b1.ext :
                     process_batch(batch_data, highres_fix)
                     batch_data.clear()
@@ -2997,8 +3002,6 @@ def main(args):
 
                 if len(batch_data) == args.batch_size:
                     print(f' {unique_index} : process batch *** ')
-
-
                     prev_image = process_batch(batch_data,
                                                highres_fix,
                                                save_index = unique_index )[0]
