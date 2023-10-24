@@ -278,6 +278,10 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device) # batch, torch_num, sen_len
+        encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
+                                                             tokenizers[0], text_encoders[0],
+                                                             weight_dtype)
+        """
         batch_index_list = self.extract_triggerword_index(input_ids) # [ [1], [1] ]
 
         # ---------------------------------------------------------------------------------------------------------------
@@ -305,8 +309,8 @@ class NetworkTrainer:
                 #print(trg_index)
                 encoder_hidden_states[batch_index] = trg_embedding
                 trg_index_list.append([trg_index])
-
-        return encoder_hidden_states, trg_index_list
+        """
+        return encoder_hidden_states #, trg_index_list
 
     def call_unet(self,
                   args, accelerator, unet,
@@ -951,9 +955,8 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip,)
                         else:
-                            text_encoder_conds, trg_index_list = self.get_text_cond(args,accelerator,
-                                                                                    batch,tokenizers,
-                                                                                    text_encoders,weight_dtype)
+                            #text_encoder_conds, trg_index_list = self.get_text_cond(args,accelerator,batch,tokenizers,text_encoders,weight_dtype)
+                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
@@ -961,8 +964,8 @@ class NetworkTrainer:
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
                                                     batch,weight_dtype,
-                                                    #batch["trg_indexs_list"]
-                                                    trg_index_list,
+                                                    batch["trg_indexs_list"]
+                                                    #trg_index_list,
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
@@ -1020,16 +1023,17 @@ class NetworkTrainer:
                         heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
-                                word_heatmap_list = atten_collection[layer_name]
-                                for batch_index in range(batch_num) :
-                                    word_heatmap = word_heatmap_list[batch_index]
-                                    if word_heatmap.dim() == 3:
-                                        word_heatmap = word_heatmap.mean(0)  # [512,512]
-                                    try :
-                                        heatmap_per_batch[batch_index].append(word_heatmap)
-                                    except :
-                                        heatmap_per_batch[batch_index] = []
-                                        heatmap_per_batch[batch_index].append(word_heatmap)
+                                if 'down_blocks_1_attentions' not in layer_name :
+                                    word_heatmap_list = atten_collection[layer_name]
+                                    for batch_index in range(batch_num) :
+                                        word_heatmap = word_heatmap_list[batch_index]
+                                        if word_heatmap.dim() == 3:
+                                            word_heatmap = word_heatmap.mean(0)  # [512,512]
+                                        try :
+                                            heatmap_per_batch[batch_index].append(word_heatmap)
+                                        except :
+                                            heatmap_per_batch[batch_index] = []
+                                            heatmap_per_batch[batch_index].append(word_heatmap)
                         batch_mask = batch['mask_imgs']
                         for batch_idx in heatmap_per_batch.keys() :
                             word_heatmap_list = heatmap_per_batch[batch_index]
