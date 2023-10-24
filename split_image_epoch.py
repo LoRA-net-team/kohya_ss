@@ -10,7 +10,7 @@ def main(args) :
     print(f' step 1. call generated image folder')
     generated_image_folders = os.listdir(args.generated_image_folder)
     for generated_image_folder in generated_image_folders :
-        if generated_image_folder == 'iom_total_attn_token_shuffle' :
+        if generated_image_folder == 'iom_detailed_second' :
             generated_image_folder_dir = os.path.join(args.generated_image_folder, generated_image_folder)
             sample_dir = os.path.join(generated_image_folder_dir, 'sample')
 

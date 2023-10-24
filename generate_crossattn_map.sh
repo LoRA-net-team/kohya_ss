@@ -1,11 +1,12 @@
 CUDA_VISIBLE_DEVICES=0 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/LyCORIS/LyCORIS/pretrained/animefull-final-pruned-fp16.safetensors \
-      --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_girl_sub_inference.txt' \
-      --outdir attn_test/20231014_result/base_model/smile --seed 42 --trg_token 'haibara' \
+      --network_module networks.lora \
+      --network_weights '/data7/sooyeon/pretrained/Loras/AkaneV1.2.safetensors' \
+      --from_file /data7/sooyeon/LyCORIS/LyCORIS/test/akane_inference.txt \
+      --outdir attn_test/20231024_result/akane --trg_token 'akane' \
       --network_module networks.lora \
       --network_weights './result/haibara_experience/one_image/name_3_without_caption/haibara_base/haibara-000040.safetensors' \
-      --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/test_haibara_inference.txt' \
-      --outdir ./result/haibara_experience/one_image/name_3_without_caption/haibara_base/attn_inference/haibara_epoch_40
+
 
 
 CUDA_VISIBLE_DEVICES=1 python gen_crossattnmap.py \
