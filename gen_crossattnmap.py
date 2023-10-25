@@ -2385,12 +2385,11 @@ def main(args):
                 print(f'one lora loading ...')
                 network.apply_to(text_encoder, unet)
                 layer_names = weights_sd.keys()
-                exception_layer = args.exception_layer
-                exception_layers = exception_layer.split(",")
+                exception_layers = args.exception_layer.split(",")
                 print(f'** exception_layers : {exception_layers}')
                 for layer_name in layer_names:
                     for exception_layer in exception_layers:
-                        if exception_layer in layer:
+                        if exception_layer in layer_name :
                             weights_sd[layer_name] = weights_sd[layer_name] * 0
 
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
