@@ -2384,16 +2384,15 @@ def main(args):
             if not args.network_merge or not mergeable:
                 print(f'one lora loading ...')
                 network.apply_to(text_encoder, unet)
-                """
+
                 layer_names = weights_sd.keys()
                 exception_layer = args.exception_layer
                 for layer_name in layer_names:
-                    #if exception_layer in layer:
-                    #network.state_dict()[layer] = weights_sd[layer] * 0
-                    weights_sd[layer] = weights_sd[layer] * 0
+                    if exception_layer in layer:
+                        weights_sd[layer_name] = weights_sd[layer_name] * 0
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
-                """
+
 
                 if args.opt_channels_last:
                     network.to(memory_format=torch.channels_last)
