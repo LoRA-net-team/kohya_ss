@@ -2387,7 +2387,7 @@ def main(args):
                 layer_names = weights_sd.keys()
                 exception_layer = args.exception_layer
                 exception_layers = exception_layer.split(",")
-                print(f'exception_layers : {exception_layers}')
+                print(f'** exception_layers : {exception_layers}')
                 for layer_name in layer_names:
                     for exception_layer in exception_layers:
                         if exception_layer in layer:
