@@ -588,13 +588,13 @@ class NetworkTrainer:
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
-
+        #attention_losses = {}
+        pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # ['sentence']
                 class_captions = batch['class_token_ids']
-                print(f'class_captions : {class_captions}')
                 # [3,77]
                 class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer).unsqueeze(0)
                 # [3,77,768]
@@ -604,7 +604,6 @@ class NetworkTrainer:
                                                                             weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_token_ids']
-                print(f'concept_captions : {concept_captions}')
                 concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
                 concept_captions_hidden_states = train_util.get_hidden_states(args,
                                                                               concept_captions_input_ids.to(accelerator.device),
@@ -614,8 +613,10 @@ class NetworkTrainer:
                 # shape = [3,77,768]
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_hidden_states.float(), reduction="none")
+                pretraining_losses["loss/pretraining_loss"] = pretraining_loss.item()
+                if is_main_process :
+                    accelerator.log(pretraining_losses)
                 pretraining_loss = pretraining_loss.mean()
-                print(f'pretraining_loss : {pretraining_loss}')
                 accelerator.backward(pretraining_loss)
                 optimizer.step()
                 lr_scheduler.step()
