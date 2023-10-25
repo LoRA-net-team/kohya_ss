@@ -2372,6 +2372,7 @@ def main(args):
                 network, weights_sd = imported_module.create_network_from_weights(network_mul, network_weight,block_wise,
                                                                                   vae, text_encoder, unet,
                                                                                   for_inference=True, **net_kwargs)
+            """
             else:
                 raise ValueError("No weight. Weight is required.")
             if network is None:
@@ -2399,6 +2400,7 @@ def main(args):
                 networks.append(network)
             else:
                 network.merge_to(text_encoder, unet, weights_sd, dtype, device)
+            """
     else:
         networks = []
     org_state_dict = network.state_dict()
