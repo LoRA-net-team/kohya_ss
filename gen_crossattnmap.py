@@ -2302,6 +2302,7 @@ def main(args):
             if hasattr(torch, item):
                 return getattr(torch, item)
             raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, item))
+
     noise_manager = NoiseManager()
     if scheduler_module is not None:
         scheduler_module.torch = TorchRandReplacer(noise_manager)
@@ -2408,37 +2409,20 @@ def main(args):
     else:
         networks = []
     org_state_dict = network.state_dict()
+
+    exception_layer = args.exception_layer
     for layer in org_state_dict.keys():
-        if 'org_weight' not in layer:
-            print(f'layer : {layer}')
-            network.state_dict()[layer] = weights_sd[layer]
+        network.state_dict()[layer] = weights_sd[layer]
+    for layer in org_state_dict.keys():
+        if exception_layer in layer :
+            network.state_dict()[layer] = weights_sd[layer] * 0
 
     print(f'\n step 10. upscaler')
     upscaler = None
-    if args.highres_fix_upscaler:
-        print("import upscaler module:", args.highres_fix_upscaler)
-        imported_module = importlib.import_module(args.highres_fix_upscaler)
-        us_kwargs = {}
-        if args.highres_fix_upscaler_args:
-            for net_arg in args.highres_fix_upscaler_args.split(";"):
-                key, value = net_arg.split("=")
-                us_kwargs[key] = value
-        upscaler = imported_module.create_upscaler(**us_kwargs)
-        upscaler.to(dtype).to(device)
 
     print(f'\n step 11. ControlNet')
     control_nets: List[ControlNetInfo] = []
-    if args.control_net_models:
-        for i, model in enumerate(args.control_net_models):
-            prep_type = None if not args.control_net_preps or len(args.control_net_preps) <= i else \
-                args.control_net_preps[i]
-            weight = 1.0 if not args.control_net_weights or len(args.control_net_weights) <= i else \
-                args.control_net_weights[i]
-            ratio = 1.0 if not args.control_net_ratios or len(args.control_net_ratios) <= i else \
-                args.control_net_ratios[i]
-            ctrl_unet, ctrl_net = original_control_net.load_control_net(args.v2, unet, model)
-            prep = original_control_net.load_preprocess(prep_type)
-            control_nets.append(ControlNetInfo(ctrl_unet, ctrl_net, prep, weight, ratio))
+
 
     print(f'\n step 12. opt_channels_last')
     if args.opt_channels_last:
@@ -2460,88 +2444,12 @@ def main(args):
     print(f'\n step 13. make pipeline')
     attention_storer = AttentionStore()
     register_attention_control(unet, attention_storer)
-    pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,
-                        clip_model, args.clip_guidance_scale, args.clip_image_guidance_scale,
-                        vgg16_model,args.vgg16_guidance_scale,args.vgg16_guidance_layer,)
+    pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,clip_model,
+                        args.clip_guidance_scale, args.clip_image_guidance_scale,vgg16_model,args.vgg16_guidance_scale,
+                        args.vgg16_guidance_layer,)
     pipe.set_control_nets(control_nets)
     if args.diffusers_xformers:
         pipe.enable_xformers_memory_efficient_attention()
-    if args.XTI_embeddings:
-        diffusers.models.UNet2DConditionModel.forward = unet_forward_XTI
-        diffusers.models.unet_2d_blocks.CrossAttnDownBlock2D.forward = downblock_forward_XTI
-        diffusers.models.unet_2d_blocks.CrossAttnUpBlock2D.forward = upblock_forward_XTI
-    if args.textual_inversion_embeddings:
-        token_ids_embeds = []
-        for embeds_file in args.textual_inversion_embeddings:
-            if model_util.is_safetensors(embeds_file):
-                from safetensors.torch import load_file
-                data = load_file(embeds_file)
-            else:
-                data = torch.load(embeds_file, map_location="cpu")
-            if "string_to_param" in data:
-                data = data["string_to_param"]
-            embeds = next(iter(data.values()))
-            if type(embeds) != torch.Tensor:
-                raise ValueError(f"weight file does not contains Tensor / 重みファイルのデータがTensorではありません: {embeds_file}")
-            num_vectors_per_token = embeds.size()[0]
-            token_string = os.path.splitext(os.path.basename(embeds_file))[0]
-            token_strings = [token_string] + [f"{token_string}{i + 1}" for i in range(num_vectors_per_token - 1)]
-            # add new word to tokenizer, count is num_vectors_per_token
-            num_added_tokens = tokenizer.add_tokens(token_strings)
-            assert (num_added_tokens == num_vectors_per_token), f"tokenizer has same word to token string (filename). please rename the file / 指定した名前（ファイル名）のトークンが既に存在します。ファイルをリネームしてください: {embeds_file}"
-            token_ids = tokenizer.convert_tokens_to_ids(token_strings)
-            print(f"Textual Inversion embeddings `{token_string}` loaded. Tokens are added: {token_ids}")
-            assert (
-                    min(token_ids) == token_ids[0] and token_ids[-1] == token_ids[0] + len(token_ids) - 1
-            ), f"token ids is not ordered"
-            assert len(tokenizer) - 1 == token_ids[-1], f"token ids is not end of tokenize: {len(tokenizer)}"
-            if num_vectors_per_token > 1:
-                pipe.add_token_replacement(token_ids[0], token_ids)
-            token_ids_embeds.append((token_ids, embeds))
-        text_encoder.resize_token_embeddings(len(tokenizer))
-        token_embeds = text_encoder.get_input_embeddings().weight.data
-        for token_ids, embeds in token_ids_embeds:
-            for token_id, embed in zip(token_ids, embeds):
-                token_embeds[token_id] = embed
-    if args.XTI_embeddings:
-        XTI_layers = ["IN01","IN02","IN04","IN05","IN07","IN08","MID",
-                      "OUT03","OUT04","OUT05","OUT06","OUT07","OUT08","OUT09","OUT10","OUT11",]
-        token_ids_embeds_XTI = []
-        for embeds_file in args.XTI_embeddings:
-            if model_util.is_safetensors(embeds_file):
-                from safetensors.torch import load_file
-                data = load_file(embeds_file)
-            else:
-                data = torch.load(embeds_file, map_location="cpu")
-            if set(data.keys()) != set(XTI_layers):
-                raise ValueError("NOT XTI")
-            embeds = torch.concat(list(data.values()))
-            num_vectors_per_token = data["MID"].size()[0]
-            token_string = os.path.splitext(os.path.basename(embeds_file))[0]
-            token_strings = [token_string] + [f"{token_string}{i + 1}" for i in range(num_vectors_per_token - 1)]
-            # add new word to tokenizer, count is num_vectors_per_token
-            num_added_tokens = tokenizer.add_tokens(token_strings)
-            assert (num_added_tokens == num_vectors_per_token), f"tokenizer has same word to token string (filename). please rename the file / 指定した名前（ファイル名）のトークンが既に存在します。ファイルをリネームしてください: {embeds_file}"
-            token_ids = tokenizer.convert_tokens_to_ids(token_strings)
-            print(f"XTI embeddings `{token_string}` loaded. Tokens are added: {token_ids}")
-            # if num_vectors_per_token > 1:
-            pipe.add_token_replacement(token_ids[0], token_ids)
-            token_strings_XTI = []
-            for layer_name in XTI_layers:
-                token_strings_XTI += [f"{t}_{layer_name}" for t in token_strings]
-            tokenizer.add_tokens(token_strings_XTI)
-            token_ids_XTI = tokenizer.convert_tokens_to_ids(token_strings_XTI)
-            token_ids_embeds_XTI.append((token_ids_XTI, embeds))
-            for t in token_ids:
-                t_XTI_dic = {}
-                for i, layer_name in enumerate(XTI_layers):
-                    t_XTI_dic[layer_name] = t + (i + 1) * num_added_tokens
-                pipe.add_token_replacement_XTI(t, t_XTI_dic)
-            text_encoder.resize_token_embeddings(len(tokenizer))
-            token_embeds = text_encoder.get_input_embeddings().weight.data
-            for token_ids, embeds in token_ids_embeds_XTI:
-                for token_id, embed in zip(token_ids, embeds):
-                    token_embeds[token_id] = embed
 
     print(f'\n step 14. prompt')
     if args.from_file is not None:
@@ -2588,7 +2496,6 @@ def main(args):
             random.shuffle(prompt_list)
 
         def process_batch(batch: List[BatchData], highres_fix, highres_1st=False, save_index=1):
-
             batch_size = len(batch)
             # highres_fixの処理
             if highres_fix and not highres_1st:
@@ -2602,10 +2509,7 @@ def main(args):
                     width_1st = width_1st - width_1st % 32
                     height_1st = height_1st - height_1st % 32
                     strength_1st = ext.strength if args.highres_fix_strength is None else args.highres_fix_strength
-                    ext_1st = BatchDataExt(
-                        width_1st,
-                        height_1st,
-                        args.highres_fix_steps,
+                    ext_1st = BatchDataExt(width_1st, height_1st, args.highres_fix_steps,
                         ext.scale,
                         ext.negative_scale,
                         strength_1st,
@@ -2627,28 +2531,18 @@ def main(args):
                         batch_size
                         if args.vae_batch_size is None
                         else (max(1,
-                                  int(batch_size * args.vae_batch_size)) if args.vae_batch_size < 1 else args.vae_batch_size)
-                    )
+                                  int(batch_size * args.vae_batch_size)) if args.vae_batch_size < 1 else args.vae_batch_size))
                     vae_batch_size = int(vae_batch_size)
-                    images_1st = upscaler.upscale(
-                        vae, lowreso_imgs, lowreso_latents, dtype, width_2nd, height_2nd, batch_size, vae_batch_size
-                    )
+                    images_1st = upscaler.upscale(vae, lowreso_imgs, lowreso_latents, dtype, width_2nd, height_2nd, batch_size, vae_batch_size)
 
                 elif args.highres_fix_latents_upscaling:
-                    # latentを拡大する
                     org_dtype = images_1st.dtype
                     if images_1st.dtype == torch.bfloat16:
                         images_1st = images_1st.to(torch.float)  # interpolateがbf16をサポートしていない
-                    images_1st = torch.nn.functional.interpolate(
-                        images_1st, (batch[0].ext.height // 8, batch[0].ext.width // 8), mode="bilinear"
-                    )  # , antialias=True)
+                    images_1st = torch.nn.functional.interpolate(images_1st, (batch[0].ext.height // 8, batch[0].ext.width // 8), mode="bilinear")
                     images_1st = images_1st.to(org_dtype)
-
                 else:
-                    # 画像をLANCZOSで拡大する
-                    images_1st = [image.resize((width_2nd, height_2nd), resample=PIL.Image.LANCZOS) for image in
-                                  images_1st]
-
+                    images_1st = [image.resize((width_2nd, height_2nd), resample=PIL.Image.LANCZOS) for image in images_1st]
                 batch_2nd = []
                 for i, (bd, image) in enumerate(zip(batch, images_1st)):
                     bd_2nd = BatchData(False, BatchDataBase(*bd.base[0:3], bd.base.seed + 1, image, None, *bd.base[6:]),
@@ -2661,16 +2555,11 @@ def main(args):
 
             # このバッチの情報を取り出す
             (return_latents, (step_first, _, _, _, init_image, mask_image, _, guide_image),(width, height, steps, scale, negative_scale, strength, network_muls, num_sub_prompts),) = batch[0]
-
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
-
             prompts = []
             negative_prompts = []
-
             start_code = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
-
             noises = [torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype) for _ in range(steps * scheduler_num_noises_per_step)]
-
             seeds = []
             clip_prompts = []
             if init_image is not None:  # img2img?
@@ -2834,10 +2723,7 @@ def main(args):
                     layer_name = layer_name.split('_')[:5]
                     a = '_'.join(layer_name)
                     np_heat_map = heat_map.cpu().numpy()
-                    #heat_map_dir = os.path.join(base_folder, f'attention_{a}.npy')
-                    #np.save(heat_map_dir, np_heat_map)
-                    img = image_overlay_heat_map(img=image,
-                                                 heat_map=heat_map)
+                    img = image_overlay_heat_map(img=image, heat_map=heat_map)
                     attn_save_dir = os.path.join(base_folder, f'attention_{a}.jpg')
                     img.save(attn_save_dir)
                 total_layers_heat_map = torch.stack(total_layers, dim=0)  # global_heat_map = [sen_len, 512,512]
@@ -3134,6 +3020,6 @@ if __name__ == "__main__":
     parser.add_argument("--negative_prompt", type=str)
     parser.add_argument("--erase_selfattn",  action = 'store_true')
     parser.add_argument("--erase_crossattn", action = 'store_true' )
-
+    parser.add_argument("--exception_layer", type=str)
     args = parser.parse_args()
     main(args)
