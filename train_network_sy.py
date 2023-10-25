@@ -1115,7 +1115,7 @@ class NetworkTrainer:
                         heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
-                                if 'down_blocks_2_attentions_0_transformer_blocks_0_attn2' not in layer_name :
+                                if 'down_blocks_2_attentions_0_transformer_blocks_0_attn2' not in layer_name and 'up_blocks_1_attentions_2' not in layer_name :
                                     sum_of_attn = sum(atten_collection[layer_name])
                                     attn_loss = attn_loss + sum_of_attn
                                     attention_losses["loss/attention_loss_" + layer_name] = sum_of_attn
