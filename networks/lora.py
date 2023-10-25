@@ -1068,7 +1068,6 @@ class LoRANetwork(torch.nn.Module):
             print("enable LoRA for text encoder")
         else:
             self.text_encoder_loras = []
-
         if apply_unet:
             print("enable LoRA for U-Net")
         else:

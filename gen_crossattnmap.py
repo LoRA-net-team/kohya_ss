@@ -2372,17 +2372,19 @@ def main(args):
                 network, weights_sd = imported_module.create_network_from_weights(network_mul, network_weight,block_wise,
                                                                                   vae, text_encoder, unet,
                                                                                   for_inference=True, **net_kwargs)
-            """
+
             else:
                 raise ValueError("No weight. Weight is required.")
             if network is None:
                 return
             mergeable = network.is_mergeable()
+
             if args.network_merge and not mergeable:
                 print("network is not mergiable. ignore merge option.")
             if not args.network_merge or not mergeable:
                 print(f'one lora loading ...')
                 network.apply_to(text_encoder, unet)
+                """
                 layer_names = weights_sd.keys()
                 exception_layer = args.exception_layer
                 for layer_name in layer_names:
@@ -2391,16 +2393,19 @@ def main(args):
                     weights_sd[layer] = weights_sd[layer] * 0
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
+                """
+
                 if args.opt_channels_last:
                     network.to(memory_format=torch.channels_last)
                 network.to(dtype).to(device)
+
                 if network_pre_calc:
                     print("backup original weights")
                     network.backup_weights()
                 networks.append(network)
             else:
                 network.merge_to(text_encoder, unet, weights_sd, dtype, device)
-            """
+
     else:
         networks = []
     org_state_dict = network.state_dict()
