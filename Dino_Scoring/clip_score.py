@@ -35,7 +35,7 @@ def main(args):
     mlp_model.eval()
 
     print(f' (1.3) clip model')
-    clip_model, clip_preprocess = clip.load("ViT-L/14", device=args.device)
+    clip_model, clip_preprocess = clip.load("ViT-L/14", device=args.device )
 
     print(f'\n step 2. reference image')
     ref_img_folder = args.ref_img_folder
