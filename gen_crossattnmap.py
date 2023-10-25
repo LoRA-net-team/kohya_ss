@@ -2379,31 +2379,37 @@ def main(args):
                 return
             mergeable = network.is_mergeable()
 
-            if args.network_merge and not mergeable:
-                print("network is not mergiable. ignore merge option.")
-            if not args.network_merge or not mergeable:
-                print(f'one lora loading ...')
-                network.apply_to(text_encoder, unet)
+            unet_layers = 'unet_layers.txt'
+            with open(unet_layers, mode='a') as f:
 
-                layer_names = weights_sd.keys()
-                exception_layer = args.exception_layer
-                for layer_name in layer_names:
-                    if exception_layer in layer:
-                        weights_sd[layer_name] = weights_sd[layer_name] * 0
-                info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
-                print(f"weights are loaded")
+                if args.network_merge and not mergeable:
+                    print("network is not mergiable. ignore merge option.")
+                if not args.network_merge or not mergeable:
+                    print(f'one lora loading ...')
+                    network.apply_to(text_encoder, unet)
+
+                    layer_names = weights_sd.keys()
+                    exception_layer = args.exception_layer
+                    for layer_name in layer_names:
+                        if exception_layer in layer:
+                            weights_sd[layer_name] = weights_sd[layer_name] * 0
+                        else :
+                            f.write(layer_name + '\n')
+
+                    info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
+                    print(f"weights are loaded")
 
 
-                if args.opt_channels_last:
-                    network.to(memory_format=torch.channels_last)
-                network.to(dtype).to(device)
+                    if args.opt_channels_last:
+                        network.to(memory_format=torch.channels_last)
+                    network.to(dtype).to(device)
 
-                if network_pre_calc:
-                    print("backup original weights")
-                    network.backup_weights()
-                networks.append(network)
-            else:
-                network.merge_to(text_encoder, unet, weights_sd, dtype, device)
+                    if network_pre_calc:
+                        print("backup original weights")
+                        network.backup_weights()
+                    networks.append(network)
+                else:
+                    network.merge_to(text_encoder, unet, weights_sd, dtype, device)
 
     else:
         networks = []
