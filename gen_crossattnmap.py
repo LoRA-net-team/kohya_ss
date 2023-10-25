@@ -2414,8 +2414,8 @@ def main(args):
     for layer in org_state_dict.keys():
         network.state_dict()[layer] = weights_sd[layer]
     for layer in org_state_dict.keys():
-        if exception_layer in layer :
-            network.state_dict()[layer] = weights_sd[layer] * 0
+        #if exception_layer in layer :
+        network.state_dict()[layer] = weights_sd[layer] * 0
 
     print(f'\n step 10. upscaler')
     upscaler = None
