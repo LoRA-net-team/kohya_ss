@@ -594,6 +594,7 @@ class NetworkTrainer:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # ['sentence']
                 class_captions = batch['class_token_ids']
+                print(f'class_captions : {class_captions}')
                 # [3,77]
                 class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer).unsqueeze(0)
                 # [3,77,768]
