@@ -604,6 +604,7 @@ class NetworkTrainer:
                                                                             weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_token_ids']
+                print(f'concept_captions : {concept_captions}')
                 concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
                 concept_captions_hidden_states = train_util.get_hidden_states(args,
                                                                               concept_captions_input_ids.to(accelerator.device),
