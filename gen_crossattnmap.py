@@ -2386,10 +2386,8 @@ def main(args):
                 exception_layer = args.exception_layer
                 for layer_name in layer_names:
                     #if exception_layer in layer:
-                    network.state_dict()[layer] = weights_sd[layer] * 0
-
-
-
+                    #network.state_dict()[layer] = weights_sd[layer] * 0
+                    weights_sd[layer] = weights_sd[layer] * 0
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
                 if args.opt_channels_last:
