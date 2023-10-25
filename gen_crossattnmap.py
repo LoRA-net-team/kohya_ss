@@ -2383,16 +2383,11 @@ def main(args):
                 print(f'one lora loading ...')
                 network.apply_to(text_encoder, unet)
                 layer_names = weights_sd.keys()
+                exception_layer = args.exception_layer
                 for layer_name in layer_names:
-                    # erase self attention
-                    if args.erase_selfattn :
-                        if 'attn1' in layer_name :
-                            print(f'erase self attention ..., layer_name : {layer_name}')
-                            weights_sd[layer_name] = weights_sd[layer_name] * 0
-                    elif args.erase_crossattn :
-                        if 'attn2' in layer_name :
-                            print(f'erase cross attention ..., layer_name : {layer_name}')
-                            weights_sd[layer_name] = weights_sd[layer_name] * 0
+                    #if exception_layer in layer:
+                    network.state_dict()[layer] = weights_sd[layer] * 0
+
 
 
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
@@ -2410,12 +2405,7 @@ def main(args):
         networks = []
     org_state_dict = network.state_dict()
 
-    exception_layer = args.exception_layer
-    for layer in org_state_dict.keys():
-        network.state_dict()[layer] = weights_sd[layer]
-    for layer in org_state_dict.keys():
-        #if exception_layer in layer :
-        network.state_dict()[layer] = weights_sd[layer] * 0
+
 
     print(f'\n step 10. upscaler')
     upscaler = None
