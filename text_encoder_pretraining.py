@@ -627,7 +627,7 @@ class NetworkTrainer:
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
         accelerator.print("running training / 学習開始")
         accelerator.print(
-            f"  num train images * repeats / 学習画像の数×繰り返し回数: {train_dataset_group.num_train_images}")
+            f"  num train images * repeats / 学習画像の数×繰り返し回数: {train_dataset_group.num_train_images}" )
         accelerator.print(f"  num reg images / 正則化画像の数: {train_dataset_group.num_reg_images}")
         accelerator.print(f"  num batches per epoch / 1epochのバッチ数: {len(train_dataloader)}")
         accelerator.print(f"  num epochs / epoch数: {num_train_epochs}")
