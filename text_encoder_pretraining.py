@@ -613,9 +613,10 @@ class NetworkTrainer:
                 # shape = [3,77,768]
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_hidden_states.float(), reduction="none")
-                pretraining_losses["loss/pretraining_loss"] = pretraining_loss.item()
+                pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                 if is_main_process :
-                    accelerator.log(pretraining_losses)
+                    #accelerator.log(pretraining_losses)
+                    wandb.log(pretraining_losses)
                 pretraining_loss = pretraining_loss.mean()
                 accelerator.backward(pretraining_loss)
                 optimizer.step()
