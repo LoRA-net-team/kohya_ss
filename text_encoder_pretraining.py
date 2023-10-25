@@ -449,6 +449,13 @@ class NetworkTrainer:
         except TypeError:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+
+
+
+
+
+
+        """
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
 
         print(f'step 14. dataloader')
@@ -1144,7 +1151,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
+    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
