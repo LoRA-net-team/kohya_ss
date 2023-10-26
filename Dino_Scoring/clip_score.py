@@ -55,7 +55,7 @@ def main(args):
     conditions = os.listdir(base_img_folder)
 
     for condition in conditions:
-        if condition == 'iom_total_attn' :
+        if condition == 'iom_test_net_space' :
             elems = []
             elems.append(['epoch', 'avg_i2i_sim', 'avg_t2i_sim','harmonic_mean'])
             condition_dir = os.path.join(base_img_folder, condition)
@@ -119,7 +119,7 @@ if __name__ == '__main__':
                         default=r'/data7/sooyeon/MyData/perfusion_dataset/iom_1/10_iom')
     parser.add_argument('--base_img_folder',
                         type=str,
-                        default=r'/data7/sooyeon/PersonalizeOverfitting/kohya_ss/result/iom_experiment/one_image')
+                        default=r'/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/iom_experiment/one_image')
     parser.add_argument('--concept_token', type=str, default='iom')
     parser.add_argument('--class_token', type=str, default='kitten')
     args = parser.parse_args()
