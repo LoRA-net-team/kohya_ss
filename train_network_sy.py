@@ -238,7 +238,7 @@ class NetworkTrainer:
         print(f'input_ids : {input_ids}')
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
                                                              tokenizers[0], text_encoders[0],
-                                                             weight_dtype)
+                                                             weight_dtype )
         return encoder_hidden_states
 
     def call_unet(self,
