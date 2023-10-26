@@ -411,11 +411,17 @@ class NetworkTrainer:
             accelerator.wait_for_everyone()
         print(f'step 12. text encoder')
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
+        # prepare network
         net_kwargs = {}
         if args.network_args is not None:
             for net_arg in args.network_args:
                 key, value = net_arg.split("=")
                 net_kwargs[key] = value
+
+        net_key_names = args.net_key_names
+        net_kwargs['key_layers'] = net_key_names.split(",")
+
+
         if args.dim_from_weights:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet,**net_kwargs)
         else:
@@ -1201,6 +1207,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_log_template_path", type=str)
     parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
+    parser.add_argument("--net_key_names", type=str, default='text')
     # class_caption
     parser.add_argument("--class_caption", type=str, default='girl')
     parser.add_argument("--heatmap_loss", action='store_true')
@@ -1209,13 +1216,6 @@ if __name__ == "__main__":
 
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
-
-    # first_layers =  ['mid'] # "mid"
-    # second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
-    # third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
-    # forth_layers =  ['down_blocks_0','up_blocks_3'] #"down_blocks_0,up_blocks_3"
-    # second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
-    # first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
 
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
