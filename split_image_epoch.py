@@ -17,7 +17,7 @@ def main(args) :
         for image in images :
             image_dir = os.path.join(sample_dir, image)
             name, ext = os.path.splitext(image_dir)
-            epoch = name.split('_')[-3]
+            epoch = name.split('_')[2]
             epoch = int(epoch.split('e')[-1])
 
             epoch_dir = os.path.join(sample_dir, str(epoch))
