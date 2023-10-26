@@ -502,7 +502,7 @@ class NetworkTrainer:
         with open(class_caption_dir, 'r') as f:
             class_captions = f.readlines()
 
-        class_captions = [caption.stript() for caption in class_captions]
+        class_captions = [caption.strip() for caption in class_captions]
         concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
         print(f'class_captions : {class_captions}')
         print(f'concept_captions : {concept_captions}')
