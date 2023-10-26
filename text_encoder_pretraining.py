@@ -507,11 +507,6 @@ class NetworkTrainer:
         concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
         print(f'class_captions : {class_captions}')
         print(f'concept_captions : {concept_captions}')
-        """
-        concept_captions = []
-        for source_caption in class_captions:
-            concept_caption = source_caption.replace(class_token, trg_concept)
-            concept_captions.append(concept_caption)
 
         print(f'step 17. text encoder pretraining dataset and dataloader')
         class TE_dataset(torch.utils.data.Dataset):
@@ -1160,7 +1155,6 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
