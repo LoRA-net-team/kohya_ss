@@ -409,6 +409,7 @@ class NetworkTrainer:
                 torch.cuda.empty_cache()
             gc.collect()
             accelerator.wait_for_everyone()
+
         print(f'step 12. text encoder')
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
         # prepare network
@@ -417,11 +418,8 @@ class NetworkTrainer:
             for net_arg in args.network_args:
                 key, value = net_arg.split("=")
                 net_kwargs[key] = value
-
         net_key_names = args.net_key_names
         net_kwargs['key_layers'] = net_key_names.split(",")
-
-
         if args.dim_from_weights:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet,**net_kwargs)
         else:
@@ -449,7 +447,6 @@ class NetworkTrainer:
 
         print(f'step 13. optimizer')
         accelerator.print("prepare optimizer, data loader etc.")
-        # 後方互換性を確保するよ
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         except TypeError:
@@ -493,16 +490,18 @@ class NetworkTrainer:
         print(f'step 16. generate sentences')
         class_token = args.class_token
         trg_concept = args.trg_concept
+        """
         num_sentences = 100
-
-
         def generate_captions(input_prompt):
             input_ids = sen_gen_tokenizer(input_prompt, return_tensors="pt").input_ids.to("cuda")
             outputs = sen_gen_model.generate(input_ids, temperature=0.8,num_return_sequences=num_sentences,do_sample=True, max_new_tokens=128, top_k=10)
             return sen_gen_tokenizer.batch_decode(outputs, skip_special_tokens=True)
         class_captions = generate_captions(class_token)
+        """
+        class_caption_dir = './sentence_datas/cat_sentence_100.txt'
+        with open(class_caption_dir, 'r') as f:
+            class_captions = f.readline()
         print(f'class_captions : {class_captions}')
-
         """
         concept_captions = []
         for source_caption in class_captions:
