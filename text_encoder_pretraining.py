@@ -487,67 +487,8 @@ class NetworkTrainer:
         #sen_gen_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xl")
         #sen_gen_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl", device_map="auto",torch_dtype=torch.float16)
 
-        print(f'step 16. generate sentences')
-        class_token = args.class_token
-        trg_concept = args.trg_concept
-        """
-        num_sentences = 100
-        def generate_captions(input_prompt):
-            input_ids = sen_gen_tokenizer(input_prompt, return_tensors="pt").input_ids.to("cuda")
-            outputs = sen_gen_model.generate(input_ids, temperature=0.8,num_return_sequences=num_sentences,do_sample=True, max_new_tokens=128, top_k=10)
-            return sen_gen_tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        class_captions = generate_captions(class_token)
-        """
-        class_caption_dir = './sentence_datas/cat_sentence_100.txt'
-        with open(class_caption_dir, 'r') as f:
-            class_captions = f.readlines()
-
-        class_captions = [caption.strip() for caption in class_captions]
-        class_captions = [caption.lower() for caption in class_captions]
 
 
-        concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
-
-
-        print(f'step 17. text encoder pretraining dataset and dataloader')
-        class TE_dataset(torch.utils.data.Dataset):
-            def __init__(self, #tokenizer,
-                         class_captions, concept_captions):
-                #self.tokenizer = tokenizer
-                self.class_captions = class_captions
-                self.concept_captions = concept_captions
-
-            def __len__(self):
-                return len(self.class_captions)
-
-            def __getitem__(self, idx):
-                te_example = {}
-                class_caption = self.class_captions[idx]
-                concept_caption = self.concept_captions[idx]
-                #class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
-                class_captions_input_ids = self.get_input_ids(args,
-                                                              class_caption,
-                                                              tokenizer).unsqueeze(0)
-                class_captions_hidden_states = train_util.get_hidden_states(args,
-                                                                            class_captions_input_ids.to(accelerator.device),
-                                                                            tokenizers[0], text_encoders[0],
-                                                                            weight_dtype)
-                
-                
-                #concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
-                te_example['class_token_ids'] = class_caption
-                te_example['concept_token_ids'] = concept_caption
-                return te_example
-
-        pretraining_datset = TE_dataset(#tokenizer=tokenizer,
-                                        class_captions  =class_captions,
-                                        concept_captions=concept_captions)
-        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
-                                                             batch_size=1,
-                                                             shuffle=True,
-                                                             num_workers=n_workers,
-                                                             persistent_workers=args.persistent_data_loader_workers, )
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
         # acceleratorがなんかよろしくやってくれるらしい
@@ -606,13 +547,50 @@ class NetworkTrainer:
         else:
             attention_storer = None
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        class_token_ids = [self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0) for class_caption in
-                           class_captions]
-        class_sen_embs = [
-            train_util.get_hidden_states(args, class_token_id.to(accelerator.device), tokenizers[0], text_encoders[0],
-                                         weight_dtype) for class_token_id in class_token_ids]
+        print(f'step 16. generate sentences')
+        class_token = args.class_token
+        trg_concept = args.trg_concept
+        class_caption_dir = './sentence_datas/cat_sentence_100.txt'
+        with open(class_caption_dir, 'r') as f:
+            class_captions = f.readlines()
 
-        """
+        class_captions = [caption.strip() for caption in class_captions]
+        class_captions = [caption.lower() for caption in class_captions]
+
+        #concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
+        class_token_ids = [self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0) for class_caption in class_captions]
+        class_sen_embs = [train_util.get_hidden_states(args, class_token_id.to(accelerator.device), tokenizers[0], text_encoders[0],weight_dtype) for class_token_id in class_token_ids]
+
+        print(f'step 17. text encoder pretraining dataset and dataloader')
+
+        class TE_dataset(torch.utils.data.Dataset):
+            def __init__(self, class_captions):
+                self.class_captions = class_captions
+
+            def __len__(self):
+                return len(self.class_captions)
+
+            def __getitem__(self, idx):
+                te_example = {}
+                class_caption = self.class_captions[idx]
+                class_caption_embedding = class_sen_embs[idx]
+
+                concept_caption = class_caption.replace(class_token, trg_concept)
+
+                # class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
+                te_example['class_caption_embedding'] = class_caption_embedding
+                te_example['concept_caption'] = concept_caption
+                return te_example
+
+        pretraining_datset = TE_dataset( class_captions=class_captions)
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
+                                                             batch_size=1,
+                                                             shuffle=True,
+                                                             num_workers=n_workers,
+                                                             persistent_workers=args.persistent_data_loader_workers, )
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
@@ -621,17 +599,10 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                # ['sentence']
-                class_captions = batch['class_token_ids']
-                # [3,77]
-                class_captions_input_ids = self.get_input_ids(args, class_captions, tokenizer).unsqueeze(0)
-                # [3,77,768]
-                class_captions_hidden_states = train_util.get_hidden_states(args,
-                                                                            class_captions_input_ids.to(accelerator.device),
-                                                                            tokenizers[0], text_encoders[0],
-                                                                            weight_dtype)
+                class_captions_hidden_states =batch['class_caption_embedding']
+
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                concept_captions = batch['concept_token_ids']
+                concept_captions = batch['concept_caption']
                 concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
                 concept_captions_hidden_states = train_util.get_hidden_states(args,
                                                                               concept_captions_input_ids.to(accelerator.device),
@@ -651,7 +622,7 @@ class NetworkTrainer:
                 optimizer.step()
                 lr_scheduler.step()
 
-
+        """
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
