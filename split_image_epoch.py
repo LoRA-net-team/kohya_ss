@@ -12,7 +12,7 @@ def main(args) :
     for generated_image_folder in generated_image_folders :
         generated_image_folder_dir = os.path.join(args.generated_image_folder, generated_image_folder)
         sample_dir = os.path.join(generated_image_folder_dir, 'sample')
-
+        print(f'sample_dir : {sample_dir}')
         images = os.listdir(sample_dir)
         for image in images :
             image_dir = os.path.join(sample_dir, image)
