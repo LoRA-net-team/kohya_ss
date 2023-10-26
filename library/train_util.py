@@ -4198,18 +4198,16 @@ def sample_images_common(
     prompt_replacement=None,
     controlnet=None,
     attention_storer=None,):
-    """
-    StableDiffusionLongPromptWeightingPipelineの改造版を使うようにしたので、clip skipおよびプロンプトの重みづけに対応した
-    """
+
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
     if args.sample_every_n_epochs is not None:
-        # sample_every_n_steps は無視する
         if epoch is None or epoch % args.sample_every_n_epochs != 0:
             return
     else:
         if steps % args.sample_every_n_steps != 0 or epoch is not None:  # steps is not divisible or end of epoch
             return
+
     print(f"\ngenerating sample images at step / サンプル画像生成 ステップ: {steps}")
     if not os.path.isfile(args.sample_prompts):
         print(f"No prompt file / プロンプトファイルがありません: {args.sample_prompts}")
@@ -4220,13 +4218,6 @@ def sample_images_common(
         with open(args.sample_prompts, "r", encoding="utf-8") as f:
             lines = f.readlines()
         prompts = [line.strip() for line in lines if len(line.strip()) > 0 and line[0] != "#"]
-    elif args.sample_prompts.endswith(".toml"):
-        with open(args.sample_prompts, "r", encoding="utf-8") as f:
-            data = toml.load(f)
-        prompts = [dict(**data["prompt"], **subset) for subset in data["prompt"]["subset"]]
-    elif args.sample_prompts.endswith(".json"):
-        with open(args.sample_prompts, "r", encoding="utf-8") as f:
-            prompts = json.load(f)
 
     # schedulerを用意する
     sched_init_args = {}
@@ -4267,15 +4258,8 @@ def sample_images_common(
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
         scheduler.config.clip_sample = True
 
-    pipeline = pipe_class(text_encoder=text_encoder,
-                            vae=vae,
-                            unet=unet,
-                            tokenizer=tokenizer,
-                            scheduler=scheduler,
-                            safety_checker=None,
-                            feature_extractor=None,
-                            requires_safety_checker=False,
-                            clip_skip=args.clip_skip,)
+    pipeline = pipe_class(text_encoder=text_encoder,vae=vae,unet=unet,tokenizer=tokenizer,scheduler=scheduler,
+                          safety_checker=None,feature_extractor=None,requires_safety_checker=False,clip_skip=args.clip_skip,)
     pipeline.to(device)
     save_dir = args.output_dir + "/sample"
     os.makedirs(save_dir, exist_ok=True)
@@ -4297,34 +4281,51 @@ def sample_images_common(
             else:
                 prompt_args = prompt.split(" --")
                 prompt = prompt_args[0]
-                negative_prompt = None #args.negative_prompt
+                negative_prompt = None
                 sample_steps = 30
                 width = height = 512
                 scale = 7.5
                 seed = None
                 controlnet_image = None
+
                 for parg in prompt_args:
                     try:
+                        # ---------------------------------------------------------------------------------------------
+                        # width
                         m = re.match(r"w (\d+)", parg, re.IGNORECASE)
                         if m:
                             width = int(m.group(1))
                             continue
+                        # ---------------------------------------------------------------------------------------------
+                        # height
                         m = re.match(r"h (\d+)", parg, re.IGNORECASE)
                         if m:
                             height = int(m.group(1))
                             continue
+
+                        # ---------------------------------------------------------------------------------------------
+                        # seed
                         m = re.match(r"d (\d+)", parg, re.IGNORECASE)
                         if m:
                             seed = int(m.group(1))
                             continue
+
+                        # ---------------------------------------------------------------------------------------------
+                        # sample_steps (time steps)
                         m = re.match(r"s (\d+)", parg, re.IGNORECASE)
                         if m:  # steps
                             sample_steps = max(1, min(1000, int(m.group(1))))
                             continue
+
+                        # ---------------------------------------------------------------------------------------------
+                        # CFG scale
                         m = re.match(r"l ([\d\.]+)", parg, re.IGNORECASE)
                         if m:  # scale
                             scale = float(m.group(1))
                             continue
+
+                        # ---------------------------------------------------------------------------------------------
+                        # negative prompt
                         m = re.match(r"n (.+)", parg, re.IGNORECASE)
                         if m:  # negative prompt
                             negative_prompt = m.group(1)
@@ -4339,38 +4340,19 @@ def sample_images_common(
             if seed is not None:
                 torch.manual_seed(seed)
                 torch.cuda.manual_seed(seed)
-            if prompt_replacement is not None:
-                prompt = prompt.replace(prompt_replacement[0], prompt_replacement[1])
-                if negative_prompt is not None:
-                    negative_prompt = negative_prompt.replace(prompt_replacement[0], prompt_replacement[1])
-            if controlnet_image is not None:
-                controlnet_image = Image.open(controlnet_image).convert("RGB")
-                controlnet_image = controlnet_image.resize((width, height), Image.LANCZOS)
+
             height = max(64, height - height % 8)  # round to divisible by 8
             width = max(64, width - width % 8)  # round to divisible by 8
-            print(f"prompt: {prompt}")
-            print(f"negative_prompt: {negative_prompt}")
-            print(f"height: {height}")
-            print(f"width: {width}")
-            print(f"sample_steps: {sample_steps}")
-            print(f"scale: {scale}")
             with accelerator.autocast():
-                latents = pipeline(prompt=prompt,
-                                   height=height,
-                    width=width,
-                    num_inference_steps=sample_steps,
-                    guidance_scale=scale,
-                    negative_prompt=negative_prompt,
-                    controlnet=controlnet,
-                    controlnet_image=controlnet_image,)
+                latents = pipeline(prompt=prompt,height=height,width=width,num_inference_steps=sample_steps,
+                                   guidance_scale=scale,negative_prompt=negative_prompt,controlnet=controlnet,controlnet_image=controlnet_image,)
             image = pipeline.latents_to_image(latents)[0]
             if attention_storer :
                 attention_storer.reset()
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
             num_suffix = f"e{epoch:06d}" if epoch is not None else f"{steps:06d}"
             seed_suffix = "" if seed is None else f"_{seed}"
-            img_filename = (
-                f"{'' if args.output_name is None else args.output_name + '_'}{ts_str}_{num_suffix}_{i:02d}{seed_suffix}.png")
+            img_filename = (f"{'' if args.output_name is None else args.output_name + '_'}{ts_str}_{num_suffix}_{i:02d}_seed_{seed_suffix}.png")
             name, ext = os.path.splitext(img_filename)
             img_dir = os.path.join(save_dir, img_filename)
             txt_dir = os.path.join(save_dir, f'{name}.txt')
