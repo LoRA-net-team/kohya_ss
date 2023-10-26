@@ -504,19 +504,10 @@ class NetworkTrainer:
 
         class_captions = [caption.strip() for caption in class_captions]
         class_captions = [caption.lower() for caption in class_captions]
-        class_token_ids = [self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0) for class_caption in class_captions]
-        class_sen_embs = [train_util.get_hidden_states(args, class_token_id.to(accelerator.device), tokenizers[0], text_encoders[0], weight_dtype) for class_token_id in class_token_ids]
 
 
         concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
 
-
-
-
-        """    
-        print(concept_caption)
-        print(f'class_captions : {class_captions}')
-        print(f'concept_captions : {concept_captions}')
 
         print(f'step 17. text encoder pretraining dataset and dataloader')
         class TE_dataset(torch.utils.data.Dataset):
@@ -615,7 +606,13 @@ class NetworkTrainer:
         else:
             attention_storer = None
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        
+        class_token_ids = [self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0) for class_caption in
+                           class_captions]
+        class_sen_embs = [
+            train_util.get_hidden_states(args, class_token_id.to(accelerator.device), tokenizers[0], text_encoders[0],
+                                         weight_dtype) for class_token_id in class_token_ids]
+
+        """
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
