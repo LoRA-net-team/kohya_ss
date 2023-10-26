@@ -495,25 +495,25 @@ class NetworkTrainer:
         # TODO めちゃくちゃ冗長なのでコードを整理する
         if train_unet and train_text_encoder:
             if len(text_encoders) > 1:
-                pretraining_dataloader, unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
+                unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
                 text_encoder = text_encoders = [t_enc1, t_enc2]
                 del t_enc1, t_enc2
             else:
-                pretraining_dataloader, unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
+                unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
                 text_encoders = [text_encoder]
         elif train_unet:
-            pretraining_dataloader, unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, unet, network, optimizer, train_dataloader, lr_scheduler)
+            unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer, train_dataloader, lr_scheduler)
         elif train_text_encoder:
             if len(text_encoders) > 1:
-                pretraining_dataloader, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
+                t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
                 text_encoder = text_encoders = [t_enc1, t_enc2]
                 del t_enc1, t_enc2
             else:
-                pretraining_dataloader, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
+                text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network, optimizer, train_dataloader, lr_scheduler)
                 text_encoders = [text_encoder]
             unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
         else:
-            pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(pretraining_dataloader, network, optimizer, train_dataloader, lr_scheduler)
+            network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
         if args.gradient_checkpointing:
@@ -588,6 +588,7 @@ class NetworkTrainer:
                                                              shuffle=True,
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers, )
+        pretraining_dataloader = accelerator.prepare(pretraining_dataloader)
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
