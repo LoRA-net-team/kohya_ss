@@ -578,6 +578,7 @@ class NetworkTrainer:
                 return len(self.class_captions)
 
             def __getitem__(self, idx):
+
                 te_example = {}
                 # ------------------------------------------------------------------------------------------------------------------------
                 # 1) class
@@ -720,9 +721,7 @@ class NetworkTrainer:
                     "min_bucket_reso": dataset.min_bucket_reso,
                     "max_bucket_reso": dataset.max_bucket_reso,
                     "tag_frequency": dataset.tag_frequency,
-                    "bucket_info": dataset.bucket_info,
-
-                }
+                    "bucket_info": dataset.bucket_info,}
 
                 subsets_metadata = []
                 for subset in dataset.subsets:
@@ -733,8 +732,7 @@ class NetworkTrainer:
                         "flip_aug": bool(subset.flip_aug),
                         "random_crop": bool(subset.random_crop),
                         "shuffle_caption": bool(subset.shuffle_caption),
-                        "keep_tokens": subset.keep_tokens,
-                    }
+                        "keep_tokens": subset.keep_tokens,}
 
                     image_dir_or_metadata_file = None
                     if subset.image_dir:
@@ -751,9 +749,7 @@ class NetworkTrainer:
                         metadata_file = os.path.basename(subset.metadata_file)
                         subset_metadata["metadata_file"] = metadata_file
                         image_dir_or_metadata_file = metadata_file  # may overwrite
-
                     subsets_metadata.append(subset_metadata)
-
                     # merge dataset dir: not reg subset only
                     # TODO update additional-network extension to show detailed dataset config from metadata
                     if image_dir_or_metadata_file is not None:
@@ -764,24 +760,15 @@ class NetworkTrainer:
                             v = image_dir_or_metadata_file + f" ({i})"
                             i += 1
                         image_dir_or_metadata_file = v
-
-                        dataset_dirs_info[image_dir_or_metadata_file] = {
-                            "n_repeats": subset.num_repeats,
-                            "img_count": subset.img_count,
-                        }
-
+                        dataset_dirs_info[image_dir_or_metadata_file] = {"n_repeats": subset.num_repeats,
+                                                                         "img_count": subset.img_count,}
                 dataset_metadata["subsets"] = subsets_metadata
                 datasets_metadata.append(dataset_metadata)
-
                 # merge tag frequency:
                 for ds_dir_name, ds_freq_for_dir in dataset.tag_frequency.items():
-                    # あるディレクトリが複数のdatasetで使用されている場合、一度だけ数える
-                    # もともと繰り返し回数を指定しているので、キャプション内でのタグの出現回数と、それが学習で何度使われるかは一致しない
-                    # なので、ここで複数datasetの回数を合算してもあまり意味はない
                     if ds_dir_name in tag_frequency:
                         continue
                     tag_frequency[ds_dir_name] = ds_freq_for_dir
-
             metadata["ss_datasets"] = json.dumps(datasets_metadata)
             metadata["ss_tag_frequency"] = json.dumps(tag_frequency)
             metadata["ss_dataset_dirs"] = json.dumps(dataset_dirs_info)
@@ -898,11 +885,8 @@ class NetworkTrainer:
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-
             metadata["ss_epoch"] = str(epoch + 1)
-
             network.on_epoch_start(text_encoder, unet)
-
             for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
@@ -984,7 +968,6 @@ class NetworkTrainer:
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = loss
                     accelerator.backward(loss)
-
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
@@ -997,7 +980,6 @@ class NetworkTrainer:
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
-
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
@@ -1010,18 +992,14 @@ class NetworkTrainer:
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
                         if accelerator.is_main_process:
-                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,
-                                                                      global_step)
+                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,global_step)
                             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
                             if args.save_state:
                                 train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
-
                             remove_step_no = train_util.get_remove_step_no(args, global_step)
                             if remove_step_no is not None:
-                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,
-                                                                                 remove_step_no)
+                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,remove_step_no)
                                 remove_model(remove_ckpt_name)
-
                 current_loss = loss.detach().item()
                 if epoch == 0:
                     loss_list.append(current_loss)
@@ -1038,7 +1016,6 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
-
                     # logs --------------------------------------------------------------------------------------------------------------------------------------------------------
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled,
                                                    mean_norm, maximum_norm, **attention_losses)
@@ -1054,7 +1031,6 @@ class NetworkTrainer:
                 logs = {"loss/epoch": loss_total / len(loss_list)}
                 accelerator.log(logs, step=epoch + 1)
             accelerator.wait_for_everyone()
-
             # 指定エポックごとにモデルを保存
             if args.save_every_n_epochs is not None:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
@@ -1076,15 +1052,11 @@ class NetworkTrainer:
 
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
-
         if is_main_process:
             network = accelerator.unwrap_model(network)
-
         accelerator.end_training()
-
         if is_main_process and args.save_state:
             train_util.save_state_on_train_end(args, accelerator)
-
         if is_main_process:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
