@@ -375,8 +375,12 @@ class NetworkTrainer:
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
 
         print(f'step 9. SD model')
+        _, text_encoder_org, _, _ = self.load_target_model(args, weight_dtype, accelerator)
+        text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
+
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
             vae.set_use_memory_efficient_attention_xformers(args.xformers)
@@ -403,7 +407,8 @@ class NetworkTrainer:
             vae.requires_grad_(False)
             vae.eval()
             with torch.no_grad():
-                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk,accelerator.is_main_process)
+                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk,
+                                                  accelerator.is_main_process)
             vae.to("cpu")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -551,15 +556,13 @@ class NetworkTrainer:
         class_caption_dir = './sentence_datas/cat_sentence_100.txt'
         with open(class_caption_dir, 'r') as f:
             class_captions = f.readlines()
-
         class_captions = [caption.strip() for caption in class_captions]
         class_captions = [caption.lower() for caption in class_captions]
 
 
-        class_token_ids = [self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0) for class_caption in class_captions]
-        class_sen_embs = [train_util.get_hidden_states(args, class_token_id.to(accelerator.device), tokenizers[0], text_encoders[0],weight_dtype) for class_token_id in class_token_ids]
 
         print(f'step 17. text encoder pretraining dataset and dataloader')
+
         class TE_dataset(torch.utils.data.Dataset) :
 
             def __init__(self, class_captions):
@@ -576,13 +579,12 @@ class NetworkTrainer:
                 # ------------------------------------------------------------------------------------------------------------------------
                 # 1) class
                 class_caption = self.class_captions[idx]
-                class_caption_embedding = class_sen_embs[idx]
                 # ------------------------------------------------------------------------------------------------------------------------
                 # 2) concept
                 concept_caption = self.concept_captions[idx]
                 # ------------------------------------------------------------------------------------------------------------------------
                 # 3) total
-                te_example['class_caption_embedding'] = class_caption_embedding
+                te_example['class_caption'] = class_caption
                 te_example['concept_caption'] = concept_caption
                 return te_example
 
@@ -603,14 +605,15 @@ class NetworkTrainer:
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
-                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                class_captions_hidden_states =batch['class_caption_embedding']
-
+                class_caption = batch['class_caption']
+                class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
+                class_captions_hidden_states = train_util.get_hidden_states(args, class_token_ids.to(accelerator.device),
+                                                                            tokenizers[0], text_encoders_org[0],
+                                                                            weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_caption']
                 concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
-                concept_captions_hidden_states = train_util.get_hidden_states(args,
-                                                                              concept_captions_input_ids.to(accelerator.device),
+                concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
                                                                               tokenizers[0], text_encoders[0],
                                                                               weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
