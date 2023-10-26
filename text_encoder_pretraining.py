@@ -409,7 +409,6 @@ class NetworkTrainer:
                 torch.cuda.empty_cache()
             gc.collect()
             accelerator.wait_for_everyone()
-
         print(f'step 12. text encoder')
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
         net_kwargs = {}
@@ -441,6 +440,7 @@ class NetworkTrainer:
             del t_enc
             network.enable_gradient_checkpointing()  # may have no effect
 
+
         print(f'step 13. optimizer')
         accelerator.print("prepare optimizer, data loader etc.")
         # 後方互換性を確保するよ
@@ -450,12 +450,6 @@ class NetworkTrainer:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
 
-
-
-
-
-
-        """
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
 
         print(f'step 14. dataloader')
@@ -494,11 +488,16 @@ class NetworkTrainer:
         class_token = args.class_token
         trg_concept = args.trg_concept
         num_sentences = 100
+
+
         def generate_captions(input_prompt):
             input_ids = sen_gen_tokenizer(input_prompt, return_tensors="pt").input_ids.to("cuda")
             outputs = sen_gen_model.generate(input_ids, temperature=0.8,num_return_sequences=num_sentences,do_sample=True, max_new_tokens=128, top_k=10)
             return sen_gen_tokenizer.batch_decode(outputs, skip_special_tokens=True)
         class_captions = generate_captions(class_token)
+        print(f'class_captions : {class_captions}')
+
+        """
         concept_captions = []
         for source_caption in class_captions:
             concept_caption = source_caption.replace(class_token, trg_concept)
