@@ -639,14 +639,15 @@ class NetworkTrainer:
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
         accelerator.print("running training / 学習開始")
         accelerator.print(
-            f"  num train images * repeats / 学習画像の数×繰り返し回数: {train_dataset_group.num_train_images}" )
+            f"  num train images * repeats / 学習画像の数×繰り返し回数: {train_dataset_group.num_train_images}")
         accelerator.print(f"  num reg images / 正則化画像の数: {train_dataset_group.num_reg_images}")
         accelerator.print(f"  num batches per epoch / 1epochのバッチ数: {len(train_dataloader)}")
         accelerator.print(f"  num epochs / epoch数: {num_train_epochs}")
         accelerator.print(
             f"  batch size per device / バッチサイズ: {', '.join([str(d.batch_size) for d in train_dataset_group.datasets])}")
         # accelerator.print(f"  total train batch size (with parallel & distributed & accumulation) / 総バッチサイズ（並列学習、勾配合計含む）: {total_batch_size}")
-        accelerator.print(f"  gradient accumulation steps / 勾配を合計するステップ数 = {args.gradient_accumulation_steps}")
+        accelerator.print(
+            f"  gradient accumulation steps / 勾配を合計するステップ数 = {args.gradient_accumulation_steps}")
         accelerator.print(f"  total optimization steps / 学習ステップ数: {args.max_train_steps}")
 
         # TODO refactor metadata creation and move to util
@@ -845,10 +846,12 @@ class NetworkTrainer:
         for key in train_util.SS_METADATA_MINIMUM_KEYS:
             if key in metadata:
                 minimum_metadata[key] = metadata[key]
-        progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process,
-                            desc="steps")
+        progress_bar = tqdm(range(args.max_train_steps), smoothing=0,
+                            disable=not accelerator.is_local_main_process, desc="steps")
         global_step = 0
-        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False)
+        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012,
+                                        beta_schedule="scaled_linear", num_train_timesteps=1000,
+                                        clip_sample=False)
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
@@ -856,8 +859,9 @@ class NetworkTrainer:
             init_kwargs = {}
             if args.log_tracker_config is not None:
                 init_kwargs = toml.load(args.log_tracker_config)
-            accelerator.init_trackers("network_train" if args.log_tracker_name is None else args.log_tracker_name,
-                                      init_kwargs=init_kwargs)
+            accelerator.init_trackers(
+                "network_train" if args.log_tracker_name is None else args.log_tracker_name,
+                init_kwargs=init_kwargs)
 
         loss_list = []
         loss_total = 0.0
@@ -872,16 +876,13 @@ class NetworkTrainer:
         def save_model(ckpt_name, unwrapped_nw, steps, epoch_no, force_sync_upload=False):
             os.makedirs(args.output_dir, exist_ok=True)
             ckpt_file = os.path.join(args.output_dir, ckpt_name)
-
             accelerator.print(f"\nsaving checkpoint: {ckpt_file}")
             metadata["ss_training_finished_at"] = str(time.time())
             metadata["ss_steps"] = str(steps)
             metadata["ss_epoch"] = str(epoch_no)
-
             metadata_to_save = minimum_metadata if args.no_metadata else metadata
             sai_metadata = train_util.get_sai_model_spec(None, args, self.is_sdxl, True, False)
             metadata_to_save.update(sai_metadata)
-
             unwrapped_nw.save_weights(ckpt_file, save_dtype, metadata_to_save)
             if args.huggingface_repo_id is not None:
                 huggingface_util.upload(args, ckpt_file, "/" + ckpt_name, force_sync_upload=force_sync_upload)
@@ -891,7 +892,7 @@ class NetworkTrainer:
             if os.path.exists(old_ckpt_file):
                 accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
                 os.remove(old_ckpt_file)
-                
+
         # training loop
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
@@ -922,14 +923,14 @@ class NetworkTrainer:
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
                             text_encoder_conds = get_weighted_text_embeddings(tokenizer, text_encoder,
-                                                                              batch["captions"], accelerator.device,
+                                                                              batch["captions"],
+                                                                              accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
-
-                            text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers,
+                            # text_encoder_conds, trg_index_list = self.get_text_cond(args,accelerator,batch,tokenizers,text_encoders,weight_dtype)
+                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers,
                                                                     text_encoders, weight_dtype)
-
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
@@ -954,21 +955,10 @@ class NetworkTrainer:
                         target = noise
                     ### Masked loss ###
                     if args.masked_loss:
-                        # get mask images then set to device
-                        # batch['mask_imgs'] is actually List[Tensor]
-                        # for each images, get mask image and resize to noise_pred size
-                        # we may not be able to use batch['mask_imgs'] directly because of different image size
-                        # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
-                        # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
-                        # noise_pred:torch.Tensor
-                        # print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
-                        # print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
-                        # print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
-                        # [256, 256] -> [1, 1, 256, 256]
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
                         # interpolate
-                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in
-                                     mask_imgs]
+                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for
+                                     mask_img in mask_imgs]
                         # to Tensor
                         mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
                         # print("mask_imgs size: ", mask_imgs[0].size()) # debug
@@ -986,65 +976,15 @@ class NetworkTrainer:
                     if args.scale_v_pred_loss_like_noise_pred:
                         loss = scale_v_prediction_loss_like_noise_prediction(loss, timesteps, noise_scheduler)
                     if args.v_pred_like_loss:
-                        loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
+                        loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler,
+                                                          args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
                     attn_loss = 0
                     attention_losses = {}
-                    attention_losses["loss/task_loss"] = task_loss
-                    # ------------------------------------------------------------------------------------
-                    if args.heatmap_loss:
-                        layer_names = atten_collection.keys()
-                        assert len(
-                            layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
-                        heatmap_per_batch = {}
-                        for layer_name in layer_names:
-                            if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
-                                word_heatmap_list = atten_collection[layer_name]
-                                for batch_index in range(batch_num):
-                                    word_heatmap = word_heatmap_list[batch_index]
-                                    if word_heatmap.dim() == 3:
-                                        word_heatmap = word_heatmap.mean(0)  # [512,512]
-                                    try:
-                                        heatmap_per_batch[batch_index].append(word_heatmap)
-                                    except:
-                                        heatmap_per_batch[batch_index] = []
-                                        heatmap_per_batch[batch_index].append(word_heatmap)
-                        batch_mask = batch['mask_imgs']
-                        for batch_idx in heatmap_per_batch.keys():
-                            word_heatmap_list = heatmap_per_batch[batch_index]
-                            heatmap = torch.stack(word_heatmap_list, dim=0)  # [16,512,512]
-                            heatmap = heatmap.mean(0)
-                            mask = batch_mask[batch_idx]
-                            masked_heatmap = heatmap * mask
-                            loss_ = torch.nn.functional.mse_loss(masked_heatmap.float(), heatmap.float(),
-                                                                 reduction="none")
-                            loss_ = loss_.mean()
-                            attn_loss = attn_loss + args.attn_loss_ratio * loss_
-                            
-                            #sum_of_attn = sum(atten_collection[layer_name])
-                            #if attn_loss:
-                            #    attn_loss = attn_loss + sum_of_attn
-                            #else:
-                            #    attn_loss = sum_of_attn
-                            # attention_losses[layer_name] = sum_of_attn but detach
-                            #attention_losses["loss/attention_loss_"+layer_name] = sum_of_attn
-                            #print(f'{layer_name} : {word_heatmap.shape}')
-                            
-                            attention_losses["loss/attention_loss"] = attn_loss
-                        assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
-
-                        if args.heatmap_backprop:
-                            loss = task_loss + args.attn_loss_ratio * attn_loss
-                    # ------------------------------------------------------------------------------------
-                    # recording attn loss
-                    if type(attn_loss) == float:
-                        attn_loss_record_elem = [epoch, global_step, attn_loss.item()]
-                    else:
-                        attn_loss_record_elem = [epoch, global_step, attn_loss]
-                    attn_loss_records.append(attn_loss_record_elem)
-                    # ------------------------------------------------------------------------------------
+                    attention_losses["loss/task_loss"] = loss
                     accelerator.backward(loss)
+
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
@@ -1070,7 +1010,8 @@ class NetworkTrainer:
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
                         if accelerator.is_main_process:
-                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
+                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as,
+                                                                      global_step)
                             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
                             if args.save_state:
                                 train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
@@ -1099,8 +1040,8 @@ class NetworkTrainer:
                 if args.logging_dir is not None:
 
                     # logs --------------------------------------------------------------------------------------------------------------------------------------------------------
-                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm,
-                                                   maximum_norm, **attention_losses)
+                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled,
+                                                   mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
 
                     if is_main_process:
@@ -1155,7 +1096,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
