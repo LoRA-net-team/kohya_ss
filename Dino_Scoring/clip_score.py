@@ -116,10 +116,10 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--ref_img_folder',
                         type=str,
-                        default=r'/data7/sooyeon/MyData/perfusion_dataset/iom_1/10_iom')
+                        default=r'/data7/sooyeon/MyData/perfusion_dataset/td_200/200_td')
     parser.add_argument('--base_img_folder',
                         type=str,
-                        default=r'/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/iom_experiment/one_image')
+                        default=r'/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/tdy_experiment')
     parser.add_argument('--concept_token', type=str, default='iom')
     parser.add_argument('--class_token', type=str, default='kitten')
     args = parser.parse_args()
