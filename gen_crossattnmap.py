@@ -2388,9 +2388,12 @@ def main(args):
                 exception_layers = args.exception_layer.split(",")
                 print(f'** exception_layers : {exception_layers}')
                 for layer_name in layer_names:
+                    score = 0
                     for exception_layer in exception_layers:
                         if exception_layer in layer_name :
-                            weights_sd[layer_name] = weights_sd[layer_name] * 0
+                            score += 1
+                    if score == 0 :
+                        weights_sd[layer_name] = weights_sd[layer_name] * 0
 
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
