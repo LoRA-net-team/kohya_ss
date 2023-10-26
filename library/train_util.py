@@ -1036,7 +1036,6 @@ class BaseDataset(torch.utils.data.Dataset):
             mask_dir = image_info.mask_dir
             mask_dirs.append(mask_dir)
 
-
             if mask_dir is not None:
                 mask_img = Image.open(mask_dir)
                 # grayscale
@@ -1046,7 +1045,6 @@ class BaseDataset(torch.utils.data.Dataset):
                 torch_img = torch.from_numpy(np_img)
                 mask_img = torch_img / 255.0  # 0~1
                 mask_imgs.append(mask_img)
-
 
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
@@ -1099,6 +1097,8 @@ class BaseDataset(torch.utils.data.Dataset):
                     img = img[:, ::-1, :].copy()  # copy to avoid negative stride problem
                 latents = None
                 image = self.image_transforms(img)  # -1.0~1.0のtorch.Tensorになる
+
+
             images.append(image)
             latents_list.append(latents)
             target_size = (image.shape[2], image.shape[1]) if image is not None else (latents.shape[2] * 8, latents.shape[1] * 8)
@@ -1120,6 +1120,7 @@ class BaseDataset(torch.utils.data.Dataset):
                 # hardcoded 'girl' for research
                 class_caption = 'girl' ## TODO remove
             class_caption = caption.replace(trg_concept, class_caption)
+            print(f"absolute_path : {absolute_path} | caption: {caption}")
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
@@ -4184,8 +4185,7 @@ def sample_images(*args, **kwargs):
     return sample_images_common(StableDiffusionLongPromptWeightingPipeline, *args, **kwargs)
 
 
-def sample_images_common(
-    pipe_class,
+def sample_images_common(pipe_class,
     accelerator,
     args: argparse.Namespace,
     epoch,
