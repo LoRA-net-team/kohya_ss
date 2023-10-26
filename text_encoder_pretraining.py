@@ -504,7 +504,17 @@ class NetworkTrainer:
 
         class_captions = [caption.strip() for caption in class_captions]
         class_captions = [caption.lower() for caption in class_captions]
+        class_token_ids = [self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0) for class_caption in class_captions]
+        class_sen_embs = [train_util.get_hidden_states(args, class_token_id.to(accelerator.device), tokenizers[0], text_encoders[0], weight_dtype) for class_token_id in class_token_ids]
+
+
         concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
+
+
+
+
+        """    
+        print(concept_caption)
         print(f'class_captions : {class_captions}')
         print(f'concept_captions : {concept_captions}')
 
@@ -524,6 +534,15 @@ class NetworkTrainer:
                 class_caption = self.class_captions[idx]
                 concept_caption = self.concept_captions[idx]
                 #class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
+                class_captions_input_ids = self.get_input_ids(args,
+                                                              class_caption,
+                                                              tokenizer).unsqueeze(0)
+                class_captions_hidden_states = train_util.get_hidden_states(args,
+                                                                            class_captions_input_ids.to(accelerator.device),
+                                                                            tokenizers[0], text_encoders[0],
+                                                                            weight_dtype)
+                
+                
                 #concept_token_ids = self.tokenizer(concept_caption, return_tensors="pt").input_ids.to("cuda")
                 te_example['class_token_ids'] = class_caption
                 te_example['concept_token_ids'] = concept_caption
@@ -596,10 +615,11 @@ class NetworkTrainer:
         else:
             attention_storer = None
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         # training loop
-        #attention_losses = {}
+        # attention_losses = {}
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
@@ -623,7 +643,8 @@ class NetworkTrainer:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # shape = [3,77,768]
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
-                                                                concept_captions_hidden_states.float(), reduction="none")
+                                                                concept_captions_hidden_states.float(),
+                                                                reduction="none")
                 pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                 if is_main_process :
                     #accelerator.log(pretraining_losses)
@@ -1155,7 +1176,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
+    """
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
