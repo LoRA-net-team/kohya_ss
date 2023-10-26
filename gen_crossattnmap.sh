@@ -5,7 +5,7 @@ CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
       --network_module networks.lora \
       --network_weights './result/iom_experiment/one_image/iom_test_task_loss_high_repeat/iom-000011.safetensors' \
-      --outdir ./result/20231025/inference_attention/iom_epoch_11_with_te_proj_in_ff_net --seed 42 --trg_token 'iom' \
+      --outdir ./result/20231025/inference_attention/iom_epoch_11_with_te_proj_in_ff_net_with_flowers --seed 42 --trg_token 'iom' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/iom_inference.txt' \
       --exception_layer 'text,proj_in,ff_net'
 

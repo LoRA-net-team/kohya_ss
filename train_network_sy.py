@@ -9,22 +9,9 @@ import random
 import time
 import json
 from multiprocessing import Value
-import toml
 from tqdm import tqdm
 import toml
 import tempfile
-import torch
-try:
-    from setproctitle import setproctitle
-except (ImportError, ModuleNotFoundError):
-    setproctitle = lambda x: None
-try:
-    import intel_extension_for_pytorch as ipex
-    if torch.xpu.is_available():
-        from library.ipex import ipex_init
-        ipex_init()
-except Exception:
-    pass
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
 from library import model_util
@@ -36,11 +23,22 @@ import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
 from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
                                             scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
+import torch
 from torch import nn
 import torch.nn.functional as F
-
 from functools import lru_cache
 from attention_store import AttentionStore
+try:
+    from setproctitle import setproctitle
+except (ImportError, ModuleNotFoundError):
+    setproctitle = lambda x: None
+try:
+    import intel_extension_for_pytorch as ipex
+    if torch.xpu.is_available():
+        from library.ipex import ipex_init
+        ipex_init()
+except Exception:
+    pass
 
 @lru_cache(maxsize=128)
 def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
@@ -99,7 +97,6 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                             word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
                                                            size=((512, 512)),mode='bicubic').squeeze()
                             word_heat_map_list.append(word_heat_map_)
-
                         word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
                         # saving word_heat_map
                         # ------------------------------------------------------------------------------------------------------------------------------
@@ -145,111 +142,14 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
-"""    
-def register_attention_control(unet : nn.Module,
-                               controller:AttentionStore,
-                               mask_threshold:float=1): #if mask_threshold is 1, use itself
-    
-    Register cross attention layers to controller.
-    
-    def ca_forward(self, layer_name):
 
-        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
-            is_cross_attention = False
-            if context is not None:
-                is_cross_attention = True
-            query = self.to_q(hidden_states)
-            context = context if context is not None else hidden_states
-            key = self.to_k(context)
-            value = self.to_v(context)
-
-            query = self.reshape_heads_to_batch_dim(query)
-            key = self.reshape_heads_to_batch_dim(key)
-            value = self.reshape_heads_to_batch_dim(value)
-            if self.upcast_attention:
-                query = query.float()
-                key = key.float()
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
-                                                         device=query.device),
-                                             query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
-            attention_probs = attention_scores.softmax(dim=-1)
-            attention_probs = attention_probs.to(value.dtype)
-
-            if is_cross_attention:
-                if trg_indexs_list is not None and mask is not None:
-                    trg_indexs = trg_indexs_list
-                    batch_num = len(trg_indexs)
-                    attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
-                    for batch_idx, attention_prob in enumerate(attention_probs_batch) :
-                        batch_trg_index = trg_indexs[batch_idx] # two times
-                        head_num = attention_prob.shape[0]
-                        res = int(math.sqrt(attention_prob.shape[1]))
-                        word_heat_map_list = []
-                        for word_idx in batch_trg_index :
-                            # head, pix_len
-                            word_heat_map = attention_prob[:, :, word_idx]
-                            word_heat_map_ = word_heat_map.reshape(-1, res, res)
-                            word_heat_map_ = word_heat_map_.mean(dim=0)
-                            word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
-                                                           size=((512, 512)),mode='bicubic').squeeze()
-                            word_heat_map_list.append(word_heat_map_)
-                        # ------------------------------------------------------------------------------------------------------------------------------
-                        # mask = [512,512]
-                        #mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                        # thresholding, convert to 1 if upper than threshold else itself
-                        #mask_ = torch.where(mask_ > mask_threshold,
-                        #                    torch.ones_like(mask_), mask_)
-                        # check if mask_ is frozen, it should not be updated
-                        #assert mask_.requires_grad == False, 'mask_ should not be updated'
-                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
-                        #masked_word_heat_map_ = word_heat_map_ * mask_
-                        # is reduction = none, that means just L2 loss
-                        #attn_loss = torch.nn.functional.mse_loss(word_heat_map_.float(), masked_word_heat_map_.float(),
-                        #                                         reduction = 'none')
-                        controller.store(word_heat_map_, layer_name)
-
-                # check if torch.no_grad() is in effect
-                elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
-                    if mask is None:
-                        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
-                    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
-
-
-
-            hidden_states = torch.bmm(attention_probs, value)
-            #if is_cross_attention :
-            #    print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
-            hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
-            hidden_states = self.to_out[0](hidden_states)
-            return hidden_states
-        return forward
-
-    def register_recr(net_, count, layer_name):
-        if net_.__class__.__name__ == 'CrossAttention':
-            net_.forward = ca_forward(net_, layer_name)
-            return count + 1
-        elif hasattr(net_, 'children'):
-            for name__, net__ in net_.named_children():
-                full_name = f'{layer_name}_{name__}'
-                count = register_recr(net__, count, full_name)
-        return count
-
-    cross_att_count = 0
-    for net in unet.named_children():
-        if "down" in net[0]:
-            cross_att_count += register_recr(net[1], 0, net[0])
-        elif "up" in net[0]:
-            cross_att_count += register_recr(net[1], 0, net[0])
-        elif "mid" in net[0]:
-            cross_att_count += register_recr(net[1], 0, net[0])
-    controller.num_att_layers = cross_att_count
-"""
 def arg_as_list(s):
     import ast
     v = ast.literal_eval(s)
     return v
 
 class NetworkTrainer:
+
     def __init__(self):
         self.vae_scale_factor = 0.18215
         self.is_sdxl = False
@@ -258,7 +158,6 @@ class NetworkTrainer:
     def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
                            keys_scaled=None, mean_norm=None, maximum_norm=None, **kwargs):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
-
         # ------------------------------------------------------------------------------------------------------------------------------
         # updating kwargs with new loss logs ...
         if kwargs is not None:
@@ -316,43 +215,9 @@ class NetworkTrainer:
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
-    """
-    def generate_text_embedding(caption, tokenizer):
-        cls_token = 49406
-        pad_token = 49407
-        token_input = tokenizer([trg_concept],
-                                padding="max_length",
-                                max_length=tokenizer.model_max_length,
-                                truncation=True,
-                                return_tensors="pt", )  # token_input = 24215
-        token_ids = token_input.input_ids[0]
-        token_attns = token_input.attention_mask[0]
-        trg_token_id = []
-        for token_id, token_attn in zip(token_ids, token_attns):
-            if token_id != cls_token and token_id != pad_token and token_attn == 1:
-                # token_id = 24215
-                trg_token_id.append(token_id)
-        text_input = tokenizer(caption,
-                               padding="max_length",
-                               max_length=tokenizer.model_max_length,
-                               truncation=True,
-                               return_tensors="pt", )
-        token_ids = text_input.input_ids
-        attns = text_input.attention_mask
-        for token_id, attn in zip(token_ids, attns):
-            trg_indexs = []
-            for i, id in enumerate(token_id):
-                if id in trg_token_id:
-                    trg_indexs.append(i)
-        return trg_indexs
-
-    """
-
     def extract_triggerword_index(self, input_ids):
         cls_token = 49406
         pad_token = 49407
-
-
         if input_ids.dim() == 3 :
             input_ids = torch.flatten(input_ids, start_dim=1)
         batch_num, sen_len = input_ids.size()
@@ -373,36 +238,7 @@ class NetworkTrainer:
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
                                                              tokenizers[0], text_encoders[0],
                                                              weight_dtype)
-        """
-        batch_index_list = self.extract_triggerword_index(input_ids) # [ [1], [1] ]
-
-        # ---------------------------------------------------------------------------------------------------------------
-        # shuffling original index
-        #def shuffling_text_tokens(self, ) :
-        encoder_hidden_states = train_util.get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
-        batch_num, sen_len, dim = encoder_hidden_states.shape # [2,227,768]
-        trg_index_list = []
-        for batch_index in range(batch_num) :
-            org_embedding = encoder_hidden_states[batch_index, :, :].squeeze() # [227,768]
-            org_index = batch_index_list[batch_index]                           # [1]
-            org_index = org_index[0]
-            org_vector = org_embedding[org_index, :]
-            #print(f'org_embedding  : {org_embedding}')
-            #print(f'org_index : {org_index}')
-            trg_embedding = org_embedding[torch.randperm(org_embedding.size()[0])]
-            trg_index = torch.where(trg_embedding == org_vector)[0][0]
-            # ---------------------------------------------------------------------------------------------------------------
-            while trg_index != 0 :
-                #print(f'trg_embedding  : {trg_embedding}')
-                #print(f'trg_index : {trg_index}')
-                #org_text = torch.randn((3, 4))
-                #print(org_text)
-                #org_index = 1
-                #print(trg_index)
-                encoder_hidden_states[batch_index] = trg_embedding
-                trg_index_list.append([trg_index])
-        """
-        return encoder_hidden_states #, trg_index_list
+        return encoder_hidden_states
 
     def call_unet(self,
                   args, accelerator, unet,
@@ -477,12 +313,7 @@ class NetworkTrainer:
             print(f'User config: {user_config}')
             # blueprint_generator = BlueprintGenerator
             print('start of generate function ...')
-            blueprint = blueprint_generator.generate(user_config,
-                                                     args,
-                                                     tokenizer=tokenizer)
-            # blueprint = Blueprint(dataset_group_blueprint)
-            # generate_dataset_group_by_blueprint ?
-            # train_dataset_group = DatasetGroup(datasets)
+            blueprint = blueprint_generator.generate(user_config,args,tokenizer=tokenizer)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
@@ -499,8 +330,7 @@ class NetworkTrainer:
             return
 
         if cache_latents:
-            assert (
-                train_dataset_group.is_latent_cacheable()
+            assert (train_dataset_group.is_latent_cacheable()
             ), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
         self.assert_extra_args(args, train_dataset_group)
 
@@ -569,8 +399,7 @@ class NetworkTrainer:
             accelerator.wait_for_everyone()
 
         # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
-        self.cache_text_encoder_outputs_if_needed(
-            args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype        )
+        self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
 
         # prepare network
         net_kwargs = {}
@@ -578,6 +407,9 @@ class NetworkTrainer:
             for net_arg in args.network_args:
                 key, value = net_arg.split("=")
                 net_kwargs[key] = value
+
+        net_key_names = args.net_key_names
+        net_kwargs['key_layers'] = net_key_names.split(",")
         # if a new network is added in future, add if ~ then blocks for each network (;'∀')
         if args.dim_from_weights:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
@@ -1286,6 +1118,8 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_log_template_path", type=str)
     parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
+    parser.add_argument("--net_key_names", type=str, default='text')
+
     # class_caption
     parser.add_argument("--class_caption", type=str, default='girl')
     parser.add_argument("--heatmap_loss", action='store_true')
@@ -1294,14 +1128,6 @@ if __name__ == "__main__":
 
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
-
-    #first_layers =  ['mid'] # "mid"
-    #second_layers = ['down_blocks_2','up_blocks_1'] #"down_blocks_2,up_blocks_1"
-    #third_layers =  ['down_blocks_1','up_blocks_2'] #"down_blocks_1,up_blocks_2"
-    #forth_layers =  ['down_blocks_0','up_blocks_3'] #"down_blocks_0,up_blocks_3"
-    #second_third_layers = ['down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
-    #first_second_third_layers = ['mid','down_blocks_2','up_blocks_1','down_blocks_1','up_blocks_2'] #"mid,down_blocks_2,up_blocks_1,down_blocks_1,up_blocks_2"
-
     parser.add_argument("--only_second_training", action='store_true')
     parser.add_argument("--only_third_training", action='store_true')
     parser.add_argument("--first_second_training", action='store_true')

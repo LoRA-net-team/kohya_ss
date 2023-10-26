@@ -466,8 +466,7 @@ def create_network(
     text_encoder: Union[CLIPTextModel, List[CLIPTextModel]],
     unet,
     neuron_dropout: Optional[float] = None,
-    **kwargs,
-):
+    **kwargs,):
     if network_dim is None:
         network_dim = 4  # default
     if network_alpha is None:
@@ -515,6 +514,7 @@ def create_network(
     if module_dropout is not None:
         module_dropout = float(module_dropout)
 
+    net_key_names = kwargs.get('key_layers', None)
     # すごく引数が多いな ( ^ω^)･･･
     network = LoRANetwork(
         text_encoder,
@@ -532,7 +532,7 @@ def create_network(
         conv_block_dims=conv_block_dims,
         conv_block_alphas=conv_block_alphas,
         varbose=True,
-    )
+        net_key_names=net_key_names,)
 
     if up_lr_weight is not None or mid_lr_weight is not None or down_lr_weight is not None:
         network.set_block_lr_weight(up_lr_weight, mid_lr_weight, down_lr_weight)
@@ -898,15 +898,7 @@ class LoRANetwork(torch.nn.Module):
         modules_alpha: Optional[Dict[str, int]] = None,
         module_class: Type[object] = LoRAModule,
         varbose: Optional[bool] = False,
-    ) -> None:
-        """
-        LoRA network: すごく引数が多いが、パターンは以下の通り
-        1. lora_dimとalphaを指定
-        2. lora_dim、alpha、conv_lora_dim、conv_alphaを指定
-        3. block_dimsとblock_alphasを指定 :  Conv2d3x3には適用しない
-        4. block_dims、block_alphas、conv_block_dims、conv_block_alphasを指定 : Conv2d3x3にも適用する
-        5. modules_dimとmodules_alphaを指定 (推論用)
-        """
+        net_key_names: Optional[bool] = False,) -> None:
         super().__init__()
         self.multiplier = multiplier
         self.lora_dim = lora_dim
@@ -977,15 +969,18 @@ class LoRANetwork(torch.nn.Module):
                                     skipped.append(lora_name)
                                 continue
                             if block_wise == None :
-                                lora = module_class(lora_name,
-                                                    child_module,
-                                                    self.multiplier,
-                                                    dim,
-                                                    alpha,
-                                                    dropout=dropout,
-                                                    rank_dropout=rank_dropout,
-                                                    module_dropout=module_dropout,)
-                                loras.append(lora)
+                                for key_word in net_key_names :
+                                    if key_word in lora_name :
+                                        print(f'lora to create, lora_name: {lora_name}')
+                                        lora = module_class(lora_name,
+                                                            child_module,
+                                                            self.multiplier,
+                                                            dim,
+                                                            alpha,
+                                                            dropout=dropout,
+                                                            rank_dropout=rank_dropout,
+                                                            module_dropout=module_dropout,)
+                                        loras.append(lora)
 
                             else :
                                 for i, block in enumerate(BLOCKS) :
