@@ -548,8 +548,6 @@ class NetworkTrainer:
             attention_storer = None
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         print(f'step 16. generate sentences')
-        class_token = args.class_token
-        trg_concept = args.trg_concept
         class_caption_dir = './sentence_datas/cat_sentence_100.txt'
         with open(class_caption_dir, 'r') as f:
             class_captions = f.readlines()
@@ -557,32 +555,38 @@ class NetworkTrainer:
         class_captions = [caption.strip() for caption in class_captions]
         class_captions = [caption.lower() for caption in class_captions]
 
-        #concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
+
         class_token_ids = [self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0) for class_caption in class_captions]
         class_sen_embs = [train_util.get_hidden_states(args, class_token_id.to(accelerator.device), tokenizers[0], text_encoders[0],weight_dtype) for class_token_id in class_token_ids]
 
         print(f'step 17. text encoder pretraining dataset and dataloader')
+        class TE_dataset(torch.utils.data.Dataset) :
 
-        class TE_dataset(torch.utils.data.Dataset):
             def __init__(self, class_captions):
+                class_token = args.class_token
+                trg_concept = args.trg_concept
                 self.class_captions = class_captions
+                self.concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
 
             def __len__(self):
                 return len(self.class_captions)
 
             def __getitem__(self, idx):
                 te_example = {}
+                # ------------------------------------------------------------------------------------------------------------------------
+                # 1) class
                 class_caption = self.class_captions[idx]
                 class_caption_embedding = class_sen_embs[idx]
-
-                concept_caption = class_caption.replace(class_token, trg_concept)
-
-                # class_token_ids = self.tokenizer(class_caption, return_tensors="pt").input_ids.to("cuda")
+                # ------------------------------------------------------------------------------------------------------------------------
+                # 2) concept
+                concept_caption = self.concept_captions[idx]
+                # ------------------------------------------------------------------------------------------------------------------------
+                # 3) total
                 te_example['class_caption_embedding'] = class_caption_embedding
                 te_example['concept_caption'] = concept_caption
                 return te_example
 
-        pretraining_datset = TE_dataset( class_captions=class_captions)
+        pretraining_datset = TE_dataset(class_captions=class_captions)
         pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
                                                              batch_size=1,
                                                              shuffle=True,
