@@ -483,9 +483,9 @@ class NetworkTrainer:
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
 
-        print(f'step 15. pretraining T5 model calling')
-        sen_gen_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xl")
-        sen_gen_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl", device_map="auto",torch_dtype=torch.float16)
+        #print(f'step 15. pretraining T5 model calling')
+        #sen_gen_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xl")
+        #sen_gen_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl", device_map="auto",torch_dtype=torch.float16)
 
         print(f'step 16. generate sentences')
         class_token = args.class_token
@@ -500,7 +500,7 @@ class NetworkTrainer:
         """
         class_caption_dir = './sentence_datas/cat_sentence_100.txt'
         with open(class_caption_dir, 'r') as f:
-            class_captions = f.readline()
+            class_captions = f.readlines()
         print(f'class_captions : {class_captions}')
         """
         concept_captions = []
