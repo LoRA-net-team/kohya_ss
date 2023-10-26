@@ -55,59 +55,59 @@ def main(args):
     conditions = os.listdir(base_img_folder)
 
     for condition in conditions:
-        if condition == 'iom_test_net_space' :
-            elems = []
-            elems.append(['epoch', 'avg_i2i_sim', 'avg_t2i_sim','harmonic_mean'])
-            condition_dir = os.path.join(base_img_folder, condition)
-            sample_dir = os.path.join(condition_dir, 'sample')
-            epochs = os.listdir(sample_dir)
-            for epoch in epochs:
-                epoch_dir = os.path.join(sample_dir, str(epoch))
-                files = os.listdir(epoch_dir)
 
-                img_num = 0
-                i2i_sim_list, t2i_sim_list = [], []
-                for file in files:
-                    os.path.split(file)
-                    name, ext = os.path.splitext(file)
-                    if ext != '.txt':
-                        img_num += 1
-                        # -----------------------------------------------------------------------------------------------------
-                        image_dir = os.path.join(epoch_dir, file)
-                        pil_img = Image.open(image_dir)  # RGB
-                        # -----------------------------------------------------------------------------------------------------
-                        txt_dir = os.path.join(epoch_dir, f'{name}.txt' )
-                        with open(txt_dir, 'r') as f:
-                            concept_prompt = f.readlines()[0]
-                        class_prompt = concept_prompt.replace(args.concept_token,args.class_token)
-                        concept_tokenized = clip.tokenize([concept_prompt]).to(args.device)
-                        class_tokenized   = clip.tokenize([class_prompt]).to(args.device)
+        elems = []
+        elems.append(['epoch', 'avg_i2i_sim', 'avg_t2i_sim','harmonic_mean'])
+        condition_dir = os.path.join(base_img_folder, condition)
+        sample_dir = os.path.join(condition_dir, 'sample')
+        epochs = os.listdir(sample_dir)
+        for epoch in epochs:
+            epoch_dir = os.path.join(sample_dir, str(epoch))
+            files = os.listdir(epoch_dir)
 
-                        # -----------------------------------------------------------------------------------------------------
-                        with torch.no_grad():
-                            image_features = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
-                            concept_text_features = clip_model.encode_text(concept_tokenized)
-                            class_text_features = clip_model.encode_text(class_tokenized)
-                        # -----------------------------------------------------------------------------------------------------
-                        # 1) I2I similarity
-                        for ref_emb in ref_embs:
-                            i2i_sim = torch.nn.functional.cosine_similarity(image_features,ref_emb, dim=1, eps=1e-8)
-                            i2i_sim_list.append(i2i_sim)
-                        # 2) T2I similarity
-                        concept_t2i_sim = torch.nn.functional.cosine_similarity(image_features,concept_text_features, dim=1, eps=1e-8)
-                        class_t2i_sim = torch.nn.functional.cosine_similarity(image_features,  class_text_features, dim=1, eps=1e-8)
-                        t2i_sim = concept_t2i_sim / class_t2i_sim
-                        t2i_sim_list.append(t2i_sim)
-                avg_i2i_sim = torch.mean(torch.stack(i2i_sim_list)).item()
-                avg_t2i_sim = torch.mean(torch.stack(t2i_sim_list)).item()
-                a = 2 * avg_i2i_sim * avg_t2i_sim / (avg_i2i_sim + avg_t2i_sim)
-                elems.append([epoch, avg_i2i_sim, avg_t2i_sim,a])
-            # make csv file
-            csv_dir = os.path.join(condition_dir, f'{condition}_new_score.csv')
-            print(f'csv_dir : {csv_dir}')
-            with open(csv_dir, 'w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerows(elems)
+            img_num = 0
+            i2i_sim_list, t2i_sim_list = [], []
+            for file in files:
+                os.path.split(file)
+                name, ext = os.path.splitext(file)
+                if ext != '.txt':
+                    img_num += 1
+                    # -----------------------------------------------------------------------------------------------------
+                    image_dir = os.path.join(epoch_dir, file)
+                    pil_img = Image.open(image_dir)  # RGB
+                    # -----------------------------------------------------------------------------------------------------
+                    txt_dir = os.path.join(epoch_dir, f'{name}.txt' )
+                    with open(txt_dir, 'r') as f:
+                        concept_prompt = f.readlines()[0]
+                    class_prompt = concept_prompt.replace(args.concept_token,args.class_token)
+                    concept_tokenized = clip.tokenize([concept_prompt]).to(args.device)
+                    class_tokenized   = clip.tokenize([class_prompt]).to(args.device)
+
+                    # -----------------------------------------------------------------------------------------------------
+                    with torch.no_grad():
+                        image_features = clip_model.encode_image(clip_preprocess(pil_img).unsqueeze(0).to('cuda'))
+                        concept_text_features = clip_model.encode_text(concept_tokenized)
+                        class_text_features = clip_model.encode_text(class_tokenized)
+                    # -----------------------------------------------------------------------------------------------------
+                    # 1) I2I similarity
+                    for ref_emb in ref_embs:
+                        i2i_sim = torch.nn.functional.cosine_similarity(image_features,ref_emb, dim=1, eps=1e-8)
+                        i2i_sim_list.append(i2i_sim)
+                    # 2) T2I similarity
+                    concept_t2i_sim = torch.nn.functional.cosine_similarity(image_features,concept_text_features, dim=1, eps=1e-8)
+                    class_t2i_sim = torch.nn.functional.cosine_similarity(image_features,  class_text_features, dim=1, eps=1e-8)
+                    t2i_sim = concept_t2i_sim / class_t2i_sim
+                    t2i_sim_list.append(t2i_sim)
+            avg_i2i_sim = torch.mean(torch.stack(i2i_sim_list)).item()
+            avg_t2i_sim = torch.mean(torch.stack(t2i_sim_list)).item()
+            a = 2 * avg_i2i_sim * avg_t2i_sim / (avg_i2i_sim + avg_t2i_sim)
+            elems.append([epoch, avg_i2i_sim, avg_t2i_sim,a])
+        # make csv file
+        csv_dir = os.path.join(condition_dir, f'{condition}_new_score.csv')
+        print(f'csv_dir : {csv_dir}')
+        with open(csv_dir, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(elems)
 
 
 if __name__ == '__main__':
