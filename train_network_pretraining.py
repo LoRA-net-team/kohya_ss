@@ -210,8 +210,7 @@ class NetworkTrainer:
 
     def is_text_encoder_outputs_cached(self, args):
         return False
-    def cache_text_encoder_outputs_if_needed(
-        self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype ):
+    def cache_text_encoder_outputs_if_needed(self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype ):
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
@@ -235,14 +234,10 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device) # batch, torch_num, sen_len
-        #print(f'input_ids : {input_ids}')
-        encoder_hidden_states = train_util.get_hidden_states(args, input_ids,
-                                                             tokenizers[0], text_encoders[0],
-                                                             weight_dtype )
+        encoder_hidden_states = train_util.get_hidden_states(args, input_ids,tokenizers[0], text_encoders[0],weight_dtype )
         return encoder_hidden_states
 
-    def call_unet(self,
-                  args, accelerator, unet,
+    def call_unet(self,args, accelerator, unet,
                   noisy_latents, timesteps,
                   text_conds, batch, weight_dtype,
                   trg_indexs_list,
@@ -258,6 +253,9 @@ class NetworkTrainer:
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet)
 
     def train(self, args):
+
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+        print("\n step 1. start session")
         if args.process_title :
             setproctitle(args.process_title)
         else :
@@ -273,16 +271,13 @@ class NetworkTrainer:
         use_user_config = args.dataset_config is not None
         use_class_caption = args.class_caption is not None # if class_caption is provided, for subsets, add key 'class_caption' to each subset
 
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+        print("\n step 2. seed")
         if args.seed is None:
             args.seed = random.randint(0, 2**32)
         set_seed(args.seed)
 
-        # tokenizerは単体またはリスト、tokenizersは必ずリスト：既存のコードとの互換性のため
-        tokenizer = self.load_tokenizer(args)
-        tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
-
         #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-        # acceleratorを準備する
         print("\n step 3. preparing accelerator")
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
@@ -300,8 +295,12 @@ class NetworkTrainer:
             json.dump(vars(args), f, indent=4)
 
         print("\n step 5. loading stable diffusion")
+        tokenizer = self.load_tokenizer(args)
+        tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
+        _, text_encoder_org, _, _ = self.load_target_model(args, weight_dtype, accelerator)
+        text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
@@ -359,15 +358,43 @@ class NetworkTrainer:
             assert (train_dataset_group.is_latent_cacheable()), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
         self.assert_extra_args(args, train_dataset_group)
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-        train_dataloader = torch.utils.data.DataLoader(
-            train_dataset_group,
-            batch_size=1,
-            shuffle=True,
-            collate_fn=collater,
-            num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers, )
+        train_dataloader = torch.utils.data.DataLoader(train_dataset_group,batch_size=1,shuffle=True,collate_fn=collater,
+                                                       num_workers=n_workers,persistent_workers=args.persistent_data_loader_workers, )
+
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-        print("\n step 7. network")
+        print("\n step 6. Dataset & Loader 2")
+        class_caption_dir = './sentence_datas/cat_sentence_100.txt'
+        with open(class_caption_dir, 'r') as f:
+            class_captions = f.readlines()
+        class_captions = [caption.strip() for caption in class_captions]
+        class_captions = [caption.lower() for caption in class_captions]
+
+        class TE_dataset(torch.utils.data.Dataset):
+            def __init__(self, class_captions):
+                class_token = args.class_token
+                trg_concept = args.trg_concept
+                self.class_captions = class_captions
+                self.concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
+            def __len__(self):
+                return len(self.class_captions)
+            def __getitem__(self, idx):
+                te_example = {}
+                # 1) class
+                class_caption = self.class_captions[idx]
+                # 2) concept
+                concept_caption = self.concept_captions[idx]
+                # 3) total
+                te_example['class_caption'] = class_caption
+                te_example['concept_caption'] = concept_caption
+                return te_example
+
+        pretraining_datset = TE_dataset(class_captions=class_captions)
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset, batch_size=1, shuffle=True,
+                                                             num_workers=n_workers,
+                                                             persistent_workers=args.persistent_data_loader_workers, )
+
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+        print("\n step 7. prepare network")
         sys.path.append(os.path.dirname(__file__))
         accelerator.print("import network module:", args.network_module)
         network_module = importlib.import_module(args.network_module)
@@ -393,10 +420,8 @@ class NetworkTrainer:
                 torch.cuda.empty_cache()
             gc.collect()
             accelerator.wait_for_everyone()
-
         # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
-        # prepare network
         net_kwargs = {}
         if args.network_args is not None:
             for net_arg in args.network_args:
@@ -425,11 +450,11 @@ class NetworkTrainer:
         if hasattr(network, "prepare_network"):
             network.prepare_network(args)
         if args.scale_weight_norms and not hasattr(network, "apply_max_norm_regularization"):
-            print(
-                "warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
+            print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
             )
             args.scale_weight_norms = False
-        train_unet = not args.network_train_text_encoder_only
+        #train_unet = not args.network_train_text_encoder_only
+        train_unet = False
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
         if args.network_weights is not None:
@@ -458,6 +483,7 @@ class NetworkTrainer:
         except TypeError:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+        print(f'len of trainable_params : {len(trainable_params)}')
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
 
         print("\n step 10. learning rate")
