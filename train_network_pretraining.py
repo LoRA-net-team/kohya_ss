@@ -487,14 +487,43 @@ class NetworkTrainer:
 
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         text_encoders_org = train_util.transform_models_if_DDP(text_encoders_org)
-
-        network = accelerator.unwrap_model(network)
-        
-
-
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+        print("\n step 12. text encoder pretraining")
+        pretraining_epochs = 10
+        pretraining_losses = {}
+        for epoch in range(pretraining_epochs):
+            for batch in pretraining_dataloader:
+                class_caption = batch['class_caption']
+                class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
+                class_captions_hidden_states = train_util.get_hidden_states(args,
+                                                                            class_token_ids.to(accelerator.device),
+                                                                            tokenizers[0], text_encoders_org[0],
+                                                                            weight_dtype)
+                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                concept_captions = batch['concept_caption']
+                concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
+                concept_captions_hidden_states = train_util.get_hidden_states(args,
+                                                                              concept_captions_input_ids.to(
+                                                                                  accelerator.device),
+                                                                              tokenizers[0], text_encoders[0],
+                                                                              weight_dtype)
+                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                # shape = [3,77,768]
+                pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
+                                                                concept_captions_hidden_states.float(),
+                                                                reduction="none")
+                pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
+                if is_main_process:
+                    # accelerator.log(pretraining_losses)
+                    wandb.log(pretraining_losses)
+                pretraining_loss = pretraining_loss.mean()
+                accelerator.backward(pretraining_loss)
+                optimizer.step()
+                lr_scheduler.step()
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-2. prepare unet network")
+        network = accelerator.unwrap_model(network)
         network.add_unet_module(unet, net_key_names=['unet'])
         network.apply_unet_to(apply_unet=True, )
         print("\n step 8-2. optimizer (with only text encoder loras)")
