@@ -491,8 +491,9 @@ class NetworkTrainer:
 
 
 
-        network.add_unet_module(unet)
-        network.apply_unet_to(apply_unet=True)
+        network.add_unet_module(unet,
+                                net_key_names=['unet'])
+        network.apply_unet_to(apply_unet=True, )
         print("\n step 9-2. optimizer")
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
