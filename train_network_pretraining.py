@@ -554,7 +554,8 @@ class NetworkTrainer:
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-2. prepare unet network")
         network = accelerator.unwrap_model(network)
-        network.add_unet_module(unet, net_key_names=['unet'])
+        unet_key_names = args.unet_net_key_names.split(",")
+        network.add_unet_module(unet, net_key_names=unet_key_names)
         network.apply_unet_to(apply_unet=True, )
         print("\n step 8-2. optimizer (with only text encoder loras)")
         try:
@@ -1158,6 +1159,7 @@ if __name__ == "__main__":
     parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
     parser.add_argument("--heatmap_backprop", action = 'store_true')
     parser.add_argument('--class_token', default='cat', type=str)
+    parser.add_argument('--unet_net_key_names', default='proj_in,ff_net', type=str)
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
