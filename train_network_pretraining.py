@@ -525,7 +525,7 @@ class NetworkTrainer:
             ckpt_name = f'{args.output_name}-base.safetensors'
             ckpt_file = os.path.join(args.output_dir, ckpt_name)
             unwrapped_nw = accelerator.unwrap_model(network)
-            unwrapped_nw.save_weights(ckpt_file, save_dtype)
+            unwrapped_nw.save_weights(ckpt_file, save_dtype,metadata=None)
         self.sample_images(accelerator, args, -1, 0,
                            accelerator.device, vae, tokenizer,
                            text_encoder, unet)
