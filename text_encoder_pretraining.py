@@ -503,10 +503,9 @@ class NetworkTrainer:
             text_encoders = [text_encoder]
             text_encoders_org = [text_encoder_org]
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
-        text_encoder_loras = accelerator.unwrap_model(network).text_encoder_loras
-        """
+
         print(f' *** step 18. text encoder pretraining *** ')
-        pretraining_epochs = 10
+        pretraining_epochs = 1
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
@@ -547,6 +546,7 @@ class NetworkTrainer:
         trainable_params = second_network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
+
         print(f'\n step 20. dataloader')
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
         train_dataloader = torch.utils.data.DataLoader(train_dataset_group, batch_size=1, shuffle=True,
@@ -632,7 +632,7 @@ class NetworkTrainer:
         else:
             attention_storer = None
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+        text_encoder_loras = accelerator.unwrap_model(network).text_encoder_loras
         second_network.text_encoder_loras = text_encoder_loras
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
@@ -1068,7 +1068,7 @@ class NetworkTrainer:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
 
-        """
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
