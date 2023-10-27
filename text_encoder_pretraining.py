@@ -277,7 +277,8 @@ class NetworkTrainer:
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer,
                       text_encoder, unet):
-        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer,
+        train_util.sample_images(accelerator, args,
+                                 epoch, global_step, device, vae, tokenizer,
                                  text_encoder, unet)
 
     def train(self, args):
@@ -527,12 +528,10 @@ class NetworkTrainer:
                 lr_scheduler.step()
 
         print(f'\n step 17. make net network')
-        second_network = network_module.create_network(1.0, args.network_dim, args.network_alpha, vae, text_encoder, unet,
-                                                neuron_dropout=args.network_dropout, **net_kwargs, )
-        second_network.apply_to(text_encoder, unet, apply_text_encoder=True, apply_unet=True)
-        second_network.text_encoder_loras = accelerator.unwrap_model(network).text_encoder_loras
-        network = second_network
-
+        # add module
+        network.add_unet_module(unet)
+        network.apply_to(text_encoder, unet, apply_text_encoder=True, apply_unet=True)
+        """
 
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
@@ -1026,7 +1025,7 @@ class NetworkTrainer:
                     attn_loss = 0
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = loss
-                    """
+                    
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         layer_names = atten_collection.keys()
@@ -1044,7 +1043,7 @@ class NetworkTrainer:
                             loss = task_loss + args.attn_loss_ratio * attn_loss
                     else:
                         attention_losses = {}
-                    """
+                    
                     accelerator.backward(loss)
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1064,7 +1063,8 @@ class NetworkTrainer:
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
-                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+                    self.sample_images(accelerator, args, None, global_step,
+                                       accelerator.device, vae, tokenizer, text_encoder, unet)
                     if attention_storer is not None:
                         attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
@@ -1125,7 +1125,9 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+            self.sample_images(accelerator, args, epoch + 1, global_step,
+                               accelerator.device, vae, tokenizer, text_encoder, unet)
+
             if attention_storer is not None:
                 attention_storer.step_store = {}
             # end of epoch
@@ -1152,7 +1154,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
+         """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
