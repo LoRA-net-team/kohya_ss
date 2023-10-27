@@ -4,15 +4,15 @@
 CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
       --network_module networks.lora \
-      --network_weights './result/tdy_experiment/td_base_2/td.safetensors' \
-      --outdir ./result/20231025/inference_attention/td_epoch_12_with_te_proj_in_ff_net_with_flowers --seed 42 --trg_token 'td' \
+      --network_weights './result/tdy_experiment/td_base_3/td.safetensors' \
+      --outdir ./result/20231027/inference_attention/td_base_3_with_te_attn2_with_flowers --seed 42 --trg_token 'td' \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/td_inference.txt' \
-      --exception_layer 'text,proj_in,ff_net'
+      --exception_layer 'text,attn2'
 
 
 
 
-cp /data7/sooyeon/LyCORIS/LyCORIS/test/iom_inference.txt /data7/sooyeon/LyCORIS/LyCORIS/test/td_inference.txt
+cp /data7/sooyeon/LyCORIS/LyCORIS/test/iom_inference.txt /data7/sooyeon/LyCORIS/LyCORIS/test/td_inference.txttd-000005.safetensors
 
 
 
