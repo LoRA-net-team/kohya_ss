@@ -457,17 +457,63 @@ class NetworkTrainer:
         train_unet = False
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
-        if args.network_weights is not None:
-            info = network.load_weights(args.network_weights)
-            accelerator.print(f"load network weights from {args.network_weights}: {info}")
-        if args.gradient_checkpointing:
-            unet.enable_gradient_checkpointing()
-            for t_enc in text_encoders:
-                t_enc.gradient_checkpointing_enable()
-            del t_enc
-            network.enable_gradient_checkpointing()  # may have no effect
-        # 学習に必要なクラスを準備する
-        accelerator.print("prepare optimizer, data loader etc.")
+
+        print("\n step 9-1. optimizer")
+        try:
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+        except TypeError:
+            accelerator.print(
+                "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+        print(f'len of trainable_params : {len(trainable_params)}')
+        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
+        print("\n step 10-1. learning rate")
+        lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
+        if args.full_fp16:
+            assert (args.mixed_precision == "fp16"
+                    ), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
+            accelerator.print("enable full fp16 training.")
+            network.to(weight_dtype)
+        elif args.full_bf16:
+            assert (
+                        args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
+            accelerator.print("enable full bf16 training.")
+            network.to(weight_dtype)
+
+
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+
+
+
+
+
+
+
+
+        network.add_unet_module(unet)
+        network.apply_unet_to(apply_unet=True)
+        print("\n step 9-2. optimizer")
+        try:
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+        except TypeError:
+            accelerator.print(
+                "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+        print(f'len of trainable_params : {len(trainable_params)}')
+        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
+        print("\n step 10-2. learning rate")
+        lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
+        if args.full_fp16:
+            assert (args.mixed_precision == "fp16"
+                    ), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
+            accelerator.print("enable full fp16 training.")
+            network.to(weight_dtype)
+        elif args.full_bf16:
+            assert (
+                    args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
+            accelerator.print("enable full bf16 training.")
+            network.to(weight_dtype)
 
         print("\n step 8. train epochs")
         if args.max_train_epochs is not None:
