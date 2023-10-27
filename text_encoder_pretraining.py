@@ -537,104 +537,68 @@ class NetworkTrainer:
                 lr_scheduler.step()
 
         text_encoder_loras = network.text_loras
-        """
 
-
-        train_unet = not args.network_train_text_encoder_only
-        train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
-        network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
-        
-        if args.network_weights is not None:
-            info = network.load_weights(args.network_weights)
-            accelerator.print(f"load network weights from {args.network_weights}: {info}")
-        if args.gradient_checkpointing:
-            unet.enable_gradient_checkpointing()
-            for t_enc in text_encoders:
-                t_enc.gradient_checkpointing_enable()
-            del t_enc
-            network.enable_gradient_checkpointing()  # may have no effect
-
-
-        print(f'step 13. optimizer')
-        accelerator.print("prepare optimizer, data loader etc.")
-        try:
-            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
-        except TypeError:
-            accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
-            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-
+        print(f'\n step 19. make net network')
+        second_network = network_module.create_network(1.0, args.network_dim, args.network_alpha, vae, text_encoder, unet,
+                                                neuron_dropout=args.network_dropout, **net_kwargs, )
+        second_network.apply_to(text_encoder, unet, apply_text_encoder=True, apply_unet=True)
+        trainable_params = second_network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
-
-        print(f'step 14. dataloader')
+        lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
+        print(f'\n step 20. dataloader')
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-        train_dataloader = torch.utils.data.DataLoader(train_dataset_group,batch_size=1,shuffle=True,
-                                                       collate_fn=collater,num_workers=n_workers,persistent_workers=args.persistent_data_loader_workers, )
+        train_dataloader = torch.utils.data.DataLoader(train_dataset_group, batch_size=1, shuffle=True,
+                                                       collate_fn=collater, num_workers=n_workers,
+                                                       persistent_workers=args.persistent_data_loader_workers, )
 
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
-            args.max_train_steps = args.max_train_epochs * math.ceil(len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
-            accelerator.print(f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
+            args.max_train_steps = args.max_train_epochs * math.ceil(
+                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
+            accelerator.print(
+                f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
         # データセット側にも学習ステップを送信
         train_dataset_group.set_max_train_steps(args.max_train_steps)
         # lr schedulerを用意する
-        lr_scheduler = train_util.get_scheduler_fix(args,optimizer, accelerator.num_processes)
+        lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
 
         # 実験的機能：勾配も含めたfp16/bf16学習を行う　モデル全体をfp16/bf16にする
         if args.full_fp16:
             assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
             accelerator.print("enable full fp16 training.")
-            network.to(weight_dtype)
+            second_network.to(weight_dtype)
         elif args.full_bf16:
             assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
             accelerator.print("enable full bf16 training.")
-            network.to(weight_dtype)
+            second_network.to(weight_dtype)
         unet.requires_grad_(False)
         unet.to(dtype=weight_dtype)
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
 
-        #print(f'step 15. pretraining T5 model calling')
-        #sen_gen_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xl")
-        #sen_gen_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl", device_map="auto",torch_dtype=torch.float16)
-
-
-        # acceleratorがなんかよろしくやってくれるらしい
-        # TODO めちゃくちゃ冗長なのでコードを整理する
-
-        if train_unet and train_text_encoder:
-            if len(text_encoders) > 1:
-                unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, text_encoders[0], text_encoders[1],
-                                                                                                               network, optimizer, train_dataloader, lr_scheduler,)
-
-                text_encoder = text_encoders = [t_enc1, t_enc2]
-                del t_enc1, t_enc2
-            else:
-                unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
-                text_encoders = [text_encoder]
-        elif train_unet:
-            unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer, train_dataloader, lr_scheduler)
-        elif train_text_encoder:
-            if len(text_encoders) > 1:
-                t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoders[0], text_encoders[1], network, optimizer,
-                                                                                                         train_dataloader, lr_scheduler)
-                text_encoder = text_encoders = [t_enc1, t_enc2]
-                del t_enc1, t_enc2
-            else:
-                text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network, optimizer, train_dataloader, lr_scheduler)
-                text_encoders = [text_encoder]
-            unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+        if len(text_encoders) > 1:
+            unet, t_enc1, t_enc2, second_network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, text_encoders[0], text_encoders[1], second_network, optimizer, train_dataloader, lr_scheduler)
+            text_encoder = text_encoders = [t_enc1, t_enc2]
+            del t_enc1, t_enc2
         else:
-            network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
+            unet, text_encoder, second_network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, text_encoder, second_network, optimizer, train_dataloader, lr_scheduler)
+            text_encoders = [text_encoder]
 
-
+        # transform DDP after prepare (train_network here only)
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
-        unet, network = train_util.transform_models_if_DDP([unet, network])
+        unet, second_network = train_util.transform_models_if_DDP([unet, second_network])
+
         if args.gradient_checkpointing:
+            # according to TI example in Diffusers, train is required
             unet.train()
             for t_enc in text_encoders:
                 t_enc.train()
+                # set top parameter requires_grad = True for gradient checkpointing works
                 if train_text_encoder:
                     t_enc.text_model.embeddings.requires_grad_(True)
+            # set top parameter requires_grad = True for gradient checkpointing works
             if not train_text_encoder:  # train U-Net only
                 unet.parameters().__next__().requires_grad_(True)
         else:
@@ -642,14 +606,20 @@ class NetworkTrainer:
             for t_enc in text_encoders:
                 t_enc.eval()
         del t_enc
-        network.prepare_grad_etc(text_encoder, unet)
+        second_network.prepare_grad_etc(text_encoder, unet)
+
         if not cache_latents:  # キャッシュしない場合はVAEを使うのでVAEを準備する
             vae.requires_grad_(False)
             vae.eval()
             vae.to(accelerator.device, dtype=vae_dtype)
+
+        # 実験的機能：勾配も含めたfp16学習を行う　PyTorchにパッチを当ててfp16でのgrad scaleを有効にする
         if args.full_fp16:
             train_util.patch_accelerator_for_fp16_training(accelerator)
+
+        # resumeする
         train_util.resume_from_local_or_hf_if_specified(accelerator, args)
+
         num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
         num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
@@ -660,86 +630,8 @@ class NetworkTrainer:
         else:
             attention_storer = None
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        print(f'step 16. generate sentences')
-        class_caption_dir = './sentence_datas/cat_sentence_100.txt'
-        with open(class_caption_dir, 'r') as f:
-            class_captions = f.readlines()
-        class_captions = [caption.strip() for caption in class_captions]
-        class_captions = [caption.lower() for caption in class_captions]
 
-
-
-        print(f'step 17. text encoder pretraining dataset and dataloader')
-
-        class TE_dataset(torch.utils.data.Dataset) :
-
-            def __init__(self, class_captions):
-                class_token = args.class_token
-                trg_concept = args.trg_concept
-                self.class_captions = class_captions
-                self.concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
-
-            def __len__(self):
-                return len(self.class_captions)
-
-            def __getitem__(self, idx):
-
-                te_example = {}
-                # ------------------------------------------------------------------------------------------------------------------------
-                # 1) class
-                class_caption = self.class_captions[idx]
-                # ------------------------------------------------------------------------------------------------------------------------
-                # 2) concept
-                concept_caption = self.concept_captions[idx]
-                # ------------------------------------------------------------------------------------------------------------------------
-                # 3) total
-                te_example['class_caption'] = class_caption
-                te_example['concept_caption'] = concept_caption
-                return te_example
-
-        pretraining_datset = TE_dataset(class_captions=class_captions)
-        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
-                                                             batch_size=1,
-                                                             shuffle=True,
-                                                             num_workers=n_workers,
-                                                             persistent_workers=args.persistent_data_loader_workers, )
-        pretraining_dataloader, text_encoder_org = accelerator.prepare(pretraining_dataloader, text_encoder_org)
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-
-        print(f' *** step 18. text encoder pretraining *** ')
-        pretraining_epochs = 10
-        # training loop
-        # attention_losses = {}
-        pretraining_losses = {}
-        for epoch in range(pretraining_epochs):
-            for batch in pretraining_dataloader:
-                class_caption = batch['class_caption']
-                class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
-                class_captions_hidden_states = train_util.get_hidden_states(args, class_token_ids.to(accelerator.device),
-                                                                            tokenizers[0], text_encoders_org[0],
-                                                                            weight_dtype)
-                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                concept_captions = batch['concept_caption']
-                concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
-                concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(accelerator.device),
-                                                                              tokenizers[0], text_encoders[0],
-                                                                              weight_dtype)
-                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                # shape = [3,77,768]
-                pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
-                                                                concept_captions_hidden_states.float(),
-                                                                reduction="none")
-                pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
-                if is_main_process :
-                    #accelerator.log(pretraining_losses)
-                    wandb.log(pretraining_losses)
-                pretraining_loss = pretraining_loss.mean()
-                accelerator.backward(pretraining_loss)
-                optimizer.step()
-                lr_scheduler.step()
-
-
+        second_network.text_encoder_loras = text_encoder_loras
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -1173,7 +1065,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-        """
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
