@@ -2412,7 +2412,7 @@ def main(args):
 
     else:
         networks = []
-    org_state_dict = network.state_dict()
+    #org_state_dict = network.state_dict()
 
 
 
