@@ -394,7 +394,7 @@ class NetworkTrainer:
                                                              persistent_workers=args.persistent_data_loader_workers, )
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-        print("\n step 7. prepare network")
+        print("\n step 7-1. prepare network")
         sys.path.append(os.path.dirname(__file__))
         accelerator.print("import network module:", args.network_module)
         network_module = importlib.import_module(args.network_module)
@@ -447,67 +447,50 @@ class NetworkTrainer:
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
 
-        print("\n step 9-1. optimizer")
+        print("\n step 8-1. optimizer (with only text encoder loras)")
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         except TypeError:
             accelerator.print(
                 "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-        print(f'len of trainable_params : {len(trainable_params)}')
-
-        #last_elem = trainable_params[-1]
-        unet_loras = network.unet_loras
-        print(f'len of unet_loras : {len(unet_loras)}')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        """
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
-        print("\n step 10-1. learning rate")
+
+        print("\n step 9-1. learning rate")
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
         if args.full_fp16:
-            assert (args.mixed_precision == "fp16"
-                    ), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
+            assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
             accelerator.print("enable full fp16 training.")
             network.to(weight_dtype)
         elif args.full_bf16:
-            assert (
-                        args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
+            assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
             accelerator.print("enable full bf16 training.")
             network.to(weight_dtype)
 
-
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-
-
-
-
-
-
-
-
-
-        network.add_unet_module(unet,
-                                net_key_names=['unet'])
+        print("\n step 7-2. prepare unet network")
+        network.add_unet_module(unet, net_key_names=['unet'])
         network.apply_unet_to(apply_unet=True, )
+        print("\n step 8-2. optimizer (with only text encoder loras)")
+        try:
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+        except TypeError:
+            accelerator.print(
+                "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+        print(f'after unet add, len of trainable_params : {len(trainable_params)}')
+        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
+
+    """
+        
+
+
+
+
+
+
+
+        
         print("\n step 9-2. optimizer")
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
