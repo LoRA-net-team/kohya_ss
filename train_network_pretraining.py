@@ -1141,7 +1141,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--net_key_names", type=str, default='text')
-    parser.add_argument("--class_caption_dir", type=str, default='./sentence_datas/cat_sentence_100.txt')
+    parser.add_argument("--class_caption_dir", type=str, default='./sentence_datas/cat_sentence_100.txt' )
     # class_caption
     parser.add_argument("--class_caption", type=str, default='girl')
     parser.add_argument("--heatmap_loss", action='store_true')
