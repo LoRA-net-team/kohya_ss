@@ -281,7 +281,7 @@ class NetworkTrainer:
             # [3,77]
             input_ids = torch.stack(iids_list)  # 3,77
         return input_ids
-    
+
     def train(self, args):
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -393,7 +393,7 @@ class NetworkTrainer:
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 6. Dataset & Loader 2")
-        class_caption_dir = './sentence_datas/cat_sentence_100.txt'
+        class_caption_dir = args.class_caption_dir
         with open(class_caption_dir, 'r') as f:
             class_captions = f.readlines()
         class_captions = [caption.strip() for caption in class_captions]
@@ -1139,7 +1139,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_key", type=str)
     parser.add_argument("--trg_concept", type=str, default='haibara')
     parser.add_argument("--net_key_names", type=str, default='text')
-
+    parser.add_argument("--class_caption_dir", type=str, default='./sentence_datas/cat_sentence_100.txt')
     # class_caption
     parser.add_argument("--class_caption", type=str, default='girl')
     parser.add_argument("--heatmap_loss", action='store_true')
