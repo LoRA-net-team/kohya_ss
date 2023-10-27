@@ -466,6 +466,29 @@ class NetworkTrainer:
             assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
             accelerator.print("enable full bf16 training.")
             network.to(weight_dtype)
+        unet.requires_grad_(False)
+        unet.to(dtype=weight_dtype)
+        for t_enc in text_encoders:
+            t_enc.requires_grad_(False)
+        print("\n step 11-1. module to accelerate")
+        if len(text_encoders) > 1:
+            t_enc1, t_enc2, t_org_enc1, t_org_enc2, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(text_encoders[0], text_encoders[1],
+                                                                                                                                   text_encoders_org[0],text_encoders_org[1],
+                                                                                                                                   network,optimizer,pretraining_dataloader,
+                                                                                                                                   lr_scheduler)
+            text_encoder = text_encoders = [t_enc1, t_enc2]
+            text_encoder_org = text_encoders_org = [t_org_enc1,t_org_enc2]
+            del t_enc1, t_enc2, t_org_enc1,t_org_enc2
+        else:
+            text_encoder, text_encoder_org, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(text_encoder, text_encoder_org,
+                                                                                                                           network, optimizer, pretraining_dataloader, lr_scheduler)
+            text_encoders = [text_encoder]
+            text_encoders_org = [text_encoder_org]
+
+        text_encoders = train_util.transform_models_if_DDP(text_encoders)
+        text_encoders_org = train_util.transform_models_if_DDP(text_encoders_org)
+
+
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-2. prepare unet network")
@@ -478,106 +501,41 @@ class NetworkTrainer:
             accelerator.print(
                 "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-        print(f'after unet add, len of trainable_params : {len(trainable_params)}')
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
-
-    """
-        
-
-
-
-
-
-
-
-        
-        print("\n step 9-2. optimizer")
-        try:
-            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
-        except TypeError:
-            accelerator.print(
-                "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
-            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-        print(f'len of trainable_params : {len(trainable_params)}')
-        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
-        print("\n step 10-2. learning rate")
+        print("\n step 9-2. learning rate")
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
         if args.full_fp16:
-            assert (args.mixed_precision == "fp16"
-                    ), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
-            accelerator.print("enable full fp16 training.")
-            network.to(weight_dtype)
-        elif args.full_bf16:
-            assert (
-                    args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
-            accelerator.print("enable full bf16 training.")
-            network.to(weight_dtype)
-
-        print("\n step 8. train epochs")
-        if args.max_train_epochs is not None:
-            args.max_train_steps = args.max_train_epochs * math.ceil(
-                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
-            accelerator.print(
-                f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
-        train_dataset_group.set_max_train_steps(args.max_train_steps)
-
-        print("\n step 9. optimizer")
-        try:
-            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
-        except TypeError:
-            accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
-            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-        print(f'len of trainable_params : {len(trainable_params)}')
-        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
-
-        print("\n step 10. learning rate")
-        lr_scheduler = train_util.get_scheduler_fix(args,optimizer, accelerator.num_processes)
-        if args.full_fp16:
-            assert (args.mixed_precision == "fp16"
-                    ), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
+            assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16' / full_fp16を使う場合はmixed_precision='fp16'を指定してください。"
             accelerator.print("enable full fp16 training.")
             network.to(weight_dtype)
         elif args.full_bf16:
             assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
             accelerator.print("enable full bf16 training.")
             network.to(weight_dtype)
-
+        print("\n step 10-2. train epochs")
+        if args.max_train_epochs is not None:
+            args.max_train_steps = args.max_train_epochs * math.ceil(
+                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
+            accelerator.print(
+                f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
+        train_dataset_group.set_max_train_steps(args.max_train_steps)
         unet.requires_grad_(False)
         unet.to(dtype=weight_dtype)
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
-
-        print("\n step 11. module to accelerate")
-        if train_unet and train_text_encoder:
-            if len(text_encoders) > 1:
-                unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
-                text_encoder = text_encoders = [t_enc1, t_enc2]
-                del t_enc1, t_enc2
-            else:
-                unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
-                text_encoders = [text_encoder]
-        elif train_unet:
-            unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                unet, network, optimizer, train_dataloader, lr_scheduler)
-        elif train_text_encoder:
-            if len(text_encoders) > 1:
-                t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
-                text_encoder = text_encoders = [t_enc1, t_enc2]
-                del t_enc1, t_enc2
-            else:
-                text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                    text_encoder, network, optimizer, train_dataloader, lr_scheduler)
-                text_encoders = [text_encoder]
-            unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+        print("\n step 11-2. module to accelerate")
+        if len(text_encoders) > 1:
+            unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
+            text_encoder = text_encoders = [t_enc1, t_enc2]
+            del t_enc1, t_enc2
         else:
-            network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                network, optimizer, train_dataloader, lr_scheduler)
-        # transform DDP after prepare (train_network here only)
+            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
+            text_encoders = [text_encoder]
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
+
 
         if args.gradient_checkpointing:
             # according to TI example in Diffusers, train is required
@@ -1067,7 +1025,7 @@ class NetworkTrainer:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
 
-        """
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
