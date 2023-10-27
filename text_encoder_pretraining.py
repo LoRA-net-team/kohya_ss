@@ -496,7 +496,6 @@ class NetworkTrainer:
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
         print(f'\n step 16. text encoder pretraining')
-
         pretraining_epochs = 10
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
@@ -533,7 +532,6 @@ class NetworkTrainer:
         network = accelerator.unwrap_model(network)
         network.add_unet_module(unet,net_key_names=['unet'])
         network.apply_unet_to(apply_unet=True)
-
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         except TypeError:
@@ -555,11 +553,8 @@ class NetworkTrainer:
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
             args.max_train_steps = args.max_train_epochs * math.ceil(
-                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps
-            )
-            accelerator.print(
-                f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}"
-            )
+                len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
+            accelerator.print(f"override steps. steps for {args.max_train_epochs} epochs is / 指定エポックまでのステップ数: {args.max_train_steps}")
 
         # データセット側にも学習ステップを送信
         train_dataset_group.set_max_train_steps(args.max_train_steps)
@@ -591,20 +586,15 @@ class NetworkTrainer:
 
         train_unet = True
         train_text_encoder = True
-        if train_unet and train_text_encoder:
-            if len(text_encoders) > 1:
-                network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
-            else:
-                network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
-        elif train_unet:
-            network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
-        elif train_text_encoder:
-            if len(text_encoders) > 1:
-                network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
-            else:
-                network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
+        if len(text_encoders) > 1:
+            unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
+            text_encoder = text_encoders = [t_enc1, t_enc2]
+            del t_enc1, t_enc2
         else:
-            network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer, train_dataloader, lr_scheduler)
+            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler            )
+            text_encoders = [text_encoder]
 
         # transform DDP after prepare (train_network here only)
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
