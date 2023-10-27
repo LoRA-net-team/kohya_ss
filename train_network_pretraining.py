@@ -519,7 +519,7 @@ class NetworkTrainer:
         text_encoders_org = train_util.transform_models_if_DDP(text_encoders_org)
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 12. text encoder pretraining")
-        pretraining_epochs = 10
+        pretraining_epochs = 1
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
@@ -885,28 +885,33 @@ class NetworkTrainer:
                 accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
                 os.remove(old_ckpt_file)
 
-                # save base model
-                def save_model(ckpt_name, unwrapped_nw, steps, epoch_no, force_sync_upload=False):
-                    os.makedirs(args.output_dir, exist_ok=True)
-                    ckpt_file = os.path.join(args.output_dir, ckpt_name)
+        # save base model
+        def save_model(ckpt_name, unwrapped_nw, steps, epoch_no, force_sync_upload=False):
+            os.makedirs(args.output_dir, exist_ok=True)
+            ckpt_file = os.path.join(args.output_dir, ckpt_name)
 
-                    accelerator.print(f"\nsaving checkpoint: {ckpt_file}")
-                    metadata["ss_training_finished_at"] = str(time.time())
-                    metadata["ss_steps"] = str(steps)
-                    metadata["ss_epoch"] = str(epoch_no)
+            accelerator.print(f"\nsaving checkpoint: {ckpt_file}")
+            metadata["ss_training_finished_at"] = str(time.time())
+            metadata["ss_steps"] = str(steps)
+            metadata["ss_epoch"] = str(epoch_no)
 
-                    metadata_to_save = minimum_metadata if args.no_metadata else metadata
-                    sai_metadata = train_util.get_sai_model_spec(None, args, self.is_sdxl, True, False)
-                    metadata_to_save.update(sai_metadata)
+            metadata_to_save = minimum_metadata if args.no_metadata else metadata
+            sai_metadata = train_util.get_sai_model_spec(None, args, self.is_sdxl, True, False)
+            metadata_to_save.update(sai_metadata)
 
-                    unwrapped_nw.save_weights(ckpt_file, save_dtype, metadata_to_save)
-                    if args.huggingface_repo_id is not None:
-                        huggingface_util.upload(args, ckpt_file, "/" + ckpt_name, force_sync_upload=force_sync_upload)
+            unwrapped_nw.save_weights(ckpt_file, save_dtype, metadata_to_save)
+            if args.huggingface_repo_id is not None:
+                huggingface_util.upload(args, ckpt_file, "/" + ckpt_name, force_sync_upload=force_sync_upload)
 
-                if accelerator.is_main_process:
-                    ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, 0)
-                    save_model(ckpt_name, accelerator.unwrap_model(network), 0, 0)
-                    
+        if accelerator.is_main_process:
+            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, 0)
+            save_model(ckpt_name, accelerator.unwrap_model(network), 0, 0)
+            self.sample_images(accelerator,
+                               args, None, 0, accelerator.device, vae, tokenizer, text_encoder,
+                               unet)
+
+
+
         # training loop
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
