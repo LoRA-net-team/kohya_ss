@@ -434,26 +434,15 @@ class NetworkTrainer:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
         else:
             # LyCORIS will work with this...
-            network = network_module.create_network(
-                1.0,
-                args.network_dim,
-                args.network_alpha,
-                vae,
-                text_encoder,
-                unet,
-                neuron_dropout=args.network_dropout,
-                **net_kwargs,
-            )
+            network = network_module.create_network(1.0,args.network_dim,args.network_alpha,vae,text_encoder,unet,
+                                                    neuron_dropout=args.network_dropout,**net_kwargs,)
         if network is None:
             return
-
         if hasattr(network, "prepare_network"):
             network.prepare_network(args)
         if args.scale_weight_norms and not hasattr(network, "apply_max_norm_regularization"):
-            print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません"
-            )
+            print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_norms")
             args.scale_weight_norms = False
-        #train_unet = not args.network_train_text_encoder_only
         train_unet = False
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
@@ -466,6 +455,30 @@ class NetworkTrainer:
                 "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
         print(f'len of trainable_params : {len(trainable_params)}')
+
+        last_elem = trainable_params[-1]
+        print(f'last_elem : {last_elem}')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        """
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
         print("\n step 10-1. learning rate")
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
@@ -1070,7 +1083,7 @@ class NetworkTrainer:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
 
-
+        """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -1059,10 +1059,12 @@ class LoRANetwork(torch.nn.Module):
         return info
 
     def apply_to(self, text_encoder, unet, apply_text_encoder=True, apply_unet=True):
+
         if apply_text_encoder:
             print("enable LoRA for text encoder")
         else:
             self.text_encoder_loras = []
+
         if apply_unet:
             print("enable LoRA for U-Net")
         else:
