@@ -503,7 +503,7 @@ class NetworkTrainer:
             text_encoders = [text_encoder]
             text_encoders_org = [text_encoder_org]
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
-        text_encoder_loras = network.text_encoder_loras
+        text_encoder_loras = accelerator.unwrap_model(network).text_encoder_loras
         """
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
