@@ -1093,6 +1093,7 @@ if __name__ == "__main__":
     # mask_threshold (0~1, default 1)
     parser.add_argument("--mask_threshold", type=float, default=1.0, help="Threshold for mask to be used as 1")
     parser.add_argument("--heatmap_backprop", action = 'store_true')
+    parser.add_argument('--class_token', default='cat', type=str)
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
