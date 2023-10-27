@@ -4201,8 +4201,9 @@ def sample_images_common(pipe_class,
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
     if args.sample_every_n_epochs is not None:
-        if epoch is None or epoch % args.sample_every_n_epochs != 0:
-            return
+        if epoch != 0 :
+            if epoch is None or epoch % args.sample_every_n_epochs != 0:
+                return
     else:
         if steps % args.sample_every_n_steps != 0 or epoch is not None:  # steps is not divisible or end of epoch
             return
@@ -4260,7 +4261,7 @@ def sample_images_common(pipe_class,
     pipeline = pipe_class(text_encoder=text_encoder,vae=vae,unet=unet,tokenizer=tokenizer,scheduler=scheduler,
                           safety_checker=None,feature_extractor=None,requires_safety_checker=False,
                           clip_skip=args.clip_skip,)
-    
+
 
 
     pipeline.to(device)
