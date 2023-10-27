@@ -536,7 +536,7 @@ class NetworkTrainer:
                 optimizer.step()
                 lr_scheduler.step()
 
-        text_encoder_loras = network.text_loras
+        text_encoder_loras = network.text_encoder_loras
 
         print(f'\n step 19. make net network')
         second_network = network_module.create_network(1.0, args.network_dim, args.network_alpha, vae, text_encoder, unet,
@@ -1065,7 +1065,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-        
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
