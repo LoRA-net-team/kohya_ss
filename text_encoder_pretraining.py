@@ -496,8 +496,8 @@ class NetworkTrainer:
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
         print(f'\n step 16. text encoder pretraining')
-        """
-        pretraining_epochs = 1
+
+        pretraining_epochs = 10
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
@@ -527,7 +527,7 @@ class NetworkTrainer:
                 accelerator.backward(pretraining_loss)
                 optimizer.step()
                 lr_scheduler.step()
-        """
+
         print(f'\n step 17. make net network')
         # add module
         network = accelerator.unwrap_model(network)
@@ -538,8 +538,6 @@ class NetworkTrainer:
 
 
 
-
-        """
 
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
@@ -1162,7 +1160,6 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-         """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
