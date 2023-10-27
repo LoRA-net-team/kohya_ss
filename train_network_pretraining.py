@@ -519,7 +519,7 @@ class NetworkTrainer:
         text_encoders_org = train_util.transform_models_if_DDP(text_encoders_org)
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 12. text encoder pretraining")
-        pretraining_epochs = 1
+        pretraining_epochs = args.pretraining_epochs
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
@@ -909,10 +909,6 @@ class NetworkTrainer:
         self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,
                            text_encoder, unet)
 
-
-
-
-
         # training loop
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
@@ -1162,7 +1158,7 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_loss", action='store_true')
     parser.add_argument("--attn_loss_ratio", type=float, default=1.0)
     parser.add_argument("--mask_dir", type=str)
-
+    parser.add_argument("--pretraining_epochs", type=int, default = 10)
     # masked_loss
     parser.add_argument("--masked_loss", action='store_true')
     parser.add_argument("--only_second_training", action='store_true')
