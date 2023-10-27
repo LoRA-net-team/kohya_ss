@@ -519,6 +519,18 @@ class NetworkTrainer:
         text_encoders_org = train_util.transform_models_if_DDP(text_encoders_org)
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 12. text encoder pretraining")
+
+        if is_main_process :
+            os.makedirs(args.output_dir, exist_ok=True)
+            ckpt_name = f'{args.output_name}-base.safetensors'
+            ckpt_file = os.path.join(args.output_dir, ckpt_name)
+            unwrapped_nw = accelerator.unwrap_model(network)
+            unwrapped_nw.save_weights(ckpt_file, save_dtype)
+        self.sample_images(accelerator, args, -1, 0,
+                           accelerator.device, vae, tokenizer,
+                           text_encoder, unet)
+
+
         pretraining_epochs = args.pretraining_epochs
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
@@ -884,6 +896,7 @@ class NetworkTrainer:
             if os.path.exists(old_ckpt_file):
                 accelerator.print(f"removing old checkpoint: {old_ckpt_file}")
                 os.remove(old_ckpt_file)
+
 
         # save base model
         def save_model(ckpt_name, unwrapped_nw, steps, epoch_no, force_sync_upload=False):
