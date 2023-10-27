@@ -536,9 +536,6 @@ class NetworkTrainer:
                 optimizer.step()
                 lr_scheduler.step()
 
-        text_encoder_loras = network.text_encoder_loras
-
-        
         print(f'\n step 19. make net network')
         second_network = network_module.create_network(1.0, args.network_dim, args.network_alpha, vae, text_encoder, unet,
                                                 neuron_dropout=args.network_dropout, **net_kwargs, )
