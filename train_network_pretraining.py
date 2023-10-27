@@ -903,12 +903,13 @@ class NetworkTrainer:
             if args.huggingface_repo_id is not None:
                 huggingface_util.upload(args, ckpt_file, "/" + ckpt_name, force_sync_upload=force_sync_upload)
 
-        if accelerator.is_main_process:
-            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, 0)
-            save_model(ckpt_name, accelerator.unwrap_model(network), 0, 0)
-            self.sample_images(accelerator,
-                               args, None, 0, accelerator.device, vae, tokenizer, text_encoder,
-                               unet)
+        if is_main_process :
+            ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, 0)
+            save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,
+                           text_encoder, unet)
+
+
 
 
 
