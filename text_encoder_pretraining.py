@@ -496,6 +496,7 @@ class NetworkTrainer:
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
         print(f'\n step 16. text encoder pretraining')
+        """
         pretraining_epochs = 1
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
@@ -526,11 +527,17 @@ class NetworkTrainer:
                 accelerator.backward(pretraining_loss)
                 optimizer.step()
                 lr_scheduler.step()
-
+        """
         print(f'\n step 17. make net network')
         # add module
         network.add_unet_module(unet)
         network.apply_to(text_encoder, unet, apply_text_encoder=True, apply_unet=True)
+
+
+
+
+
+
         """
 
         try:
