@@ -1156,6 +1156,7 @@ class LoRANetwork(torch.nn.Module):
 
                                         loras.append(lora)
             return loras, skipped
+
         target_modules = LoRANetwork.UNET_TARGET_REPLACE_MODULE
         print(f'unet target_modules : {target_modules}')
         self.unet_loras, skipped_un = create_modules(True, None, unet, target_modules)

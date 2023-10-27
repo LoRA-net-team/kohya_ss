@@ -531,7 +531,7 @@ class NetworkTrainer:
         print(f'\n step 17. make net network')
         # add module
         network = accelerator.unwrap_model(network)
-        network.add_unet_module(unet)
+        network.add_unet_module(unet,net_key_names=['unet'])
         network.apply_to(text_encoder, unet, apply_text_encoder=True, apply_unet=True)
 
 
