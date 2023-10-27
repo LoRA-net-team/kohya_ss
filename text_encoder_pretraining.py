@@ -503,7 +503,8 @@ class NetworkTrainer:
             text_encoders = [text_encoder]
             text_encoders_org = [text_encoder_org]
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
+        text_encoder_loras = network.text_encoder_loras
+        """
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         pretraining_losses = {}
@@ -538,6 +539,7 @@ class NetworkTrainer:
 
         text_encoder_loras = network.text_encoder_loras
 
+        
         print(f'\n step 19. make net network')
         second_network = network_module.create_network(1.0, args.network_dim, args.network_alpha, vae, text_encoder, unet,
                                                 neuron_dropout=args.network_dropout, **net_kwargs, )
@@ -1066,6 +1068,7 @@ class NetworkTrainer:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
 
+        """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
