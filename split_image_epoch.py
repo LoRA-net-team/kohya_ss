@@ -10,7 +10,7 @@ def main(args) :
     print(f' step 1. call generated image folder')
     generated_image_folders = os.listdir(args.generated_image_folder)
     for generated_image_folder in generated_image_folders :
-        if generated_image_folder == 'iom_te_pretraining_test' :
+        if generated_image_folder ==  args.trg_condition :
             generated_image_folder_dir = os.path.join(args.generated_image_folder, generated_image_folder)
             sample_dir = os.path.join(generated_image_folder_dir, 'sample')
             print(f'sample_dir : {sample_dir}')
@@ -34,5 +34,6 @@ if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
     parser.add_argument('--generated_image_folder',
                         default='/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/iom_experiment/one_image/iom_image')
+    parser.add_argument('--trg_condition', type=str,)
     args = parser.parse_args()
     main(args)
