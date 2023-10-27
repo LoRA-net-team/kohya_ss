@@ -200,8 +200,7 @@ class NetworkTrainer:
     def is_text_encoder_outputs_cached(self, args):
         return False
 
-    def cache_text_encoder_outputs_if_needed(
-            self, args, accelerator, unet, vae, tokenizers, text_encoders, data_loader, weight_dtype):
+    def cache_text_encoder_outputs_if_needed(self, accelerator, text_encoders):
         for t_enc in text_encoders:
             t_enc.to(accelerator.device)
 
@@ -328,13 +327,9 @@ class NetworkTrainer:
                     user_config = {}
                     user_config["datasets"] = []
                     user_config["datasets"].append({"subsets": [{"image_dir": args.train_data_dir,"metadata_file": args.in_json, }]})
-                    # add class_caption to each subset
                     if use_class_caption:
                         for subset in user_config["datasets"][0]["subsets"]:
                             subset["class_caption"] = args.class_caption
-            print(f'User config: {user_config}')
-            # blueprint_generator = BlueprintGenerator
-            print('start of generate function ...')
             blueprint = blueprint_generator.generate(user_config,args,tokenizer=tokenizer)
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
@@ -374,13 +369,11 @@ class NetworkTrainer:
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
 
-        print(f'step 9. SD model')
+        print(f'step 9. SD model (original and lora form) ')
         _, text_encoder_org, _, _ = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
-
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
             vae.set_use_memory_efficient_attention_xformers(args.xformers)
@@ -390,7 +383,6 @@ class NetworkTrainer:
         accelerator.print("import network module:", args.network_module)
         network_module = importlib.import_module(args.network_module)
         if args.base_weights is not None:
-            # base_weights が指定されている場合は、指定された重みを読み込みマージする
             for i, weight_path in enumerate(args.base_weights):
                 if args.base_weights_multiplier is None or len(args.base_weights_multiplier) <= i:
                     multiplier = 1.0
@@ -407,17 +399,18 @@ class NetworkTrainer:
             vae.requires_grad_(False)
             vae.eval()
             with torch.no_grad():
-                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk,
-                                                  accelerator.is_main_process)
+                train_dataset_group.cache_latents(vae, args.vae_batch_size, args.cache_latents_to_disk,accelerator.is_main_process)
             vae.to("cpu")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
             accelerator.wait_for_everyone()
 
-        print(f'step 12. text encoder')
-        self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
-        # prepare network
+        print(f'step 12. text encoder ( to accelerate device) ')
+        self.cache_text_encoder_outputs_if_needed(accelerator, text_encoders_org)
+        self.cache_text_encoder_outputs_if_needed(accelerator, text_encoders)
+
+        print(f'step 13. prepare network')
         net_kwargs = {}
         if args.network_args is not None:
             for net_arg in args.network_args:
@@ -428,7 +421,7 @@ class NetworkTrainer:
         if args.dim_from_weights:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet,**net_kwargs)
         else:
-            network = network_module.create_network(1.0,args.network_dim,args.network_alpha,vae,text_encoder,unet,neuron_dropout=args.network_dropout,**net_kwargs,)
+            network = network_module.create_network(1.0,args.network_dim,args.network_alpha,vae,text_encoder,unet, neuron_dropout=args.network_dropout,**net_kwargs,)
         if network is None:
             return
         if hasattr(network, "prepare_network"):
@@ -436,9 +429,103 @@ class NetworkTrainer:
         if args.scale_weight_norms and not hasattr(network, "apply_max_norm_regularization"):
             print("warning: scale_weight_norms is specified but the network does not support it / scale_weight_normsが指定されていますが、ネットワークが対応していません")
             args.scale_weight_norms = False
+
+        train_text_encoder = True
+        network.apply_to(text_encoder, unet, apply_text_encoder=True, apply_unet=False)
+
+        print(f'step 13. optimizer')
+        accelerator.print("prepare optimizer, data loader etc.")
+        try:
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+        except TypeError:
+            accelerator.print(
+                "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
+            trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+
+        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
+
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        print(f'step 16. generate sentences')
+        class_caption_dir = './sentence_datas/cat_sentence_100.txt'
+        with open(class_caption_dir, 'r') as f:
+            class_captions = f.readlines()
+        class_captions = [caption.strip() for caption in class_captions]
+        class_captions = [caption.lower() for caption in class_captions]
+
+        print(f'step 17. text encoder pretraining dataset and dataloader')
+        class TE_dataset(torch.utils.data.Dataset):
+
+            def __init__(self, class_captions):
+                class_token = args.class_token
+                trg_concept = args.trg_concept
+                self.class_captions = class_captions
+                self.concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
+
+            def __len__(self):
+                return len(self.class_captions)
+
+            def __getitem__(self, idx):
+                te_example = {}
+                # 1) class
+                class_caption = self.class_captions[idx]
+                # 2) concept
+                concept_caption = self.concept_captions[idx]
+                # 3) total
+                te_example['class_caption'] = class_caption
+                te_example['concept_caption'] = concept_caption
+                return te_example
+
+        pretraining_datset = TE_dataset(class_captions=class_captions)
+        n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
+                                                             batch_size=1,
+                                                             shuffle=True,
+                                                             num_workers=n_workers,
+                                                             persistent_workers=args.persistent_data_loader_workers, )
+        pretraining_dataloader, text_encoder_org = accelerator.prepare(pretraining_dataloader, text_encoder_org)
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+        lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
+        print(f' *** step 18. text encoder pretraining *** ')
+        pretraining_epochs = 10
+        # training loop
+        # attention_losses = {}
+        pretraining_losses = {}
+        for epoch in range(pretraining_epochs):
+            for batch in pretraining_dataloader:
+                class_caption = batch['class_caption']
+                class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
+                class_captions_hidden_states = train_util.get_hidden_states(args,
+                                                                            class_token_ids.to(accelerator.device),
+                                                                            tokenizers[0], text_encoders_org[0],
+                                                                            weight_dtype)
+                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                concept_captions = batch['concept_caption']
+                concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
+                concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(
+                    accelerator.device),
+                                                                              tokenizers[0], text_encoders[0],
+                                                                              weight_dtype)
+                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                # shape = [3,77,768]
+                pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
+                                                                concept_captions_hidden_states.float(),
+                                                                reduction="none")
+                pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
+                if is_main_process:
+                    # accelerator.log(pretraining_losses)
+                    wandb.log(pretraining_losses)
+                pretraining_loss = pretraining_loss.mean()
+                accelerator.backward(pretraining_loss)
+                optimizer.step()
+                lr_scheduler.step()
+
+        """
+
+
         train_unet = not args.network_train_text_encoder_only
         train_text_encoder = not args.network_train_unet_only and not self.is_text_encoder_outputs_cached(args)
         network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
+        
         if args.network_weights is not None:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -1068,6 +1155,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
+        """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
