@@ -524,7 +524,6 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 class_caption = batch['class_caption']
-                print(f'class_caption : {class_caption}')
                 class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
                 class_captions_hidden_states = train_util.get_hidden_states(args,
                                                                             class_token_ids.to(accelerator.device),
@@ -532,7 +531,6 @@ class NetworkTrainer:
                                                                             weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_caption']
-                print(f'concept_captions : {concept_captions}')
                 concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
                 concept_captions_hidden_states = train_util.get_hidden_states(args,
                                                                               concept_captions_input_ids.to(
