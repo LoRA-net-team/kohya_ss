@@ -488,6 +488,9 @@ class NetworkTrainer:
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         text_encoders_org = train_util.transform_models_if_DDP(text_encoders_org)
 
+        network = accelerator.unwrap_model(network)
+        
+
 
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -1025,7 +1028,7 @@ class NetworkTrainer:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
 
-        
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
