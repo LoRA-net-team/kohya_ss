@@ -1256,6 +1256,7 @@ class LoRANetwork(torch.nn.Module):
             all_params.append(param_data)
 
         if self.unet_loras:
+
             if self.block_lr:
                 # 学習率のグラフをblockごとにしたいので、blockごとにloraを分類
                 block_idx_to_lora = {}

@@ -456,8 +456,9 @@ class NetworkTrainer:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
         print(f'len of trainable_params : {len(trainable_params)}')
 
-        last_elem = trainable_params[-1]
-        print(f'last_elem : {last_elem}')
+        #last_elem = trainable_params[-1]
+        unet_loras = network.unet_loras
+        print(f'len of unet_loras : {len(unet_loras)}')
 
 
 
