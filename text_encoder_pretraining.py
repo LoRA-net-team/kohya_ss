@@ -532,7 +532,7 @@ class NetworkTrainer:
         # add module
         network = accelerator.unwrap_model(network)
         network.add_unet_module(unet,net_key_names=['unet'])
-        network.apply_to(text_encoder, unet, apply_text_encoder=True, apply_unet=True)
+        network.apply_unet_to(apply_unet=True)
 
 
 

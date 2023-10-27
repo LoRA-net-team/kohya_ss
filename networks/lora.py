@@ -1167,7 +1167,15 @@ class LoRANetwork(torch.nn.Module):
             assert lora.lora_name not in names, f"duplicated lora name: {lora.lora_name}"
             names.add(lora.lora_name)
 
-    # マージできるかどうかを返す
+    def apply_unet_to(self, apply_unet=True):
+        if apply_unet:
+            print("enable LoRA for U-Net")
+        else:
+            self.unet_loras = []
+        for lora in self.unet_loras:
+            lora.apply_to()
+            self.add_module(lora.lora_name, lora)
+
     def is_mergeable(self):
         return True
 
