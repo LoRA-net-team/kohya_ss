@@ -482,13 +482,11 @@ class NetworkTrainer:
                                                              shuffle=True,
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers, )
-        pretraining_dataloader, text_encoder_org = accelerator.prepare(pretraining_dataloader, text_encoder_org)
+        pretraining_dataloader, text_encoder_org, text_encoder = accelerator.prepare(pretraining_dataloader, text_encoder_org, text_encoder)
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
-        # training loop
-        # attention_losses = {}
         pretraining_losses = {}
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
@@ -501,8 +499,8 @@ class NetworkTrainer:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 concept_captions = batch['concept_caption']
                 concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
-                concept_captions_hidden_states = train_util.get_hidden_states(args, concept_captions_input_ids.to(
-                    accelerator.device),
+                concept_captions_hidden_states = train_util.get_hidden_states(args,
+                                                                              concept_captions_input_ids.to(accelerator.device),
                                                                               tokenizers[0], text_encoders[0],
                                                                               weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
