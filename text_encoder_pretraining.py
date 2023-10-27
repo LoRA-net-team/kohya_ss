@@ -482,9 +482,28 @@ class NetworkTrainer:
                                                              shuffle=True,
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers, )
-        pretraining_dataloader, text_encoder_org, text_encoder = accelerator.prepare(pretraining_dataloader, text_encoder_org, text_encoder)
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
+        if len(text_encoders) > 1:
+            unet, t_enc1, t_enc2, t_org_1, t_org_2, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(unet,
+                                                                                                                                   text_encoders[0], text_encoders[1],
+                                                                                                                                   text_encoders_org[0],text_encoders_org[1],
+                                                                                                                                   network,
+                                                                                                                                   optimizer, pretraining_dataloader, lr_scheduler)
+            text_encoder = text_encoders = [t_enc1, t_enc2]
+            text_encoder_org = text_encoders_org = [t_org_1, t_org_2]
+            del t_enc1, t_enc2, t_org_1, t_org_2
+
+        else:
+            unet, text_encoder, text_encoder_org, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(unet, text_encoder,
+                                                                                                                                 text_encoder_org,
+                                                                                                                                 network, optimizer,
+                                                                                                                                 pretraining_dataloader,
+                                                                                                                                 lr_scheduler)
+
+            text_encoders = [text_encoder]
+            text_encoders_org = [text_encoder_org]
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
         print(f' *** step 18. text encoder pretraining *** ')
         pretraining_epochs = 10
         pretraining_losses = {}
@@ -517,6 +536,7 @@ class NetworkTrainer:
                 optimizer.step()
                 lr_scheduler.step()
 
+        text_encoder_loras = network.text_loras
         """
 
 
