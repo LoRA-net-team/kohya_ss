@@ -568,7 +568,8 @@ class NetworkTrainer:
         network = accelerator.unwrap_model(network)
         unet_key_names = args.unet_net_key_names.split(",")
         network.add_unet_module(unet, net_key_names=unet_key_names)
-        network.apply_unet_to(apply_unet=True, )
+        network.apply_unet_to(apply_unet=True,)
+
         print("\n step 8-2. optimizer (with only text encoder loras)")
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
@@ -576,10 +577,6 @@ class NetworkTrainer:
             accelerator.print(
                 "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-
-        if args.te_freeze :
-            trainable_params = [trainable_params[-1]]
-
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
         print("\n step 9-2. learning rate")
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
@@ -1189,7 +1186,6 @@ if __name__ == "__main__":
     parser.add_argument("--heatmap_backprop", action = 'store_true')
     parser.add_argument('--class_token', default='cat', type=str)
     parser.add_argument('--unet_net_key_names', default='proj_in,ff_net', type=str)
-    parser.add_argument("--te_freeze", action='store_true')
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
