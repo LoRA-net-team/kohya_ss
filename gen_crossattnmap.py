@@ -2385,12 +2385,12 @@ def main(args):
                 print(f'one lora loading ...')
                 network.apply_to(text_encoder, unet)
                 layer_names = weights_sd.keys()
-                exception_layers = args.exception_layer.split(",")
-                print(f'** exception_layers : {exception_layers}')
+                efficient_layers = args.efficient_layer.split(",")
+                print(f'** exception_layers : {efficient_layers}')
                 for layer_name in layer_names:
                     score = 0
-                    for exception_layer in exception_layers:
-                        if exception_layer in layer_name :
+                    for efficient_layer in efficient_layers:
+                        if efficient_layer in layer_name :
                             score += 1
                     if score == 0 :
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
@@ -3019,6 +3019,6 @@ if __name__ == "__main__":
     parser.add_argument("--negative_prompt", type=str)
     parser.add_argument("--erase_selfattn",  action = 'store_true')
     parser.add_argument("--erase_crossattn", action = 'store_true' )
-    parser.add_argument("--exception_layer", type=str)
+    parser.add_argument("--efficient_layer", type=str)
     args = parser.parse_args()
     main(args)
