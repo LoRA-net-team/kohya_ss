@@ -19,8 +19,7 @@ def main(args) :
                 image_dir = os.path.join(sample_dir, image)
                 name, ext = os.path.splitext(image)
                 epoch = name.split('_')[2]
-                epoch = int(epoch.split('e')[-1])
-
+                epoch = epoch.split('e')[-1]
                 epoch_dir = os.path.join(sample_dir, str(epoch))
                 os.makedirs(epoch_dir, exist_ok=True)
                 new_dir = os.path.join(epoch_dir, image)
@@ -33,7 +32,7 @@ def main(args) :
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
     parser.add_argument('--generated_image_folder',
-                        default='/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/iom_experiment/one_image/iom_image')
+                        default='/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/perfusion_experiment/td_experiment/one_image')
     parser.add_argument('--trg_condition', type=str,)
     args = parser.parse_args()
     main(args)
