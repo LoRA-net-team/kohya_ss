@@ -2386,7 +2386,7 @@ def main(args):
                 network.apply_to(text_encoder, unet)
                 layer_names = weights_sd.keys()
                 efficient_layers = args.efficient_layer.split(",")
-                print(f'** exception_layers : {efficient_layers}')
+                print(f' ** efficient_layers : {efficient_layers}')
                 for layer_name in layer_names:
                     score = 0
                     for efficient_layer in efficient_layers:
@@ -2683,6 +2683,7 @@ def main(args):
                 prompt_save_dir = os.path.join(base_folder, f'prompt.txt')
                 with open(prompt_save_dir, 'w') as f:
                     f.write(prompt)
+                """    
                 # ------------------------------------------------------------------------------------------------
                 print(f'save attn map')
                 print(f'prompt : {prompt}')
@@ -2725,6 +2726,7 @@ def main(args):
                     img = image_overlay_heat_map(img=image, heat_map=heat_map)
                     attn_save_dir = os.path.join(base_folder, f'attention_{a}.jpg')
                     img.save(attn_save_dir)
+                
                 total_layers_heat_map = torch.stack(total_layers, dim=0)  # global_heat_map = [sen_len, 512,512]
 
                 if total_layers_heat_map.dim() == 3:
@@ -2735,7 +2737,7 @@ def main(args):
 
                 total_layers_heat_map_dir = os.path.join(base_folder, f'total_heatmap.jpg')
                 img.save(total_layers_heat_map_dir)
-
+                """
 
 
 
