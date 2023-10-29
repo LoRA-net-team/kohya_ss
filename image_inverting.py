@@ -414,7 +414,7 @@ def main(args) :
             num_images_per_prompt = 1
             eta = 0.0
             generator = None
-            #latents = None
+            latents = None
             max_embeddings_multiples = 3
             output_type = "pil"
             return_dict = True
@@ -438,8 +438,8 @@ def main(args) :
             latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
             # 6. Prepare latent variables
-            #latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
-            #                                                             height, width,dtype, device, generator, latents,)
+            latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
+                                                                         height, width,dtype, device, generator, latents,)
 
             # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
             extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
@@ -458,13 +458,13 @@ def main(args) :
                 self_k_dict = self_key_dict[save_time]
                 self_v_dict = self_value_dict[save_time]
                 self_store = [self_q_dict,self_k_dict,self_v_dict]
-                #if self_input_time < max_self_input_time and self_input_time > args.min_value :
-                #    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
-                #                      mask_imgs = self_store).sample
-                #    self_input_time += 1
-                #else :
-                noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
-                self_input_time += 1
+                if self_input_time < max_self_input_time and self_input_time > args.min_value :
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                                      mask_imgs = self_store).sample
+                    self_input_time += 1
+                else :
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
+                    self_input_time += 1
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
