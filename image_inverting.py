@@ -67,6 +67,12 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
+
+            if not is_cross_attention :
+                original_k = mask[1][layer_name]
+                original_v = mask[2][layer_name]
+                print(original_k.shape)
+
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
@@ -78,13 +84,14 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
 
             if not is_cross_attention:
                 # when self attention
-                query, key = controller.self_query_key_caching(query_value=query,
-                                                               key_value=key,
-                                                               layer_name=layer_name)
+                query, key, value = controller.self_query_key_value_caching(query_value=query,
+                                                                            key_value=key,
+                                                                            value_value=value,
+                                                                            layer_name=layer_name)
             else :
                 query, key = controller.cross_query_key_caching(query_value=query,
-                                                               key_value=key,
-                                                               layer_name=layer_name)
+                                                                key_value=key,
+                                                                layer_name=layer_name)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
@@ -365,24 +372,33 @@ def main(args) :
     scheduler.set_timesteps(NUM_DDIM_STEPS)
     ddim_latents, time_steps = ddim_loop(latent, context, NUM_DDIM_STEPS, scheduler, unet)
 
-
-
     layer_names = attention_storer.self_query_store.keys()
+
     self_query_collection = attention_storer.self_query_store
     self_key_collection = attention_storer.self_key_store
-    self_query_dict, self_key_dict = {}, {}
+    self_value_collection = attention_storer.self_value_store
+
+    self_query_dict, self_key_dict, self_value_dict = {}, {}, {}
     cross_query_dict, cross_key_dict = {}, {}
+
     for layer in layer_names:
-        cross_layer = layer.replace('attn1','attn2')
+
         self_query_list = attention_storer.self_query_store[layer]
         self_key_list = attention_storer.self_key_store[layer]
+        self_value_list = attention_storer.self_value_store[layer]
+
+        cross_layer = layer.replace('attn1', 'attn2')
         cross_query_list = attention_storer.cross_query_store[cross_layer]
         cross_key_list = attention_storer.cross_key_store[cross_layer]
+
         i = 0
-        for self_query, self_key, cross_query, cross_key in zip(self_query_list,self_key_list,cross_query_list,cross_key_list) :
+
+        for self_query, self_key, self_value, cross_query, cross_key in zip(self_query_list,self_key_list,self_value_list,
+                                                                            cross_query_list,cross_key_list) :
             time_step = time_steps[i]
             if type(time_step) == torch.Tensor :
                 time_step = int(time_step.item())
+
             if time_step not in self_query_dict.keys() :
                 self_query_dict[time_step] = {}
                 self_query_dict[time_step][layer] = self_query
@@ -394,6 +410,13 @@ def main(args) :
                 self_key_dict[time_step][layer] = self_key
             else :
                 self_key_dict[time_step][layer] = self_key
+
+            if time_step not in self_value_dict.keys() :
+                self_value_dict[time_step] = {}
+                self_value_dict[time_step][layer] = self_value
+            else :
+                self_value_dict[time_step][layer] = self_value
+
             i += 1
 
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -459,8 +482,14 @@ def main(args) :
             latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
 
             # predict the noise residual
+            self_q_dict = self_query_dict[save_time]
+            self_k_dict = self_key_dict[save_time]
+            self_v_dict = self_value_dict[save_time]
+            self_store = [self_q_dict,self_k_dict,self_v_dict]
+
             noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
-                              mask_imgs = self_query_dict[save_time]).sample
+                              mask_imgs = self_store).sample
+
             # perform guidance
             if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
