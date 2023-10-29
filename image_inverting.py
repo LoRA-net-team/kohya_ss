@@ -431,45 +431,52 @@ def main(args) :
     prompt = 'teddy bear, wearing sunglasses'
     unregister_attention_control(unet, attention_storer)
     with torch.no_grad():
-        negative_prompt = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
-        sample_steps = 30
-        width = 512
-        height = 512
-        guidance_scale = 8
-        seed = 42
-        controlnet_image = None
         prompt = prompt
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        height = max(64, height - height % 8)  # round to divisible by 8
-        width = max(64, width - width % 8)  # round to divisible by 8
+        negative_prompt = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
+        image = None,
+        mask_image = None,
+        height = 512,
+        width = 512,
+        num_inference_steps = 30
+        guidance_scale = 8
+        strength = 0.8,
+        num_images_per_prompt = 1,
+        eta = 0.0,
+        generator = None,
+        latents = None,
+        max_embeddings_multiples = 3,
+        output_type = "pil",
+        return_dict = True,
+        controlnet = None,
+        controlnet_image = None,
+        callback = None,
+        is_cancelled_callback = None,
+        callback_steps: int = 1
+
 
         # 0. Default height and width to unet
         batch_size = 1 if isinstance(prompt, str) else len(prompt)
         do_classifier_free_guidance = guidance_scale > 1.0
 
         latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=sample_steps,
-                               guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
+                           guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
         image = pipeline.latents_to_image(latents)[0]
         image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
         image.save(image_save_dir)
 
 
         # 3. Encode input prompt
-        num_images_per_prompt, max_embeddings_multiples = 1, 3
-        text_embeddings = pipeline._encode_prompt(prompt, device, num_images_per_prompt, do_classifier_free_guidance,
-                                                  negative_prompt, max_embeddings_multiples, )
+        text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,negative_prompt,max_embeddings_multiples,)
         dtype = text_embeddings.dtype
+
         # 5. set timesteps
-        scheduler.set_timesteps(sample_steps, device=device)
-        timesteps, num_inference_steps = pipeline.get_timesteps(sample_steps, 0.8, device, None)
+        pipeline.scheduler.set_timesteps(num_inference_steps, device=device)
+        timesteps, num_inference_steps = pipeline.get_timesteps(num_inference_steps, strength, device, image is None)
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
         # 6. Prepare latent variables
-        latents = None
-        shape = (batch_size, unet.in_channels, height // pipeline.vae_scale_factor, width // pipeline.vae_scale_factor,)
-        latents = torch.randn(shape, generator=generator, device=device, dtype=dtype)
-        latents = latents * pipeline.scheduler.init_noise_sigma
+        latents, init_latents_orig, noise = pipeline.prepare_latents(image,latent_timestep, batch_size * num_images_per_prompt,
+                                                                     height,width,dtype,device,generator,latents,)
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
