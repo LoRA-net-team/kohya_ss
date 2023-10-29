@@ -408,7 +408,7 @@ def main(args) :
             mask_image = None
             height = 512
             width = 512
-            guidance_scale = 8
+            guidance_scale = args.guidance_scale
             strength = 0.8
             num_images_per_prompt = 1
             eta = 0.0
@@ -500,6 +500,7 @@ if __name__ == "__main__":
                         default = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort')
     parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--max_self_input_time", type=int, default=10)
+    parser.add_argument("--guidance_scale", type=float, default=7.5)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     main(args)
