@@ -399,7 +399,7 @@ def main(args) :
                          generator=generator,)
     latents = latent.expand(batch_size, unet.in_channels, height // 8, width // 8).to(device)
     print(f'latent : {latent.shape} | latents : {latents.shape}')
-
+    """
     start_time = 50
     guidance_scale = 7.5
     for i, t in enumerate(tqdm(scheduler.timesteps[-start_time:])):
@@ -419,15 +419,14 @@ def main(args) :
             save_dir = os.path.join(args.output_dir, f'generating_{t.item()}.jpg')
             os.makedirs(args.output_dir, exist_ok=True)
             Image.fromarray(trg_img_np).save(save_dir)
-
+    """
     vae.to(device)
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
         scheduler.config.clip_sample = True
     from library.lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
-    pipeline = StableDiffusionLongPromptWeightingPipeline(text_encoder=text_encoder, vae=vae, unet=unet, tokenizer=tokenizer,
-                                                          scheduler=scheduler,
-                                                          safety_checker=None, feature_extractor=None, requires_safety_checker=False,
-                                                          clip_skip=args.clip_skip, )
+    pipeline = StableDiffusionLongPromptWeightingPipeline(text_encoder=text_encoder, vae=vae, unet=unet,
+                                                          tokenizer=tokenizer,scheduler=scheduler,safety_checker=None, feature_extractor=None,
+                                                          requires_safety_checker=False,clip_skip=args.clip_skip, )
     pipeline.to(device)
     prompt = 'teddy bear, wearing sunglasses'
     unregister_attention_control(unet, attention_storer)
@@ -436,7 +435,7 @@ def main(args) :
         sample_steps = 30
         width = 512
         height = 512
-        scale = 8
+        guidance_scale = 8
         seed = 42
         controlnet_image = None
         prompt = prompt
@@ -444,46 +443,27 @@ def main(args) :
         torch.cuda.manual_seed(seed)
         height = max(64, height - height % 8)  # round to divisible by 8
         width = max(64, width - width % 8)  # round to divisible by 8
-        latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=sample_steps,
-                           guidance_scale=scale, negative_prompt=negative_prompt,
-                           controlnet_image=controlnet_image, )
-        image = pipeline.latents_to_image(latents)[0]
-        save_dir = os.path.join(args.output_dir, f'pipeline_gen.jpg')
-        image.save(save_dir)
 
-    """
+        # 0. Default height and width to unet
+        batch_size = 1 if isinstance(prompt, str) else len(prompt)
+        do_classifier_free_guidance = guidance_scale > 1.0
+        # 3. Encode input prompt
+        num_images_per_prompt, max_embeddings_multiples = 1, 3
+        text_embeddings = pipeline._encode_prompt(prompt, device, num_images_per_prompt, do_classifier_free_guidance,
+                                                  negative_prompt, max_embeddings_multiples, )
+        dtype = text_embeddings.dtype
+        # 5. set timesteps
+        scheduler.set_timesteps(sample_steps, device=device)
+        timesteps, num_inference_steps = pipeline.get_timesteps(sample_steps, 0.8, device, None)
+        latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
-        
-        model.scheduler.set_timesteps(num_inference_steps)
-        for i, t in enumerate(tqdm(model.scheduler.timesteps[-start_time:])):
-            if uncond_embeddings_ is None:
-                context = torch.cat([uncond_embeddings[i].expand(*text_embeddings.shape), text_embeddings])
-            else:
-                context = torch.cat([uncond_embeddings_, text_embeddings])
-            latents = ptp_utils.diffusion_step(model, controller, latents, context, t, guidance_scale,
-                                               low_resource=False)
+        # 6. Prepare latent variables
+        latents = None
+        latents, init_latents_orig, noise = pipeline.prepare_latents(None,latent_timestep,batch_size * num_images_per_prompt,
+                                                                     height,width,dtype,device,generator,latents,)
 
-        if return_type == 'image':
-            image = ptp_utils.latent2image(model.vae, latents)
-        else:
-            image = latents
-        return image, latent
-
-    def run_and_display(prompts, controller, latent=None, run_baseline=False, generator=None, uncond_embeddings=None,
-                        verbose=True):
-        if run_baseline:
-            print("w.o. prompt-to-prompt")
-            images, latent = run_and_display(prompts, EmptyControl(), latent=latent, run_baseline=False,
-                                             generator=generator)
-            print("with prompt-to-prompt")
-        images, x_t = text2image_ldm_stable(ldm_stable, prompts, controller, latent=latent,
-                                            num_inference_steps=NUM_DDIM_STEPS, guidance_scale=GUIDANCE_SCALE,
-                                            generator=generator, uncond_embeddings=uncond_embeddings)
-        if verbose:
-            ptp_utils.view_images(images)
-        return images, x_t
-    """
-
+        # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
+        extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, None)
 
 
 
