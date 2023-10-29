@@ -399,54 +399,53 @@ def main(args) :
                                                           requires_safety_checker=False,clip_skip=args.clip_skip, )
     pipeline.to(device)
     unregister_attention_control(unet, attention_storer)
+    for m in range(args.max_self_input_time):
+        max_self_input_time = m
+        with torch.no_grad():
+            prompt = args.prompt
+            negative_prompt = args.negative_prompt
+            image = None
+            mask_image = None
+            height = 512
+            width = 512
+            guidance_scale = 8
+            strength = 0.8
+            num_images_per_prompt = 1
+            eta = 0.0
+            generator = None
+            latents = None
+            max_embeddings_multiples = 3
+            output_type = "pil"
+            return_dict = True
+            controlnet = None
+            controlnet_image = None
+            callback = None
+            is_cancelled_callback = None
+            callback_steps = 1
+            batch_size = 1 if isinstance(prompt, str) else len(prompt)
+            do_classifier_free_guidance = guidance_scale > 1.0
 
-    with torch.no_grad():
-        prompt = args.prompt
-        negative_prompt = args.negative_prompt
-        image = None
-        mask_image = None
-        height = 512
-        width = 512
-        guidance_scale = 8
-        strength = 0.8
-        num_images_per_prompt = 1
-        eta = 0.0
-        generator = None
-        latents = None
-        max_embeddings_multiples = 3
-        output_type = "pil"
-        return_dict = True
-        controlnet = None
-        controlnet_image = None
-        callback = None
-        is_cancelled_callback = None
-        callback_steps = 1
-        batch_size = 1 if isinstance(prompt, str) else len(prompt)
-        do_classifier_free_guidance = guidance_scale > 1.0
+            # ------------------------------------------------------------------------------------------------------------------------------
+            # 3. Encode input prompt
+            text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,
+                                                      negative_prompt,max_embeddings_multiples,)
+            dtype = text_embeddings.dtype
 
-        # ------------------------------------------------------------------------------------------------------------------------------
-        # 3. Encode input prompt
-        text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,
-                                                  negative_prompt,max_embeddings_multiples,)
-        dtype = text_embeddings.dtype
+            # 5. set timesteps
+            pipeline.scheduler.set_timesteps(args.num_ddim_steps, device=device)
+            timesteps, num_inference_steps = pipeline.get_timesteps(args.num_ddim_steps, strength, device, image is None)
+            latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
-        # 5. set timesteps
-        pipeline.scheduler.set_timesteps(args.num_ddim_steps, device=device)
-        timesteps, num_inference_steps = pipeline.get_timesteps(args.num_ddim_steps, strength, device, image is None)
-        latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
+            # 6. Prepare latent variables
+            latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
+                                                                         height, width,dtype, device, generator, latents,)
 
-        # 6. Prepare latent variables
-        latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
-                                                                     height, width,dtype, device, generator, latents,)
+            # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
+            extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
 
-        # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
-        extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
+            # 8. Denoising loop
+            self_input_time = 0
 
-        # 8. Denoising loop
-        self_input_time = 0
-
-        for m in range(args.max_self_input_time) :
-            max_self_input_time = m
             for i, t in enumerate(pipeline.progress_bar(timesteps)):
                 save_time = int(t.item())-1
                 # expand the latents if we are doing classifier free guidance
