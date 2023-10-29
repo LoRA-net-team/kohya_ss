@@ -8,6 +8,8 @@ class AttentionStore :
         self.step_store = self.get_empty_store()
         self.attention_store = {}
         self.heatmap_store = {}
+        self.self_query_store = {}
+        self.self_key_store = {}
     def get_empty_store(self):
         return {}
 
