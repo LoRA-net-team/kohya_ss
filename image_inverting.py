@@ -458,12 +458,13 @@ def main(args) :
                 self_k_dict = self_key_dict[save_time]
                 self_v_dict = self_value_dict[save_time]
                 self_store = [self_q_dict,self_k_dict,self_v_dict]
-                if self_input_time < max_self_input_time :
+                if self_input_time < max_self_input_time and self_input_time > args.min_value :
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
                                       mask_imgs = self_store).sample
                     self_input_time += 1
                 else :
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
+                    self_input_time += 1
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
@@ -501,6 +502,7 @@ if __name__ == "__main__":
                         default = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort')
     parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--max_self_input_time", type=int, default=10)
+    parser.add_argument("--min_value", type=int, default=3)
     parser.add_argument("--guidance_scale", type=float, default=7.5)
     parser.add_argument("--self_key_control", action='store_true')
     args = parser.parse_args()
