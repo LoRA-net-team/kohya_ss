@@ -47,7 +47,7 @@ from diffusers import (StableDiffusionPipeline,DDPMScheduler,EulerAncestralDiscr
                        AutoencoderKL,)
 import numpy as np
 from PIL import Image
-
+from typing import Union
 """
 scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
 MY_TOKEN = ''
@@ -219,6 +219,20 @@ def main(args) :
         noise_pred = unet(noisy_latents,timesteps,text_conds,trg_indexs_list=trg_indexs_list,mask_imgs=mask_imgs, ).sample
         return noise_pred
 
+
+    def next_step(model_output: Union[torch.FloatTensor, np.ndarray],
+                  timestep: int,
+                  sample: Union[torch.FloatTensor, np.ndarray]):
+        timestep, next_timestep = min(
+            timestep - scheduler.config.num_train_timesteps // scheduler.num_inference_steps, 999), timestep
+        alpha_prod_t = scheduler.alphas_cumprod[timestep] if timestep >= 0 else scheduler.final_alpha_cumprod
+        alpha_prod_t_next = scheduler.alphas_cumprod[next_timestep]
+        beta_prod_t = 1 - alpha_prod_t
+        next_original_sample = (sample - beta_prod_t ** 0.5 * model_output) / alpha_prod_t ** 0.5
+        next_sample_direction = (1 - alpha_prod_t_next) ** 0.5 * model_output
+        next_sample = alpha_prod_t_next ** 0.5 * next_original_sample + next_sample_direction
+        return next_sample
+
     @torch.no_grad()
     def ddim_loop(latent):
         uncond_embeddings, cond_embeddings = context.chunk(2)
@@ -227,8 +241,8 @@ def main(args) :
         for i in range(NUM_DDIM_STEPS):
             t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
             noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
-            #latent = self.next_step(noise_pred, t, latent)
-            all_latent.append(latent)
+            latent = next_step(noise_pred, t, latent)
+            all_latent[str(t.item())] = latent
         return all_latent
     ddim_latents = ddim_loop(latent)
 
@@ -243,13 +257,14 @@ def main(args) :
         return image
 
     print(f' \n step 3. check latents')
-    for i in range(len(ddim_latents)):
-        trg_latent = ddim_latents[i]
+    times = ddim_latents.keys()
+    for time in times :
+        trg_latent = ddim_latents[time]
         trg_img_np = latent2image(trg_latent)
-        save_dir = os.path.join(args.output_dir, f'invert_{i}.jpg')
+        save_dir = os.path.join(args.output_dir, f'invert_{time}.jpg')
         os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
-    
+
 
 
 
