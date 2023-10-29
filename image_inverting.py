@@ -160,7 +160,7 @@ def main() :
     else:
         scheduler_cls = DDIMScheduler
     if args.v_parameterization:
-        sched_init_args["prediction_type"] = "v_prediction"
+        sched_init_args["prediction_type"] = "v_prediction "
     # scheduler:
     SCHEDULER_LINEAR_START = 0.00085
     SCHEDULER_LINEAR_END = 0.0120
