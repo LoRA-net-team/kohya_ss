@@ -457,11 +457,11 @@ def main(args) :
         width = 512
 
         # ------------------------------------------------------------------------------------------------------------------------------
-        latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps,
-                           guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
-        org_image = pipeline.latents_to_image(latents)[0]
-        image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
-        org_image.save(image_save_dir)
+        #latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps,
+        #                   guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
+        #org_image = pipeline.latents_to_image(latents)[0]
+        #image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
+        #org_image.save(image_save_dir)
 
     with torch.no_grad():
         prompt = prompt
