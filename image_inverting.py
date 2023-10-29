@@ -85,18 +85,7 @@ def load_512(image_path, left=0, right=0, top=0, bottom=0):
     image = np.array(Image.fromarray(image).resize((512, 512)))
     return image
 
-def image2latent(image, vae, device):
-    with torch.no_grad():
-        if type(image) is Image:
-            image = np.array(image)
-        if type(image) is torch.Tensor and image.dim() == 4:
-            latents = image
-        else:
-            image = torch.from_numpy(image).float() / 127.5 - 1
-            image = image.permute(2, 0, 1).unsqueeze(0).to(device).to(vae.dtype)
-            latents = vae.encode(image)['latent_dist'].mean
-            latents = latents * 0.18215
-    return latents
+
 
 def main(args) :
 
@@ -188,11 +177,11 @@ def main(args) :
 
     print(f' (1.4) model to accelerator device')
     if len(text_encoders) > 1:
-        unet, t_enc1, t_enc2, vae= accelerator.prepare(unet, text_encoders[0], text_encoders[1],vae)
+        unet, t_enc1, t_enc2= accelerator.prepare(unet, text_encoders[0], text_encoders[1])
         text_encoder = text_encoders = [t_enc1, t_enc2]
         del t_enc1, t_enc2
     else:
-        unet, text_encoder,vae = accelerator.prepare(unet, text_encoder,vae)
+        unet, text_encoder = accelerator.prepare(unet, text_encoder)
         text_encoders = [text_encoder]
 
     print(f' \n step 2. groundtruth image preparing')
@@ -209,6 +198,20 @@ def main(args) :
     print(f' (2.2) image condition')
     init_image_dir = '/data7/sooyeon/MyData/perfusion_dataset/td_100/100_td/td_1.jpg'
     image_gt_np = load_512(init_image_dir)
+
+    def image2latent(image, vae, device):
+        with torch.no_grad():
+            if type(image) is Image:
+                image = np.array(image)
+            if type(image) is torch.Tensor and image.dim() == 4:
+                latents = image
+            else:
+                image = torch.from_numpy(image).float() / 127.5 - 1
+                image = image.permute(2, 0, 1).unsqueeze(0).to(device).to(weight_dtype)
+                latents = vae.encode(image)['latent_dist'].mean
+                latents = latents * 0.18215
+        return latents
+
     latent = image2latent(image_gt_np, vae, accelerator.device)
     """
     @torch.no_grad()
