@@ -458,8 +458,7 @@ def main(args) :
         batch_size = 1 if isinstance(prompt, str) else len(prompt)
         do_classifier_free_guidance = guidance_scale > 1.0
 
-        latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=sample_steps,
-                           guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
+        latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
         image = pipeline.latents_to_image(latents)[0]
         image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
         image.save(image_save_dir)
