@@ -64,8 +64,6 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
 
-
-
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
@@ -123,14 +121,13 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-
-
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
             if not is_cross_attention and mask is not None:
-                unkey, con_key = key.chunk(2)
-                key = torch.cat([unkey, mask[1][layer_name]], dim=0)
+                if args.self_key_control :
+                    unkey, con_key = key.chunk(2)
+                    key = torch.cat([unkey, mask[1][layer_name]], dim=0)
                 unvalue, con_value = value.chunk(2)
                 value = torch.cat([unvalue, mask[2][layer_name]], dim=0)
             if self.upcast_attention:
@@ -505,6 +502,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--max_self_input_time", type=int, default=10)
     parser.add_argument("--guidance_scale", type=float, default=7.5)
+    parser.add_argument("--self_key_control", action='store_true')
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     main(args)
