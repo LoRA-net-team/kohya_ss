@@ -460,7 +460,7 @@ def main(args) :
 
             # predict the noise residual
             noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
-                              mask = self_query_dict[save_time]).sample
+                              mask_imgs = self_query_dict[save_time]).sample
             # perform guidance
             if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
