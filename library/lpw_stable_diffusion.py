@@ -849,16 +849,11 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
         self.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, device, image is None)
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
+        print(f'in org pipeline, timesteps : {timesteps} latent_timestep : {latent_timestep}')
 
         # 6. Prepare latent variables
-        latents, init_latents_orig, noise = self.prepare_latents(
-            image,
-            latent_timestep,
-            batch_size * num_images_per_prompt,
-            height,
-            width,
-            dtype,
-            device,
+        latents, init_latents_orig, noise = self.prepare_latents(image,latent_timestep,batch_size * num_images_per_prompt,
+                                                                 height,width,dtype,device,
             generator,
             latents,
         )

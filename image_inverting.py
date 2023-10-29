@@ -441,7 +441,6 @@ def main(args) :
         num_images_per_prompt = 1
         eta = 0.0
         generator = None
-        latents = None
         max_embeddings_multiples = 3
         output_type = "pil"
         return_dict = True
@@ -472,8 +471,9 @@ def main(args) :
         pipeline.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps, num_inference_steps = pipeline.get_timesteps(num_inference_steps, strength, device, image is None)
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
-
+        print(f'in org pipeline, timesteps : {timesteps} latent_timestep : {latent_timestep}')
         # 6. Prepare latent variables
+        latents = None
         latents, init_latents_orig, noise = pipeline.prepare_latents(image,
                                                                      latent_timestep,
                                                                      batch_size * num_images_per_prompt,
