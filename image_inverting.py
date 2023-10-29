@@ -430,6 +430,8 @@ def main(args) :
     pipeline.to(device)
     prompt = 'teddy bear, wearing sunglasses'
     unregister_attention_control(unet, attention_storer)
+
+
     with torch.no_grad():
         prompt = prompt
         negative_prompt = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
@@ -449,18 +451,42 @@ def main(args) :
         callback = None
         is_cancelled_callback = None
         callback_steps: int = 1
-
-        # 0. Default height and width to unet
         batch_size = 1 if isinstance(prompt, str) else len(prompt)
         do_classifier_free_guidance = guidance_scale > 1.0
         height = 512
         width = 512
-        latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
+
+        # ------------------------------------------------------------------------------------------------------------------------------
+        latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps,
+                           guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
         org_image = pipeline.latents_to_image(latents)[0]
         image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
         org_image.save(image_save_dir)
 
-
+    with torch.no_grad():
+        prompt = prompt
+        negative_prompt = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
+        image = None
+        mask_image = None
+        num_inference_steps = 30
+        guidance_scale = 8
+        strength = 0.8
+        num_images_per_prompt = 1
+        eta = 0.0
+        generator = None
+        max_embeddings_multiples = 3
+        output_type = "pil"
+        return_dict = True
+        controlnet = None
+        controlnet_image = None
+        callback = None
+        is_cancelled_callback = None
+        callback_steps: int = 1
+        batch_size = 1 if isinstance(prompt, str) else len(prompt)
+        do_classifier_free_guidance = guidance_scale > 1.0
+        height = 512
+        width = 512
+        # ------------------------------------------------------------------------------------------------------------------------------
         # 3. Encode input prompt
         text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,
                                                   negative_prompt,max_embeddings_multiples,)
@@ -471,9 +497,7 @@ def main(args) :
         pipeline.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps, num_inference_steps = pipeline.get_timesteps(num_inference_steps, strength, device, image is None)
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
-        print(f'in org pipeline, timesteps : {timesteps} latent_timestep : {latent_timestep}')
         # 6. Prepare latent variables
-        latents = None
         latents, init_latents_orig, noise = pipeline.prepare_latents(image,
                                                                      latent_timestep,
                                                                      batch_size * num_images_per_prompt,
