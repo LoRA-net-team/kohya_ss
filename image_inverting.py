@@ -48,6 +48,7 @@ from diffusers import (StableDiffusionPipeline,DDPMScheduler,EulerAncestralDiscr
 import numpy as np
 from PIL import Image
 from typing import Union
+from library.lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
 
 
 def register_attention_control(unet : nn.Module, controller:AttentionStore) :
@@ -181,6 +182,72 @@ def load_512(image_path, left=0, right=0, top=0, bottom=0):
     image = np.array(Image.fromarray(image).resize((512, 512)))
     return image
 
+def image2latent(image, vae, device):
+    with torch.no_grad():
+        if type(image) is Image:
+            image = np.array(image)
+        if type(image) is torch.Tensor and image.dim() == 4:
+            latents = image
+        else:
+            image = torch.from_numpy(image).float() / 127.5 - 1
+            image = image.permute(2, 0, 1).unsqueeze(0).to(device, weight_dtype)
+            latents = vae.encode(image)['latent_dist'].mean
+            latents = latents * 0.18215
+    return latents
+
+def call_unet(unet, noisy_latents, timesteps, text_conds, trg_indexs_list, mask_imgs):
+    noise_pred = unet(noisy_latents, timesteps, text_conds, trg_indexs_list=trg_indexs_list,
+                      mask_imgs=mask_imgs, ).sample
+    return noise_pred
+
+def next_step(model_output: Union[torch.FloatTensor, np.ndarray],timestep: int,
+              sample: Union[torch.FloatTensor, np.ndarray],scheduler):
+    timestep, next_timestep = min( timestep - scheduler.config.num_train_timesteps // scheduler.num_inference_steps, 999), timestep
+    alpha_prod_t = scheduler.alphas_cumprod[timestep] if timestep >= 0 else scheduler.final_alpha_cumprod
+    alpha_prod_t_next = scheduler.alphas_cumprod[next_timestep]
+    beta_prod_t = 1 - alpha_prod_t
+    next_original_sample = (sample - beta_prod_t ** 0.5 * model_output) / alpha_prod_t ** 0.5
+    next_sample_direction = (1 - alpha_prod_t_next) ** 0.5 * model_output
+    next_sample = alpha_prod_t_next ** 0.5 * next_original_sample + next_sample_direction
+    return next_sample
+
+@torch.no_grad()
+def ddim_loop(latent, context, NUM_DDIM_STEPS, scheduler, unet):
+    uncond_embeddings, cond_embeddings = context.chunk(2)
+    all_latent = [latent]
+    time_steps = []
+    latent = latent.clone().detach()
+    for i in range(NUM_DDIM_STEPS):
+        t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
+        time_steps.append(t)
+        noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
+        latent = next_step(noise_pred, t, latent)
+        all_latent.append(latent)
+    return all_latent, time_steps
+
+@torch.no_grad()
+def latent2image(latents, vae, return_type='np'):
+    latents = 1 / 0.18215 * latents.detach()
+    image = vae.decode(latents)['sample']
+    if return_type == 'np':
+        image = (image / 2 + 0.5).clamp(0, 1)
+        image = image.cpu().permute(0, 2, 3, 1).numpy()[0]
+        image = (image * 255).astype(np.uint8)
+    return image
+
+def init_prompt(tokenizer, text_encoder, device, prompt: str):
+    uncond_input = tokenizer([""],
+                             padding="max_length", max_length=tokenizer.model_max_length,
+                             return_tensors="pt")
+    uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
+    text_input = tokenizer([prompt],
+                           padding="max_length",
+                           max_length=tokenizer.model_max_length,
+                           truncation=True,
+                           return_tensors="pt",)
+    text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+    context = torch.cat([uncond_embeddings, text_embeddings])
+    return context
 
 def main(args) :
 
@@ -269,10 +336,8 @@ def main(args) :
     SCHEDULER_LINEAR_END = 0.0120
     SCHEDULER_TIMESTEPS = 1000
     SCHEDLER_SCHEDULE = "scaled_linear"
-    scheduler = scheduler_cls(num_train_timesteps=SCHEDULER_TIMESTEPS,
-                              beta_start=SCHEDULER_LINEAR_START,
-                              beta_end=SCHEDULER_LINEAR_END,
-                              beta_schedule=SCHEDLER_SCHEDULE,)
+    scheduler = scheduler_cls(num_train_timesteps=SCHEDULER_TIMESTEPS, beta_start=SCHEDULER_LINEAR_START,
+                              beta_end=SCHEDULER_LINEAR_END, beta_schedule=SCHEDLER_SCHEDULE,)
 
     print(f' (1.4) model to accelerator device')
     device = args.device
@@ -287,81 +352,22 @@ def main(args) :
     print(f' \n step 2. groundtruth image preparing')
     print(f' (2.1) prompt condition')
     prompt = 'teddy bear, wearing sunglasses'
-    def init_prompt(prompt: str):
-        uncond_input = tokenizer([""], padding="max_length", max_length=tokenizer.model_max_length,return_tensors="pt")
-        uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
-        text_input = tokenizer([prompt],padding="max_length",max_length=tokenizer.model_max_length,truncation=True,return_tensors="pt",)
-        text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
-        context = torch.cat([uncond_embeddings, text_embeddings])
-        return context
-    context = init_prompt(prompt)
+    context = init_prompt(tokenizer, text_encoder, device, prompt)
+
     print(f' (2.2) image condition')
     init_image_dir = '/data7/sooyeon/MyData/perfusion_dataset/td_100/100_td/td_1.jpg'
     image_gt_np = load_512(init_image_dir)
 
-    def image2latent(image, vae, device):
-        with torch.no_grad():
-            if type(image) is Image:
-                image = np.array(image)
-            if type(image) is torch.Tensor and image.dim() == 4:
-                latents = image
-            else:
-                image = torch.from_numpy(image).float() / 127.5 - 1
-                image = image.permute(2, 0, 1).unsqueeze(0).to(device,weight_dtype)
-                latents = vae.encode(image)['latent_dist'].mean
-                latents = latents * 0.18215
-        return latents
+    print(f' \n step 3. image inverting')
     latent = image2latent(image_gt_np, vae, device)
-
     NUM_DDIM_STEPS = 30
-    def call_unet(unet,noisy_latents, timesteps,text_conds, trg_indexs_list,mask_imgs):
-        noise_pred = unet(noisy_latents,timesteps,text_conds,trg_indexs_list=trg_indexs_list,mask_imgs=mask_imgs, ).sample
-        return noise_pred
-
-    def next_step(model_output: Union[torch.FloatTensor, np.ndarray],
-                  timestep: int,
-                  sample: Union[torch.FloatTensor, np.ndarray]):
-        timestep, next_timestep = min(
-            timestep - scheduler.config.num_train_timesteps // scheduler.num_inference_steps, 999), timestep
-        alpha_prod_t = scheduler.alphas_cumprod[timestep] if timestep >= 0 else scheduler.final_alpha_cumprod
-        alpha_prod_t_next = scheduler.alphas_cumprod[next_timestep]
-        beta_prod_t = 1 - alpha_prod_t
-        next_original_sample = (sample - beta_prod_t ** 0.5 * model_output) / alpha_prod_t ** 0.5
-        next_sample_direction = (1 - alpha_prod_t_next) ** 0.5 * model_output
-        next_sample = alpha_prod_t_next ** 0.5 * next_original_sample + next_sample_direction
-        return next_sample
-
     scheduler.set_timesteps(NUM_DDIM_STEPS)
-    range_timesteps = len(scheduler.timesteps)
-    @torch.no_grad()
-    def ddim_loop(latent):
-        uncond_embeddings, cond_embeddings = context.chunk(2)
-        all_latent = [latent]
-        time_steps = []
-        latent = latent.clone().detach()
-        for i in range(NUM_DDIM_STEPS):
-            t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
-            time_steps.append(t)
-            noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
-            latent = next_step(noise_pred, t, latent)
-            all_latent.append(latent)
-        return all_latent, time_steps
-
     ddim_latents, time_steps = ddim_loop(latent)
-
-    @torch.no_grad()
-    def latent2image(latents, return_type='np'):
-        latents = 1 / 0.18215 * latents.detach()
-        image = vae.decode(latents)['sample']
-        if return_type == 'np':
-            image = (image / 2 + 0.5).clamp(0, 1)
-            image = image.cpu().permute(0, 2, 3, 1).numpy()[0]
-            image = (image * 255).astype(np.uint8)
-        return image
-
     layer_names = attention_storer.self_query_store.keys()
     self_query_collection = attention_storer.self_query_store
     self_key_collection = attention_storer.self_key_store
+    self_query_dict, self_key_dict = {}, {}
+    cross_query_dict, cross_key_dict = {}, {}
     for layer in layer_names:
         cross_layer = layer.replace('attn1','attn2')
         self_query_list = attention_storer.self_query_store[layer]
@@ -371,61 +377,27 @@ def main(args) :
         i = 0
         for self_query, self_key, cross_query, cross_key in zip(self_query_list,self_key_list,cross_query_list,cross_key_list) :
             time_step = time_steps[i]
-            print(f'time : {time_step} | layer_name : {layer} | self_query : {self_query.shape} | self_key : {self_key.shape}')
-            print(f'time : {time_step} | cross_layer : {cross_layer} | cross_query : {cross_query.shape} | cross_key : {cross_key.shape}')
+            if time_step not in self_query_dict.keys() :
+                self_query_dict[time_step] = {}
+                self_query_dict[time_step][layer] = self_query
+            else :
+                self_query_dict[time_step][layer] = self_query
+
+            if time_step not in self_key_dict.keys() :
+                self_key_dict[time_step] = {}
+                self_key_dict[time_step][layer] = self_key
+            else :
+                self_key_dict[time_step][layer] = self_key
             i += 1
-    """
-    print(f' \n step 3. check latents')
-    for i in range(len(ddim_latents)):
-        trg_latent = ddim_latents[i]
-        trg_img_np = latent2image(trg_latent)
-        save_dir = os.path.join(args.output_dir, f'invert_{i}.jpg')
-        os.makedirs(args.output_dir, exist_ok=True)
-        Image.fromarray(trg_img_np).save(save_dir)
-    """
+
+    # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
-    prompt = 'teddy bear, wearing sunglasses'
-    prompt_list = [prompt]
-    batch_size = len(prompt_list)
-    height = width = 512
-    text_input = context
-    print(f'text_input (2,77,768) : {text_input.shape}')
-    generator = None
-    latent = torch.randn((1,unet.in_channels, height // 8, width // 8),
-                         generator=generator,)
-    latents = latent.expand(batch_size, unet.in_channels, height // 8, width // 8).to(device)
-    """
-    start_time = 50
-    guidance_scale = 7.5
-    for i, t in enumerate(tqdm(scheduler.timesteps[-start_time:])):
-        attention_storer.self_query_store = {}
-        attention_storer.self_key_store = {}
-        attention_storer.cross_query_store = {}
-        attention_storer.cross_key_store = {}
-
-        latents_input = torch.cat([latents] * 2)
-        with torch.no_grad():
-            noise_pred = unet(latents_input, t, encoder_hidden_states=context).sample
-            noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
-            noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
-            latents = scheduler.step(noise_pred, t, latents)["prev_sample"]
-
-            trg_img_np = latent2image(latents)
-            save_dir = os.path.join(args.output_dir, f'generating_{t.item()}.jpg')
-            os.makedirs(args.output_dir, exist_ok=True)
-            Image.fromarray(trg_img_np).save(save_dir)
-    """
     vae.to(device)
-    if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
-        scheduler.config.clip_sample = True
-    from library.lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
-    pipeline = StableDiffusionLongPromptWeightingPipeline(text_encoder=text_encoder, vae=vae, unet=unet,
-                                                          tokenizer=tokenizer,scheduler=scheduler,safety_checker=None, feature_extractor=None,
+    if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False: scheduler.config.clip_sample = True
+    pipeline = StableDiffusionLongPromptWeightingPipeline(text_encoder=text_encoder, vae=vae, unet=unet, tokenizer=tokenizer,scheduler=scheduler,safety_checker=None, feature_extractor=None,
                                                           requires_safety_checker=False,clip_skip=args.clip_skip, )
     pipeline.to(device)
-    prompt = 'teddy bear, wearing sunglasses'
     unregister_attention_control(unet, attention_storer)
-
 
     with torch.no_grad():
         prompt = prompt
@@ -456,40 +428,32 @@ def main(args) :
         # 3. Encode input prompt
         text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,
                                                   negative_prompt,max_embeddings_multiples,)
-        print(f'text_embeddings : {text_embeddings.shape}')
         dtype = text_embeddings.dtype
 
         # 5. set timesteps
         pipeline.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps, num_inference_steps = pipeline.get_timesteps(num_inference_steps, strength, device, image is None)
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
+
         # 6. Prepare latent variables
-        latents, init_latents_orig, noise = pipeline.prepare_latents(image,
-                                                                     latent_timestep,
+        latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep,
                                                                      batch_size * num_images_per_prompt,
-                                                                     height,width,dtype,device,generator,latents,)
+                                                                     height, width,dtype, device, generator, latents,)
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
 
         # 8. Denoising loop
         for i, t in enumerate(pipeline.progress_bar(timesteps)):
-
-            print(f'time : {t}')
+            save_time = t-1
 
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
 
             # predict the noise residual
-            noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
-
-
-
-
-
-
-
+            noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                              mask = self_query_dict[save_time]).sample
             # perform guidance
             if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
