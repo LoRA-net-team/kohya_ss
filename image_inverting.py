@@ -416,7 +416,7 @@ def main(args) :
             num_images_per_prompt = 1
             eta = 0.0
             generator = None
-            latents = None
+            #latents = None
             max_embeddings_multiples = 3
             output_type = "pil"
             return_dict = True
