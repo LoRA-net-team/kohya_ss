@@ -68,10 +68,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
 
-            if not is_cross_attention :
-                original_k = mask[1][layer_name]
-                original_v = mask[2][layer_name]
-                print(original_k.shape)
+
 
             if self.upcast_attention:
                 query = query.float()
@@ -130,6 +127,11 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
+            
+            if not is_cross_attention:
+                original_k = mask[1][layer_name]
+                original_v = mask[2][layer_name]
+                print(original_k.shape)
 
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
