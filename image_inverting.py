@@ -240,11 +240,12 @@ def main(args) :
         latent = latent.clone().detach()
         for i in range(NUM_DDIM_STEPS):
             t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
+            print(f'i : {i}, t : {t}')
             noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
             latent = next_step(noise_pred, t, latent)
             all_latent.append(latent)
         return all_latent
-    
+
     ddim_latents = ddim_loop(latent)
 
     @torch.no_grad()
