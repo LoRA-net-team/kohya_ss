@@ -463,7 +463,9 @@ def main(args) :
 
 
         # 3. Encode input prompt
-        text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,negative_prompt,max_embeddings_multiples,)
+        text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,
+                                                  negative_prompt,max_embeddings_multiples,)
+        print(f'text_embeddings : {text_embeddings.shape}')
         dtype = text_embeddings.dtype
 
         # 5. set timesteps

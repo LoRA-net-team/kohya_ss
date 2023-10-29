@@ -826,7 +826,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
             max_embeddings_multiples,
         )
         dtype = text_embeddings.dtype
-
+        print(f'in org pipeline, text_embeddings : {text_embeddings.shape}')
         # 4. Preprocess image and mask
         if isinstance(image, PIL.Image.Image):
             image = preprocess_image(image)
