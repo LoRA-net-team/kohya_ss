@@ -262,14 +262,8 @@ def main(args) :
     else:
         setproctitle('parksooyeon')
 
-    session_id = random.randint(0, 2 ** 32)
-    training_started_at = time.time()
     train_util.verify_training_args(args)
     train_util.prepare_dataset_args(args, True)
-    cache_latents = args.cache_latents
-    use_dreambooth_method = args.in_json is None
-    use_user_config = args.dataset_config is not None
-    use_class_caption = args.class_caption is not None  # if class_caption is provided, for subsets, add key 'class_caption' to each subset
 
     if args.seed is None:
         args.seed = random.randint(0, 2 ** 32)
