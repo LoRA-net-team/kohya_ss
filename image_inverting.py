@@ -466,6 +466,23 @@ def main(args) :
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, None)
 
+        # 8. Denoising loop
+        for i, t in enumerate(pipeline.progress_bar(timesteps)):
+            latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
+            latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
+            unet_additional_args = {}
+            # predict the noise residual
+            noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,**unet_additional_args).sample
+            # perform guidance
+            if do_classifier_free_guidance:
+                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+            # compute the previous noisy sample x_t -> x_t-1
+            latents = pipeline.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
+        image = pipeline.latents_to_image(latents)[0]
+        image_save_dir = os.path.join(args.output_dir, f'pipeline_image.jpg')
+        image.save(image_save_dir)
 
 
 
