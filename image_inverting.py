@@ -417,7 +417,7 @@ def main(args) :
         attention_storer.cross_key_store = {}
 
         latents_input = torch.cat([latents] * 2)
-        noise_pred = unet(latents_input, t, encoder_hidden_states=context)#["sample"]
+        noise_pred = unet(latents_input, t, encoder_hidden_states=context).sample
         print(noise_pred)
         """
         noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
