@@ -349,8 +349,8 @@ def main(args) :
     latent = image2latent(image_gt_np, vae, device, weight_dtype)
     scheduler.set_timesteps(args.num_ddim_steps)
     ddim_latents, time_steps = ddim_loop(latent, context, args.num_ddim_steps, scheduler, unet)
-    latents = ddim_latents[-1]
-    print(f'base latent : {latents.shape}')
+    start_latents = ddim_latents[-1]
+    print(f'base latent : {start_latents.shape}')
 
     layer_names = attention_storer.self_query_store.keys()
     self_query_collection = attention_storer.self_query_store
@@ -404,6 +404,7 @@ def main(args) :
     unregister_attention_control(unet, attention_storer)
     for m in range(args.max_self_input_time):
         max_self_input_time = m
+        latents = start_latents
         with torch.no_grad():
             prompt = args.prompt
             negative_prompt = args.negative_prompt
