@@ -444,38 +444,41 @@ def main(args) :
 
         # 8. Denoising loop
         self_input_time = 0
-        max_self_input_time = args.max_self_input_time
-        for i, t in enumerate(pipeline.progress_bar(timesteps)):
-            save_time = int(t.item())-1
-            # expand the latents if we are doing classifier free guidance
-            latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
-            latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
 
-            # predict the noise residual
-            self_q_dict = self_query_dict[save_time]
-            self_k_dict = self_key_dict[save_time]
-            self_v_dict = self_value_dict[save_time]
-            self_store = [self_q_dict,self_k_dict,self_v_dict]
-            if self_input_time < max_self_input_time :
-                noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
-                                  mask_imgs = self_store).sample
-                self_input_time += 1
-            else :
-                noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
-            # perform guidance
-            if do_classifier_free_guidance:
-                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
-            latents = pipeline.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
-            if i % callback_steps == 0:
-                if callback is not None:
-                    callback(i, t, latents)
-                if is_cancelled_callback is not None and is_cancelled_callback():
-                    return None
-        image = pipeline.latents_to_image(latents)[0]
-        prompt_save_name = prompt.replace(' ','_')
-        image_save_dir = os.path.join(args.output_dir, f'{prompt_save_name}.jpg')
-        image.save(image_save_dir)
+        for m in range(args.max_self_input_time) :
+            max_self_input_time = m
+            for i, t in enumerate(pipeline.progress_bar(timesteps)):
+                save_time = int(t.item())-1
+                # expand the latents if we are doing classifier free guidance
+                latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
+                latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
+
+                # predict the noise residual
+                self_q_dict = self_query_dict[save_time]
+                self_k_dict = self_key_dict[save_time]
+                self_v_dict = self_value_dict[save_time]
+                self_store = [self_q_dict,self_k_dict,self_v_dict]
+                if self_input_time < max_self_input_time :
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                                      mask_imgs = self_store).sample
+                    self_input_time += 1
+                else :
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
+                # perform guidance
+                if do_classifier_free_guidance:
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+                latents = pipeline.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
+                if i % callback_steps == 0:
+                    if callback is not None:
+                        callback(i, t, latents)
+                    if is_cancelled_callback is not None and is_cancelled_callback():
+                        return None
+            image = pipeline.latents_to_image(latents)[0]
+            prompt_save_name = prompt.replace(' ','_')
+            save_base = os.path.join(args.output_dir, f'max_epoch_{max_self_input_time}')
+            image_save_dir = os.path.join(save_base, f'{prompt_save_name}.jpg')
+            image.save(image_save_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
