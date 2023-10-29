@@ -258,10 +258,10 @@ def main(args) :
 
     print(f' \n step 3. check latents')
     times = ddim_latents.keys()
-    for time in times :
-        trg_latent = ddim_latents[time]
+    for t in times :
+        trg_latent = ddim_latents[t]
         trg_img_np = latent2image(trg_latent)
-        save_dir = os.path.join(args.output_dir, f'invert_{time}.jpg')
+        save_dir = os.path.join(args.output_dir, f'invert_{t}.jpg')
         os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
 
