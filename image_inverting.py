@@ -290,7 +290,8 @@ def main(args) :
     tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
 
     print(f' (1.2) SD')
-    text_encoder, vae, unet, load_stable_diffusion_format = train_util._load_target_model(args,weight_dtype,args.device,
+    text_encoder, vae, unet, load_stable_diffusion_format = train_util._load_target_model(args,weight_dtype,
+                                                                                          args.device,
                                                                                           unet_use_linear_projection_in_v2=False,)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
 
@@ -492,7 +493,7 @@ if __name__ == "__main__":
                         default = '/data7/sooyeon/MyData/perfusion_dataset/td_100/100_td/td_1.jpg')
     parser.add_argument("--prompt", type=str,
                         default = 'teddy bear, wearing like a super hero')
-    parser.add_argument("--negtive_prompt", type=str,
+    parser.add_argument("--negative_prompt", type=str,
                         default = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort')
     parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--max_self_input_time", type=int, default=10)
