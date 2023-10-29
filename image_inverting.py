@@ -188,11 +188,11 @@ def main(args) :
 
     print(f' (1.4) model to accelerator device')
     if len(text_encoders) > 1:
-        unet, t_enc1, t_enc2, = accelerator.prepare(unet, text_encoders[0], text_encoders[1])
+        unet, t_enc1, t_enc2, vae= accelerator.prepare(unet, text_encoders[0], text_encoders[1],vae)
         text_encoder = text_encoders = [t_enc1, t_enc2]
         del t_enc1, t_enc2
     else:
-        unet, text_encoder = accelerator.prepare(unet, text_encoder)
+        unet, text_encoder,vae = accelerator.prepare(unet, text_encoder,vae)
         text_encoders = [text_encoder]
 
     print(f' \n step 2. groundtruth image preparing')
