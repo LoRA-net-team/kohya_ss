@@ -479,7 +479,7 @@ def main(args) :
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
             # compute the previous noisy sample x_t -> x_t-1
-            latents = pipeline.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
+            latents = scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
         image = pipeline.latents_to_image(latents)[0]
         image_save_dir = os.path.join(args.output_dir, f'pipeline_image.jpg')
         image.save(image_save_dir)
