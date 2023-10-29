@@ -477,6 +477,7 @@ def main(args) :
             image = pipeline.latents_to_image(latents)[0]
             prompt_save_name = prompt.replace(' ','_')
             save_base = os.path.join(args.output_dir, f'max_epoch_{max_self_input_time}')
+            os.makedirs(save_base, exist_ok=True)
             image_save_dir = os.path.join(save_base, f'{prompt_save_name}.jpg')
             image.save(image_save_dir)
 
