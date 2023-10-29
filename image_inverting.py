@@ -313,11 +313,10 @@ def main(args) :
         return latents
     latent = image2latent(image_gt_np, vae, device)
 
-    NUM_DDIM_STEPS = 50
+    NUM_DDIM_STEPS = 30
     def call_unet(unet,noisy_latents, timesteps,text_conds, trg_indexs_list,mask_imgs):
         noise_pred = unet(noisy_latents,timesteps,text_conds,trg_indexs_list=trg_indexs_list,mask_imgs=mask_imgs, ).sample
         return noise_pred
-
 
     def next_step(model_output: Union[torch.FloatTensor, np.ndarray],
                   timestep: int,
@@ -334,7 +333,6 @@ def main(args) :
 
     scheduler.set_timesteps(NUM_DDIM_STEPS)
     range_timesteps = len(scheduler.timesteps)
-    print(f'len of scheduler timesteps : {range_timesteps}')
     @torch.no_grad()
     def ddim_loop(latent):
         uncond_embeddings, cond_embeddings = context.chunk(2)
@@ -362,10 +360,8 @@ def main(args) :
         return image
 
     layer_names = attention_storer.self_query_store.keys()
-
     self_query_collection = attention_storer.self_query_store
     self_key_collection = attention_storer.self_key_store
-
     for layer in layer_names:
         cross_layer = layer.replace('attn1','attn2')
         self_query_list = attention_storer.self_query_store[layer]
@@ -398,7 +394,6 @@ def main(args) :
     latent = torch.randn((1,unet.in_channels, height // 8, width // 8),
                          generator=generator,)
     latents = latent.expand(batch_size, unet.in_channels, height // 8, width // 8).to(device)
-    print(f'latent : {latent.shape} | latents : {latents.shape}')
     """
     start_time = 50
     guidance_scale = 7.5
@@ -431,37 +426,6 @@ def main(args) :
     prompt = 'teddy bear, wearing sunglasses'
     unregister_attention_control(unet, attention_storer)
 
-
-    with torch.no_grad():
-        prompt = prompt
-        negative_prompt = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
-        image = None
-        mask_image = None
-        num_inference_steps = 30
-        guidance_scale = 8
-        strength = 0.8
-        num_images_per_prompt = 1
-        eta = 0.0
-        generator = None
-        max_embeddings_multiples = 3
-        output_type = "pil"
-        return_dict = True
-        controlnet = None
-        controlnet_image = None
-        callback = None
-        is_cancelled_callback = None
-        callback_steps: int = 1
-        batch_size = 1 if isinstance(prompt, str) else len(prompt)
-        do_classifier_free_guidance = guidance_scale > 1.0
-        height = 512
-        width = 512
-
-        # ------------------------------------------------------------------------------------------------------------------------------
-        #latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps,
-        #                   guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
-        #org_image = pipeline.latents_to_image(latents)[0]
-        #image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
-        #org_image.save(image_save_dir)
 
     with torch.no_grad():
         prompt = prompt
@@ -510,18 +474,28 @@ def main(args) :
 
         # 8. Denoising loop
         for i, t in enumerate(pipeline.progress_bar(timesteps)):
+
+            print(f'time : {t}')
+
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
+
             # predict the noise residual
             noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
+
+
+
+
+
+
+
             # perform guidance
             if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
-            # compute the previous noisy sample x_t -> x_t-1
             latents = pipeline.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
-            # call the callback, if provided
+
             if i % callback_steps == 0:
                 if callback is not None:
                     callback(i, t, latents)
