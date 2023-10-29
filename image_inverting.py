@@ -231,13 +231,24 @@ def main(args) :
         return all_latent
     ddim_latents = ddim_loop(latent)
 
+    @torch.no_grad()
+    def latent2image(latents, return_type='np'):
+        latents = 1 / 0.18215 * latents.detach()
+        image = vae.decode(latents)['sample']
+        if return_type == 'np':
+            image = (image / 2 + 0.5).clamp(0, 1)
+            image = image.cpu().permute(0, 2, 3, 1).numpy()[0]
+            image = (image * 255).astype(np.uint8)
+        return image
+
     print(f' \n step 3. check latents')
     for i in range(len(ddim_latents)):
         trg_latent = ddim_latents[i]
-        trg_img = vae.decode(trg_latent)['sample']
-        print(f' trg_img : {type(trg_img)}')
-        #trg_img_save_dir = os.path.join(args.output_dir, f"ddim_{i}.jpg")
-        #trg_img.save()
+        trg_img_np = latent2image(trg_latent)
+        save_dir = os.path.join(args.output_dir, f'invert_{i}.jpg')
+        Image.fromarray(trg_img_np).save(save_dir)
+
+
 
 
 
