@@ -182,7 +182,7 @@ def load_512(image_path, left=0, right=0, top=0, bottom=0):
     image = np.array(Image.fromarray(image).resize((512, 512)))
     return image
 
-def image2latent(image, vae, device):
+def image2latent(image, vae, device, weight_dtype):
     with torch.no_grad():
         if type(image) is Image:
             image = np.array(image)
@@ -359,7 +359,7 @@ def main(args) :
     image_gt_np = load_512(init_image_dir)
 
     print(f' \n step 3. image inverting')
-    latent = image2latent(image_gt_np, vae, device)
+    latent = image2latent(image_gt_np, vae, device, weight_dtype)
     NUM_DDIM_STEPS = 30
     scheduler.set_timesteps(NUM_DDIM_STEPS)
     ddim_latents, time_steps = ddim_loop(latent)
