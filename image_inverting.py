@@ -401,7 +401,8 @@ def main(args) :
     unregister_attention_control(unet, attention_storer)
     for m in range(args.max_self_input_time):
         max_self_input_time = m
-        latents = start_latents
+        #latents = start_latents
+        print(f'max self control time : {max_self_input_time}')
         with torch.no_grad():
             prompt = args.prompt
             negative_prompt = args.negative_prompt
@@ -425,28 +426,22 @@ def main(args) :
             callback_steps = 1
             batch_size = 1 if isinstance(prompt, str) else len(prompt)
             do_classifier_free_guidance = guidance_scale > 1.0
-
             # ------------------------------------------------------------------------------------------------------------------------------
             # 3. Encode input prompt
             text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,
                                                       negative_prompt,max_embeddings_multiples,)
             dtype = text_embeddings.dtype
-
             # 5. set timesteps
             pipeline.scheduler.set_timesteps(args.num_ddim_steps, device=device)
             timesteps, num_inference_steps = pipeline.get_timesteps(args.num_ddim_steps, strength, device, image is None)
             latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
-
             # 6. Prepare latent variables
             latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
                                                                          height, width,dtype, device, generator, latents,)
-
             # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
             extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
-
             # 8. Denoising loop
             self_input_time = 0
-
             for i, t in enumerate(pipeline.progress_bar(timesteps)):
                 save_time = int(t.item())-1
                 # expand the latents if we are doing classifier free guidance
@@ -458,7 +453,7 @@ def main(args) :
                 self_k_dict = self_key_dict[save_time]
                 self_v_dict = self_value_dict[save_time]
                 self_store = [self_q_dict,self_k_dict,self_v_dict]
-                if self_input_time < max_self_input_time and self_input_time > args.min_value :
+                if args.min_value < self_input_time and self_input_time < max_self_input_time :
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
                     self_input_time += 1
                 else :
