@@ -207,7 +207,7 @@ def main(args) :
                 latents = image
             else:
                 image = torch.from_numpy(image).float() / 127.5 - 1
-                image = image.permute(2, 0, 1).unsqueeze(0).to(device).to(weight_dtype)
+                image = image.permute(2, 0, 1).unsqueeze(0).to(weight_dtype)
                 latents = vae.encode(image)['latent_dist'].mean
                 latents = latents * 0.18215
         return latents
