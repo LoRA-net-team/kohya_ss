@@ -127,15 +127,14 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-            
-            if not is_cross_attention:
-                original_k = mask[1][layer_name]
-                original_v = mask[2][layer_name]
-                print(original_k.shape)
+
 
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
+            if not is_cross_attention:
+                key = mask[1][layer_name]
+                value = mask[2][layer_name]
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
@@ -504,7 +503,7 @@ def main(args) :
                 if is_cancelled_callback is not None and is_cancelled_callback():
                     return None
         image = pipeline.latents_to_image(latents)[0]
-        image_save_dir = os.path.join(args.output_dir, f'pipeline_image.jpg')
+        image_save_dir = os.path.join(args.output_dir, f'self_new_condition_image.jpg')
         image.save(image_save_dir)
 
 
