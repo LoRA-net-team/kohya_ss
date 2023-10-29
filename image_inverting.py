@@ -85,6 +85,19 @@ def load_512(image_path, left=0, right=0, top=0, bottom=0):
     image = np.array(Image.fromarray(image).resize((512, 512)))
     return image
 
+def image2latent(image, vae, device):
+    with torch.no_grad():
+        if type(image) is Image:
+            image = np.array(image)
+        if type(image) is torch.Tensor and image.dim() == 4:
+            latents = image
+        else:
+            image = torch.from_numpy(image).float() / 127.5 - 1
+            image = image.permute(2, 0, 1).unsqueeze(0).to(device)
+            latents = vae.encode(image)['latent_dist'].mean
+            latents = latents * 0.18215
+    return latents
+
 def main(args) :
 
     print(f' \n step 1. make stable diffusion model')
@@ -171,10 +184,37 @@ def main(args) :
                               beta_end=SCHEDULER_LINEAR_END,
                               beta_schedule=SCHEDLER_SCHEDULE,)
 
+    print(f' \n step 2. groundtruth image preparing')
+    print(f' (2.1) prompt condition')
     prompt = 'teddy bear, wearing sunglasses'
+    def init_prompt(prompt: str):
+        uncond_input = tokenizer([""], padding="max_length", max_length=tokenizer.model_max_length,return_tensors="pt")
+        uncond_embeddings = text_encoder(uncond_input.input_ids.to(accelerator.device))[0]
+        text_input = tokenizer([prompt],padding="max_length",max_length=tokenizer.model_max_length,truncation=True,return_tensors="pt",)
+        text_embeddings = text_encoder(text_input.input_ids.to(accelerator.device))[0]
+        context = torch.cat([uncond_embeddings, text_embeddings])
+        return context
+    context = init_prompt(prompt)
+    print(f' (2.2) image condition')
     init_image_dir = '/data7/sooyeon/MyData/perfusion_dataset/td_100/100_td/td_1.jpg'
     image_gt_np = load_512(init_image_dir)
+    latent = image2latent(image_gt_np, vae, accelerator.device)
+    """
+    @torch.no_grad()
+    def ddim_loop(latent):
+        uncond_embeddings, cond_embeddings = self.context.chunk(2)
+        all_latent = [latent]
+        latent = latent.clone().detach()
+        for i in range(NUM_DDIM_STEPS):
+            t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
+            noise_pred = self.get_noise_pred_single(latent, t, cond_embeddings)
+            latent = self.next_step(noise_pred, t, latent)
+            all_latent.append(latent)
+        return all_latent
 
+
+    ddim_latents = ddim_loop(latent)
+    """
 
 
 if __name__ == "__main__":
