@@ -448,6 +448,8 @@ def main(args) :
                            guidance_scale=scale, negative_prompt=negative_prompt,
                            controlnet_image=controlnet_image, )
         image = pipeline.latents_to_image(latents)[0]
+        save_dir = os.path.join(args.output_dir, f'pipeline_gen.jpg')
+        image.save(save_dir)
 
     """
 
