@@ -454,6 +454,7 @@ def main(args) :
                 self_v_dict = self_value_dict[save_time]
                 self_store = [self_q_dict,self_k_dict,self_v_dict]
                 if args.min_value < self_input_time and self_input_time < max_self_input_time :
+                    print(f'self_input_time : {self_input_time} | ***self attention controlling***')
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
                     self_input_time += 1
                 else :
