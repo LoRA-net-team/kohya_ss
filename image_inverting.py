@@ -464,7 +464,7 @@ def main(args) :
         latents = latents * pipeline.scheduler.init_noise_sigma
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
-        extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, None)
+        extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
 
         # 8. Denoising loop
         for i, t in enumerate(pipeline.progress_bar(timesteps)):
@@ -479,7 +479,7 @@ def main(args) :
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
             # compute the previous noisy sample x_t -> x_t-1
-            latents = scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
+            latents = pipeline.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
         image = pipeline.latents_to_image(latents)[0]
         image_save_dir = os.path.join(args.output_dir, f'pipeline_image.jpg')
         image.save(image_save_dir)
