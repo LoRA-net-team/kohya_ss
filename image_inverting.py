@@ -214,11 +214,7 @@ def main(args) :
     latent = image2latent(image_gt_np, vae, accelerator.device)
 
     NUM_DDIM_STEPS = 50
-    def call_unet(self,args, accelerator, unet,
-                  noisy_latents, timesteps,
-                  text_conds, batch, weight_dtype,
-                  trg_indexs_list,
-                  mask_imgs):
+    def call_unet(unet,noisy_latents, timesteps,text_conds, trg_indexs_list,mask_imgs):
         noise_pred = unet(noisy_latents,
                           timesteps,
                           text_conds,
@@ -233,7 +229,8 @@ def main(args) :
         latent = latent.clone().detach()
         for i in range(NUM_DDIM_STEPS):
             t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
-            noise_pred = call_unet(latent, t, cond_embeddings)
+            noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
+
             #latent = self.next_step(noise_pred, t, latent)
             all_latent.append(latent)
         return all_latent
