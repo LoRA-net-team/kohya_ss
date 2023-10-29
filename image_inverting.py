@@ -449,7 +449,7 @@ def main(args) :
 
         # 8. Denoising loop
         self_input_time = 0
-        max_self_input_time = 10
+        max_self_input_time = args.max_self_input_time
         for i, t in enumerate(pipeline.progress_bar(timesteps)):
             save_time = int(t.item())-1
             # expand the latents if we are doing classifier free guidance
@@ -462,7 +462,6 @@ def main(args) :
             self_v_dict = self_value_dict[save_time]
             self_store = [self_q_dict,self_k_dict,self_v_dict]
             if self_input_time < max_self_input_time :
-
                 noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
                                   mask_imgs = self_store).sample
                 self_input_time += 1
@@ -500,6 +499,7 @@ if __name__ == "__main__":
     parser.add_argument("--negtive_prompt", type=str,
                         default = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort')
     parser.add_argument("--num_ddim_steps", type=int, default=30)
+    parser.add_argument("--max_self_input_time", type=int, default=10)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     main(args)
