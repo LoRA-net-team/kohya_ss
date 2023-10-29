@@ -458,13 +458,13 @@ def main(args) :
                 self_k_dict = self_key_dict[save_time]
                 self_v_dict = self_value_dict[save_time]
                 self_store = [self_q_dict,self_k_dict,self_v_dict]
-                if self_input_time < max_self_input_time and self_input_time > args.min_value :
-                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
-                                      mask_imgs = self_store).sample
-                    self_input_time += 1
-                else :
-                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
-                    self_input_time += 1
+                #if self_input_time < max_self_input_time and self_input_time > args.min_value :
+                #    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                #                      mask_imgs = self_store).sample
+                #    self_input_time += 1
+                #else :
+                noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
+                self_input_time += 1
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
