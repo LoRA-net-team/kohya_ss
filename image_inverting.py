@@ -435,11 +435,10 @@ def main(args) :
         negative_prompt = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
         image = None,
         mask_image = None,
-        height = 512,
-        width = 512,
+
         num_inference_steps = 30
         guidance_scale = 8
-        strength = 0.8,
+        strength = 0.8
         num_images_per_prompt = 1,
         eta = 0.0,
         generator = None,
@@ -457,7 +456,8 @@ def main(args) :
         # 0. Default height and width to unet
         batch_size = 1 if isinstance(prompt, str) else len(prompt)
         do_classifier_free_guidance = guidance_scale > 1.0
-
+        height = 512
+        width = 512
         latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
         image = pipeline.latents_to_image(latents)[0]
         image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
