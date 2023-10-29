@@ -93,7 +93,7 @@ def image2latent(image, vae, device):
             latents = image
         else:
             image = torch.from_numpy(image).float() / 127.5 - 1
-            image = image.permute(2, 0, 1).unsqueeze(0).to(device)
+            image = image.permute(2, 0, 1).unsqueeze(0).to(device).to(vae.dtype)
             latents = vae.encode(image)['latent_dist'].mean
             latents = latents * 0.18215
     return latents
@@ -145,7 +145,7 @@ def main(args) :
     text_encoder, vae, unet, _ = train_util.load_target_model(args, weight_dtype, accelerator)
     model_version = model_util.get_model_version_str_for_sd1_sd2(args.v2, args.v_parameterization)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-    
+
     print(f' (1.3) scheduler')
     sched_init_args = {}
     if args.sample_sampler == "ddim":
