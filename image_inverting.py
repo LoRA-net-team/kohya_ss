@@ -79,9 +79,14 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
 
             if not is_cross_attention:
                 # when self attention
-                  query,key = controller.self_query_key_caching(query_value=query,
+                  query, key = controller.self_query_key_caching(query_value=query,
                                                      key_value=key,
                                                      layer_name=layer_name)
+            else :
+                query, key = controller.cross_query_key_caching(query_value=query,
+                                                               key_value=key,
+                                                               layer_name=layer_name)
+
 
             """
             def self_query_key_caching(self,query_value, key_value, layer_name):
@@ -370,12 +375,16 @@ def main(args) :
     self_key_collection = attention_storer.self_key_store
 
     for layer in layer_names:
+        cross_layer = layer.replace('attn1','attn2')
         self_query_list = attention_storer.self_query_store[layer]
         self_key_list = attention_storer.self_key_store[layer]
+        cross_query_list = attention_storer.cross_query_store[cross_layer]
+        cross_key_list = attention_storer.cross_key_store[cross_layer]
         i = 0
-        for self_query, self_key in zip(self_query_list,self_key_list) :
+        for self_query, self_key, cross_query, cross_key in zip(self_query_list,self_key_list,cross_query_list,cross_key_list) :
             time_step = time_steps[i]
             print(f'time : {time_step} | layer_name : {layer} | self_query : {self_query.shape} | self_key : {self_key.shape}')
+            print(f'time : {time_step} | cross_layer : {cross_layer} | cross_query : {cross_query.shape} | cross_key : {cross_key.shape}')
             i += 1
     """
     print(f' \n step 3. check latents')

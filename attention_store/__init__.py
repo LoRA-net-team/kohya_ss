@@ -10,6 +10,8 @@ class AttentionStore :
         self.heatmap_store = {}
         self.self_query_store = {}
         self.self_key_store = {}
+        self.cross_query_store = {}
+        self.cross_key_store = {}
     def get_empty_store(self):
         return {}
 
@@ -47,6 +49,16 @@ class AttentionStore :
         else :
             self.self_query_store[layer_name].append(query_value)
             self.self_key_store[layer_name].append(key_value)
+        return query_value, key_value
+    def cross_query_key_caching(self, query_value, key_value, layer_name):
+        if layer_name not in self.cross_query_store.keys() :
+            self.cross_query_store[layer_name] = []
+            self.cross_key_store[layer_name] = []
+            self.cross_query_store[layer_name].append(query_value)
+            self.cross_key_store[layer_name].append(key_value)
+        else :
+            self.cross_query_store[layer_name].append(query_value)
+            self.cross_key_store[layer_name].append(key_value)
         return query_value, key_value
 
     def reset(self):
