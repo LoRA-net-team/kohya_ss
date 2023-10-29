@@ -221,9 +221,10 @@ def ddim_loop(latent, context, NUM_DDIM_STEPS, scheduler, unet):
         t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
         time_steps.append(t)
         noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
-        latent = next_step(noise_pred, t, latent)
+        latent = next_step(noise_pred, t, latent, scheduler)
         all_latent.append(latent)
     return all_latent, time_steps
+
 
 @torch.no_grad()
 def latent2image(latents, vae, return_type='np'):
