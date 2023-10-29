@@ -484,6 +484,8 @@ if __name__ == "__main__":
     train_util.add_optimizer_arguments(parser)
     config_util.add_config_arguments(parser)
     custom_train_functions.add_custom_train_arguments(parser)
+    parser.add_argument("--no_half_vae", action="store_true",
+                        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う", )
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--process_title", type=str, default='parksooyeon')
     parser.add_argument("--concept_image", type=str,
