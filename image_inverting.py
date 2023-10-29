@@ -129,7 +129,9 @@ def main(args) :
     tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
 
     print(f' (1.2) SD')
-    text_encoder, vae, unet, _ = train_util.load_target_model(args, weight_dtype, accelerator)
+    #text_encoder, vae, unet, _ = train_util._load_target_model(args, weight_dtype, accelerator)
+    text_encoder, vae, unet, load_stable_diffusion_format = train_util._load_target_model(args,weight_dtype,args.device,
+                                                                                          unet_use_linear_projection_in_v2=False,)
     model_version = model_util.get_model_version_str_for_sd1_sd2(args.v2, args.v_parameterization)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
 
