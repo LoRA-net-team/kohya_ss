@@ -234,7 +234,10 @@ def main(args) :
     print(f' \n step 3. check latents')
     for i in range(len(ddim_latents)):
         trg_latent = ddim_latents[i]
-        trg_img = vae.decode(trg_latent)['image']
+        trg_img = vae.decode(trg_latent)
+        print(f' type of trg_img : {type(trg_img)}')
+        #trg_img_save_dir = os.path.join(args.output_dir, f"ddim_{i}.jpg")
+        #trg_img.save()
 
 
 
