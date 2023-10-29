@@ -395,6 +395,46 @@ def main(args) :
         os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
     """
+    print(f' \n step 3. generating image')
+    prompt = 'teddy bear, wearing sunglasses'
+    prompt_list = [prompt]
+    batch_size = len(prompt_list)
+    height = width = 512
+    text_input = context
+    print(f'text_input (2,77,768) : {text_input.shape}')
+    """
+
+        latent, latents = ptp_utils.init_latent(latent, model, height, width, generator, batch_size)
+        model.scheduler.set_timesteps(num_inference_steps)
+        for i, t in enumerate(tqdm(model.scheduler.timesteps[-start_time:])):
+            if uncond_embeddings_ is None:
+                context = torch.cat([uncond_embeddings[i].expand(*text_embeddings.shape), text_embeddings])
+            else:
+                context = torch.cat([uncond_embeddings_, text_embeddings])
+            latents = ptp_utils.diffusion_step(model, controller, latents, context, t, guidance_scale,
+                                               low_resource=False)
+
+        if return_type == 'image':
+            image = ptp_utils.latent2image(model.vae, latents)
+        else:
+            image = latents
+        return image, latent
+
+    def run_and_display(prompts, controller, latent=None, run_baseline=False, generator=None, uncond_embeddings=None,
+                        verbose=True):
+        if run_baseline:
+            print("w.o. prompt-to-prompt")
+            images, latent = run_and_display(prompts, EmptyControl(), latent=latent, run_baseline=False,
+                                             generator=generator)
+            print("with prompt-to-prompt")
+        images, x_t = text2image_ldm_stable(ldm_stable, prompts, controller, latent=latent,
+                                            num_inference_steps=NUM_DDIM_STEPS, guidance_scale=GUIDANCE_SCALE,
+                                            generator=generator, uncond_embeddings=uncond_embeddings)
+        if verbose:
+            ptp_utils.view_images(images)
+        return images, x_t
+    """
+
 
 
 
