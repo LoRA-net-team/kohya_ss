@@ -670,6 +670,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
                         # randn does not work reproducibly on mps
                         latents = torch.randn(shape, generator=generator, device="cpu", dtype=dtype).to(device)
                     else:
+                        print(f'in original pipeline, latents here')
                         latents = torch.randn(shape, generator=generator, device=device, dtype=dtype)
                 else :
                     latents = torch.randn(shape, generator=generator, device=device, dtype=dtype)
@@ -855,6 +856,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
         print(f'in org pipeline, timesteps : {timesteps} latent_timestep : {latent_timestep}')
 
         # 6. Prepare latent variables
+        print(f'in org pipeline, original latents : {latents}')
         latents, init_latents_orig, noise = self.prepare_latents(image,latent_timestep,batch_size * num_images_per_prompt,
                                                                  height,width,dtype,device,generator,latents,)
 
