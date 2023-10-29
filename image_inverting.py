@@ -236,15 +236,15 @@ def main(args) :
     @torch.no_grad()
     def ddim_loop(latent):
         uncond_embeddings, cond_embeddings = context.chunk(2)
-        all_latent = {}
-        all_latent['0'] = latent
+        all_latent = [latent]
         latent = latent.clone().detach()
         for i in range(NUM_DDIM_STEPS):
             t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
             noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
             latent = next_step(noise_pred, t, latent)
-            all_latent[str(t.item())] = latent
+            all_latent.append(latent)
         return all_latent
+    
     ddim_latents = ddim_loop(latent)
 
     @torch.no_grad()
@@ -258,11 +258,10 @@ def main(args) :
         return image
 
     print(f' \n step 3. check latents')
-    times = ddim_latents.keys()
-    for t_ in times :
-        trg_latent = ddim_latents[t_]
+    for i in range(len(ddim_latents)):
+        trg_latent = ddim_latents[i]
         trg_img_np = latent2image(trg_latent)
-        save_dir = os.path.join(args.output_dir, f'invert_{t_}.jpg')
+        save_dir = os.path.join(args.output_dir, f'invert_{i}.jpg')
         os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
 
