@@ -246,6 +246,7 @@ def main(args) :
         trg_latent = ddim_latents[i]
         trg_img_np = latent2image(trg_latent)
         save_dir = os.path.join(args.output_dir, f'invert_{i}.jpg')
+        os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
 
 
