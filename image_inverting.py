@@ -233,6 +233,8 @@ def main(args) :
         next_sample = alpha_prod_t_next ** 0.5 * next_original_sample + next_sample_direction
         return next_sample
 
+    range_timesteps = len(scheduler.timesteps)
+    print(f'len of scheduler timesteps : {range_timesteps}')
     @torch.no_grad()
     def ddim_loop(latent):
         uncond_embeddings, cond_embeddings = context.chunk(2)
