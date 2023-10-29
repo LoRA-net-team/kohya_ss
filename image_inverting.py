@@ -418,8 +418,6 @@ def main(args) :
 
         latents_input = torch.cat([latents] * 2)
         noise_pred = unet(latents_input, t, encoder_hidden_states=context).sample
-        print(noise_pred)
-        """
         noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
         noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
         latents = scheduler.step(noise_pred, t, latents)["prev_sample"]
@@ -428,7 +426,7 @@ def main(args) :
         save_dir = os.path.join(args.output_dir, f'generating_{t.item()}.jpg')
         os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
-         """
+        
     """
 
         
