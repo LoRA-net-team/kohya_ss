@@ -381,6 +381,8 @@ def main(args) :
         i = 0
         for self_query, self_key, cross_query, cross_key in zip(self_query_list,self_key_list,cross_query_list,cross_key_list) :
             time_step = time_steps[i]
+            if type(time_step) == torch.Tensor :
+                time_step = int(time_step.item())
             if time_step not in self_query_dict.keys() :
                 self_query_dict[time_step] = {}
                 self_query_dict[time_step][layer] = self_query
@@ -449,7 +451,8 @@ def main(args) :
 
         # 8. Denoising loop
         for i, t in enumerate(pipeline.progress_bar(timesteps)):
-            save_time = t-1
+            save_time = int(t.item())-1
+            print(f't : {t} : save_time : {save_time}')
 
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
