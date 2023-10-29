@@ -213,7 +213,7 @@ def main(args) :
                 latents = latents * 0.18215
         return latents
     latent = image2latent(image_gt_np, vae, device)
-    """
+
     NUM_DDIM_STEPS = 50
     def call_unet(unet,noisy_latents, timesteps,text_conds, trg_indexs_list,mask_imgs):
         noise_pred = unet(noisy_latents,timesteps,text_conds,trg_indexs_list=trg_indexs_list,mask_imgs=mask_imgs, ).sample
@@ -249,7 +249,7 @@ def main(args) :
         save_dir = os.path.join(args.output_dir, f'invert_{i}.jpg')
         os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
-    """
+    
 
 
 
