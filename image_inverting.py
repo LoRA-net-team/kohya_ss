@@ -459,10 +459,10 @@ def main(args) :
                 self_v_dict = self_value_dict[save_time]
                 self_store = [self_q_dict,self_k_dict,self_v_dict]
                 if self_input_time < max_self_input_time and self_input_time > args.min_value :
-                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
-                                      mask_imgs = self_store).sample
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
                     self_input_time += 1
                 else :
+                    print(f'self_input_time : {self_input_time} | just inference')
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
                     self_input_time += 1
                 # perform guidance
