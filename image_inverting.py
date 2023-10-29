@@ -364,7 +364,7 @@ def main(args) :
             image = (image * 255).astype(np.uint8)
         return image
 
-    layer_names = attention_storer.keys()
+    layer_names = attention_storer.self_query_store.keys()
 
     self_query_collection = attention_storer.self_query_store
     self_key_collection = attention_storer.self_key_store
