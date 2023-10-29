@@ -401,8 +401,6 @@ def main(args) :
     unregister_attention_control(unet, attention_storer)
     for m in range(args.max_self_input_time):
         max_self_input_time = m
-        #latents = start_latents
-        print(f'max self control time : {max_self_input_time}')
         with torch.no_grad():
             prompt = args.prompt
             negative_prompt = args.negative_prompt
@@ -436,6 +434,8 @@ def main(args) :
             timesteps, num_inference_steps = pipeline.get_timesteps(args.num_ddim_steps, strength, device, image is None)
             latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
             # 6. Prepare latent variables
+            generator = torch.Generator(device='cuda')
+            generator.manual_seed(args.seed)
             latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
                                                                          height, width,dtype, device, generator, latents,)
             # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
