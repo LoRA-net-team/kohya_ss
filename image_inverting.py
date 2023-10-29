@@ -129,8 +129,8 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
             if not is_cross_attention and mask is not None:
-                #unkey, con_key = key.chunk(2)
-                #key = torch.cat([unkey, mask[1][layer_name]], dim=0)
+                unkey, con_key = key.chunk(2)
+                key = torch.cat([unkey, mask[1][layer_name]], dim=0)
                 unvalue, con_value = value.chunk(2)
                 value = torch.cat([unvalue, mask[2][layer_name]], dim=0)
             if self.upcast_attention:
@@ -337,7 +337,7 @@ def main(args) :
         unet, text_encoder = unet.to(device), text_encoder.to(device)
         text_encoders = [text_encoder]
 
-    print(f' \n step 2. groundtruth image preparing')
+    print(f' \n step 2. ground-truth image preparing')
     print(f' (2.1) prompt condition')
     prompt = args.prompt
     context = init_prompt(tokenizer, text_encoder, device, prompt)
@@ -349,6 +349,9 @@ def main(args) :
     latent = image2latent(image_gt_np, vae, device, weight_dtype)
     scheduler.set_timesteps(args.num_ddim_steps)
     ddim_latents, time_steps = ddim_loop(latent, context, args.num_ddim_steps, scheduler, unet)
+    latents = ddim_latents[-1]
+    print(f'base latent : {latents.shape}')
+
     layer_names = attention_storer.self_query_store.keys()
     self_query_collection = attention_storer.self_query_store
     self_key_collection = attention_storer.self_key_store
@@ -437,8 +440,8 @@ def main(args) :
             latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
             # 6. Prepare latent variables
-            latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
-                                                                         height, width,dtype, device, generator, latents,)
+            #latents, init_latents_orig, noise = pipeline.prepare_latents(image, latent_timestep, batch_size * num_images_per_prompt,
+            #                                                             height, width,dtype, device, generator, latents,)
 
             # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
             extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
