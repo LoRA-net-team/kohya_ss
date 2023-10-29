@@ -144,7 +144,8 @@ def main(args) :
     print(f' (1.2) SD')
     text_encoder, vae, unet, _ = train_util.load_target_model(args, weight_dtype, accelerator)
     model_version = model_util.get_model_version_str_for_sd1_sd2(args.v2, args.v_parameterization)
-
+    text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+    
     print(f' (1.3) scheduler')
     sched_init_args = {}
     if args.sample_sampler == "ddim":
@@ -174,6 +175,7 @@ def main(args) :
         scheduler_cls = DDIMScheduler
     if args.v_parameterization:
         sched_init_args["prediction_type"] = "v_prediction "
+
     # scheduler:
     SCHEDULER_LINEAR_START = 0.00085
     SCHEDULER_LINEAR_END = 0.0120
@@ -183,6 +185,15 @@ def main(args) :
                               beta_start=SCHEDULER_LINEAR_START,
                               beta_end=SCHEDULER_LINEAR_END,
                               beta_schedule=SCHEDLER_SCHEDULE,)
+
+    print(f' (1.4) model to accelerator device')
+    if len(text_encoders) > 1:
+        unet, t_enc1, t_enc2, = accelerator.prepare(unet, text_encoders[0], text_encoders[1])
+        text_encoder = text_encoders = [t_enc1, t_enc2]
+        del t_enc1, t_enc2
+    else:
+        unet, text_encoder = accelerator.prepare(unet, text_encoder)
+        text_encoders = [text_encoder]
 
     print(f' \n step 2. groundtruth image preparing')
     print(f' (2.1) prompt condition')
