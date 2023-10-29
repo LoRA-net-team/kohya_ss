@@ -460,7 +460,8 @@ def main(args) :
         # 6. Prepare latent variables
         latents = None
         latents, init_latents_orig, noise = pipeline.prepare_latents(None,latent_timestep,batch_size * num_images_per_prompt,
-                                                                     height,width,dtype,device,generator,latents,)
+                                                                     height,width,dtype,'cuda',
+                                                                     generator,latents,)
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, None)
