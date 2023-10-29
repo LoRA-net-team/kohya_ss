@@ -85,7 +85,7 @@ def load_512(image_path, left=0, right=0, top=0, bottom=0):
     image = np.array(Image.fromarray(image).resize((512, 512)))
     return image
 
-def main() :
+def main(args) :
 
     print(f' \n step 1. make stable diffusion model')
     if args.process_title:
