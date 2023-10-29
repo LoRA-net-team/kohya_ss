@@ -211,24 +211,35 @@ def main(args) :
                 latents = vae.encode(image)['latent_dist'].mean
                 latents = latents * 0.18215
         return latents
-
     latent = image2latent(image_gt_np, vae, accelerator.device)
-    """
+
+    NUM_DDIM_STEPS = 50
+    def call_unet(self,args, accelerator, unet,
+                  noisy_latents, timesteps,
+                  text_conds, batch, weight_dtype,
+                  trg_indexs_list,
+                  mask_imgs):
+        noise_pred = unet(noisy_latents,
+                          timesteps,
+                          text_conds,
+                          trg_indexs_list=trg_indexs_list,
+                          mask_imgs=mask_imgs, ).sample
+        return noise_pred
+
     @torch.no_grad()
     def ddim_loop(latent):
-        uncond_embeddings, cond_embeddings = self.context.chunk(2)
+        uncond_embeddings, cond_embeddings = context.chunk(2)
         all_latent = [latent]
         latent = latent.clone().detach()
         for i in range(NUM_DDIM_STEPS):
             t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
-            noise_pred = self.get_noise_pred_single(latent, t, cond_embeddings)
-            latent = self.next_step(noise_pred, t, latent)
+            noise_pred = call_unet(latent, t, cond_embeddings)
+            #latent = self.next_step(noise_pred, t, latent)
             all_latent.append(latent)
         return all_latent
 
-
     ddim_latents = ddim_loop(latent)
-    """
+
 
 
 if __name__ == "__main__":
