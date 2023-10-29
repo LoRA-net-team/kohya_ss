@@ -215,11 +215,7 @@ def main(args) :
 
     NUM_DDIM_STEPS = 50
     def call_unet(unet,noisy_latents, timesteps,text_conds, trg_indexs_list,mask_imgs):
-        noise_pred = unet(noisy_latents,
-                          timesteps,
-                          text_conds,
-                          trg_indexs_list=trg_indexs_list,
-                          mask_imgs=mask_imgs, ).sample
+        noise_pred = unet(noisy_latents,timesteps,text_conds,trg_indexs_list=trg_indexs_list,mask_imgs=mask_imgs, ).sample
         return noise_pred
 
     @torch.no_grad()
@@ -230,12 +226,15 @@ def main(args) :
         for i in range(NUM_DDIM_STEPS):
             t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
             noise_pred = call_unet(unet, latent, t, cond_embeddings, None, None)
-
             #latent = self.next_step(noise_pred, t, latent)
             all_latent.append(latent)
         return all_latent
-
     ddim_latents = ddim_loop(latent)
+
+    print(f' \n step 3. check latents')
+    for i in range(len(ddim_latents)):
+        trg_latent = ddim_latents[i]
+        trg_img = vae.decode(trg_latent)['image']
 
 
 
