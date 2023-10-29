@@ -468,12 +468,15 @@ def main(args) :
         negative_prompt = 'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
         image = None
         mask_image = None
+        height = 512
+        width = 512
         num_inference_steps = 30
         guidance_scale = 8
         strength = 0.8
         num_images_per_prompt = 1
         eta = 0.0
         generator = None
+        latents = None
         max_embeddings_multiples = 3
         output_type = "pil"
         return_dict = True
@@ -481,11 +484,10 @@ def main(args) :
         controlnet_image = None
         callback = None
         is_cancelled_callback = None
-        callback_steps: int = 1
+        callback_steps = 1
         batch_size = 1 if isinstance(prompt, str) else len(prompt)
         do_classifier_free_guidance = guidance_scale > 1.0
-        height = 512
-        width = 512
+
         # ------------------------------------------------------------------------------------------------------------------------------
         # 3. Encode input prompt
         text_embeddings = pipeline._encode_prompt(prompt,device,num_images_per_prompt,do_classifier_free_guidance,
