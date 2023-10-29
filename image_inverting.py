@@ -133,8 +133,10 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
             if not is_cross_attention:
-                key = mask[1][layer_name]
-                value = mask[2][layer_name]
+                unkey, con_key = key.chunk(2)
+                key = torch.cat([unkey, mask[1][layer_name]], dim=0)
+                unvalue, con_value = value.chunk(2)
+                value = torch.cat([unvalue, mask[2][layer_name]], dim=0)
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
