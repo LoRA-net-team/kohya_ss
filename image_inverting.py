@@ -132,7 +132,7 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
-            if not is_cross_attention:
+            if not is_cross_attention and mask is not None:
                 unkey, con_key = key.chunk(2)
                 key = torch.cat([unkey, mask[1][layer_name]], dim=0)
                 unvalue, con_value = value.chunk(2)
@@ -476,6 +476,8 @@ def main(args) :
         extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
 
         # 8. Denoising loop
+        self_input_time = 0
+        max_self_input_time = 10
         for i, t in enumerate(pipeline.progress_bar(timesteps)):
             save_time = int(t.item())-1
             print(f't : {t} : save_time : {save_time}')
@@ -489,9 +491,13 @@ def main(args) :
             self_k_dict = self_key_dict[save_time]
             self_v_dict = self_value_dict[save_time]
             self_store = [self_q_dict,self_k_dict,self_v_dict]
+            if self_input_time < max_self_input_time :
 
-            noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
-                              mask_imgs = self_store).sample
+                noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                                  mask_imgs = self_store).sample
+                self_input_time += 1
+            else :
+                noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
 
             # perform guidance
             if do_classifier_free_guidance:
