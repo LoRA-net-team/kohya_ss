@@ -108,10 +108,8 @@ def main(args) :
         args.seed = random.randint(0, 2 ** 32)
     set_seed(args.seed)
 
-    print(f" (1.0.1) preparing accelerator")
-    accelerator = train_util.prepare_accelerator(args)
-    is_main_process = accelerator.is_main_process
-    if args.log_with == 'wandb' and is_main_process:
+    print(f" (1.0.1) logging")
+    if args.log_with == 'wandb' :
         wandb.init(project=args.wandb_init_name, name=args.wandb_run_name)
 
     print(f" (1.0.2) save directory and save config")
@@ -176,12 +174,13 @@ def main(args) :
                               beta_schedule=SCHEDLER_SCHEDULE,)
 
     print(f' (1.4) model to accelerator device')
+    device = args.device
     if len(text_encoders) > 1:
-        unet, t_enc1, t_enc2= accelerator.prepare(unet, text_encoders[0], text_encoders[1])
+        unet, t_enc1, t_enc2 = unet.to(device), text_encoders[0].to(device), text_encoders[1].to(device)
         text_encoder = text_encoders = [t_enc1, t_enc2]
         del t_enc1, t_enc2
     else:
-        unet, text_encoder = accelerator.prepare(unet, text_encoder)
+        unet, text_encoder = unet.to(device), text_encoder.to(device)
         text_encoders = [text_encoder]
 
     print(f' \n step 2. groundtruth image preparing')
@@ -189,9 +188,9 @@ def main(args) :
     prompt = 'teddy bear, wearing sunglasses'
     def init_prompt(prompt: str):
         uncond_input = tokenizer([""], padding="max_length", max_length=tokenizer.model_max_length,return_tensors="pt")
-        uncond_embeddings = text_encoder(uncond_input.input_ids.to(accelerator.device))[0]
+        uncond_embeddings = text_encoder(uncond_input.input_ids.to(device))[0]
         text_input = tokenizer([prompt],padding="max_length",max_length=tokenizer.model_max_length,truncation=True,return_tensors="pt",)
-        text_embeddings = text_encoder(text_input.input_ids.to(accelerator.device))[0]
+        text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
         context = torch.cat([uncond_embeddings, text_embeddings])
         return context
     context = init_prompt(prompt)
@@ -207,12 +206,12 @@ def main(args) :
                 latents = image
             else:
                 image = torch.from_numpy(image).float() / 127.5 - 1
-                image = image.permute(2, 0, 1).unsqueeze(0).to(weight_dtype)
+                image = image.permute(2, 0, 1).unsqueeze(0).to(weight_dtype, device)
                 latents = vae.encode(image)['latent_dist'].mean
                 latents = latents * 0.18215
         return latents
-    latent = image2latent(image_gt_np, vae, accelerator.device)
-
+    latent = image2latent(image_gt_np, vae, device)
+    """
     NUM_DDIM_STEPS = 50
     def call_unet(unet,noisy_latents, timesteps,text_conds, trg_indexs_list,mask_imgs):
         noise_pred = unet(noisy_latents,timesteps,text_conds,trg_indexs_list=trg_indexs_list,mask_imgs=mask_imgs, ).sample
@@ -248,7 +247,7 @@ def main(args) :
         save_dir = os.path.join(args.output_dir, f'invert_{i}.jpg')
         os.makedirs(args.output_dir, exist_ok=True)
         Image.fromarray(trg_img_np).save(save_dir)
-
+    """
 
 
 
@@ -261,8 +260,7 @@ if __name__ == "__main__":
     train_util.add_optimizer_arguments(parser)
     config_util.add_config_arguments(parser)
     custom_train_functions.add_custom_train_arguments(parser)
-    parser.add_argument("--no_metadata", action="store_true",
-                        help="do not save metadata in output model / メタデータを出力先モデルに保存しない")
+    parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--save_model_as", type=str, default="safetensors",
                         choices=[None, "ckpt", "pt", "safetensors"],
                         help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）", )
