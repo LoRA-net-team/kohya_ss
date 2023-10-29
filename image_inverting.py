@@ -450,16 +450,16 @@ def main(args) :
         callback = None
         is_cancelled_callback = None
         callback_steps: int = 1
-        
+
         # 0. Default height and width to unet
         batch_size = 1 if isinstance(prompt, str) else len(prompt)
         do_classifier_free_guidance = guidance_scale > 1.0
         height = 512
         width = 512
         latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, negative_prompt=negative_prompt, )
-        image = pipeline.latents_to_image(latents)[0]
+        org_image = pipeline.latents_to_image(latents)[0]
         image_save_dir = os.path.join(args.output_dir, f'original_pipeline_image.jpg')
-        image.save(image_save_dir)
+        org_image.save(image_save_dir)
 
 
         # 3. Encode input prompt
@@ -472,7 +472,9 @@ def main(args) :
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
         # 6. Prepare latent variables
-        latents, init_latents_orig, noise = pipeline.prepare_latents(image,latent_timestep, batch_size * num_images_per_prompt,
+        latents, init_latents_orig, noise = pipeline.prepare_latents(image,
+                                                                     latent_timestep,
+                                                                     batch_size * num_images_per_prompt,
                                                                      height,width,dtype,device,generator,latents,)
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
