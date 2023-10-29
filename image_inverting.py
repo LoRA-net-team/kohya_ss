@@ -236,7 +236,8 @@ def main(args) :
     @torch.no_grad()
     def ddim_loop(latent):
         uncond_embeddings, cond_embeddings = context.chunk(2)
-        all_latent = [latent]
+        all_latent = {}
+        all_latent['0'] = latent
         latent = latent.clone().detach()
         for i in range(NUM_DDIM_STEPS):
             t = scheduler.timesteps[len(scheduler.timesteps) - i - 1]
