@@ -402,9 +402,34 @@ def main(args) :
     height = width = 512
     text_input = context
     print(f'text_input (2,77,768) : {text_input.shape}')
+    generator = None
+    latent = torch.randn((1,unet.in_channels, height // 8, width // 8),
+                         generator=generator,)
+    latents = latent.expand(batch_size, unet.in_channels, height // 8, width // 8).to(device)
+    print(f'latent : {latent.shape} | latents : {latents.shape}')
+
+    start_time = 50
+    guidance_scale = 7.5
+    for i, t in enumerate(tqdm(scheduler.timesteps[-start_time:])):
+        attention_storer.self_query_store = {}
+        attention_storer.self_key_store = {}
+        attention_storer.cross_query_store = {}
+        attention_storer.cross_key_store = {}
+
+        latents_input = torch.cat([latents] * 2)
+        noise_pred = unet(latents_input, t, encoder_hidden_states=context)["sample"]
+        noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
+        noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
+        latents = scheduler.step(noise_pred, t, latents)["prev_sample"]
+
+        trg_img_np = latent2image(latents)
+        save_dir = os.path.join(args.output_dir, f'generating_{t.item()}.jpg')
+        os.makedirs(args.output_dir, exist_ok=True)
+        Image.fromarray(trg_img_np).save(save_dir)
+
     """
 
-        latent, latents = ptp_utils.init_latent(latent, model, height, width, generator, batch_size)
+        
         model.scheduler.set_timesteps(num_inference_steps)
         for i, t in enumerate(tqdm(model.scheduler.timesteps[-start_time:])):
             if uncond_embeddings_ is None:
