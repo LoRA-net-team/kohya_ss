@@ -362,7 +362,10 @@ def main(args) :
     latent = image2latent(image_gt_np, vae, device, weight_dtype)
     NUM_DDIM_STEPS = 30
     scheduler.set_timesteps(NUM_DDIM_STEPS)
-    ddim_latents, time_steps = ddim_loop(latent)
+    ddim_latents, time_steps = ddim_loop(latent, context, NUM_DDIM_STEPS, scheduler, unet)
+
+
+
     layer_names = attention_storer.self_query_store.keys()
     self_query_collection = attention_storer.self_query_store
     self_key_collection = attention_storer.self_key_store
