@@ -492,45 +492,8 @@ if __name__ == "__main__":
     config_util.add_config_arguments(parser)
     custom_train_functions.add_custom_train_arguments(parser)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--save_model_as", type=str, default="safetensors", choices=[None, "ckpt", "pt", "safetensors"],
-                        help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）", )
-    parser.add_argument("--unet_lr", type=float, default=None, help="learning rate for U-Net / U-Netの学習率")
-    parser.add_argument("--text_encoder_lr", type=float, default=None,
-                        help="learning rate for Text Encoder / Text Encoderの学習率")
-    parser.add_argument("--network_weights", type=str, default=None,
-                        help="pretrained weights for network / 学習するネットワークの初期重み")
-    parser.add_argument("--network_module", type=str, default=None,
-                        help="network module to train / 学習対象のネットワークのモジュール")
-    parser.add_argument("--network_dim", type=int, default=None,
-                        help="network dimensions (depends on each network) / モジュールの次元数（ネットワークにより定義は異なります）")
-    parser.add_argument("--network_alpha",type=float,default=1,
-                        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version)",)
-    parser.add_argument("--network_dropout",type=float,default=None,
-                        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons)",)
-    parser.add_argument("--network_args", type=str, default=None, nargs="*",
-                        help="additional argmuments for network (key=value) / ネットワークへの追加の引数")
-    parser.add_argument("--network_train_unet_only", action="store_true",
-                        help="only training U-Net part / U-Net関連部分のみ学習する")
-    parser.add_argument("--network_train_text_encoder_only", action="store_true",
-                        help="only training Text Encoder part / Text Encoder関連部分のみ学習する")
-    parser.add_argument("--training_comment", type=str, default=None,
-                        help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列")
-    parser.add_argument("--dim_from_weights",action="store_true",
-                        help="automatically determine dim (rank) from network_weights / dim (rank)をnetwork_weightsで指定した重みから自動で決定する",)
-    parser.add_argument("--scale_weight_norms",type=float,default=None,
-                        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. ",)
-    parser.add_argument("--base_weights",type=str,default=None,nargs="*",
-                        help="network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みファイル",)
-    parser.add_argument("--base_weights_multiplier",type=float,default=None,nargs="*",
-                        help="multiplier for network weights to merge into the model before training / 学習前にあらかじめモデルにマージするnetworkの重みの倍率",)
-    parser.add_argument("--no_half_vae",action="store_true",
-                        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",)
     parser.add_argument("--process_title", type=str, default='parksooyeon')
-    parser.add_argument("--wandb_init_name", type=str)
-    parser.add_argument("--wandb_log_template_path", type=str)
-    parser.add_argument("--wandb_key", type=str)
-    # class_caption
-    parser.add_argument("--concept_image", type=str, 
+    parser.add_argument("--concept_image", type=str,
                         default = '/data7/sooyeon/MyData/perfusion_dataset/td_100/100_td/td_1.jpg')
     parser.add_argument("--prompt", type=str,
                         default = 'teddy bear, wearing like a super hero')
