@@ -9,7 +9,7 @@ CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --from_file '/data7/sooyeon/LyCORIS/LyCORIS/test/td_inference.txt' \
       --exception_layer 'text,attn2'
 
-
+vi /data7/sooyeon/LyCORIS/LyCORIS/test/td_inference.txt
 
 
 cp /data7/sooyeon/LyCORIS/LyCORIS/test/iom_inference.txt /data7/sooyeon/LyCORIS/LyCORIS/test/td_inference.txttd-000005.safetensors

@@ -51,9 +51,7 @@ from typing import Union
 
 
 def register_attention_control(unet : nn.Module, controller:AttentionStore) :
-    """
-    Register cross attention layers to controller.
-    """
+    """ Register cross attention layers to controller. """
     def ca_forward(self, layer_name):
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -79,68 +77,14 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
 
             if not is_cross_attention:
                 # when self attention
-                  query, key = controller.self_query_key_caching(query_value=query,
-                                                     key_value=key,
-                                                     layer_name=layer_name)
+                query, key = controller.self_query_key_caching(query_value=query,
+                                                               key_value=key,
+                                                               layer_name=layer_name)
             else :
                 query, key = controller.cross_query_key_caching(query_value=query,
                                                                key_value=key,
                                                                layer_name=layer_name)
-
-
-            """
-            def self_query_key_caching(self,query_value, key_value, layer_name):
-                if layer_name not in self.self_query_store.keys() :
-                    self.self_query_store[layer_name] = []
-                    self.self_key_store[layer_name] = []
-                    self.self_query_store[layer_name].append(query_value)
-                    self.self_key_store[layer_name].append(key_value)
-                else :
-                    self.self_query_store[layer_name].append(query_value)
-                    self.self_key_store[layer_name].append(key_value)
-                return query_value, key_value
-            """
-
-            """
-            if is_cross_attention:
-                if trg_indexs_list is not None and mask is not None:
-                    trg_indexs = trg_indexs_list
-                    batch_num = len(trg_indexs)
-                    attention_probs_batch = torch.chunk(attention_probs, batch_num, dim=0)
-                    for batch_idx, attention_prob in enumerate(attention_probs_batch) :
-                        batch_trg_index = trg_indexs[batch_idx] # two times
-                        head_num = attention_prob.shape[0]
-                        res = int(math.sqrt(attention_prob.shape[1]))
-                        word_heat_map_list = []
-                        for word_idx in batch_trg_index :
-                            # head, pix_len
-                            word_heat_map = attention_prob[:, :, word_idx]
-                            word_heat_map_ = word_heat_map.reshape(-1, res, res)
-                            word_heat_map_ = word_heat_map_.mean(dim=0)
-                            word_heat_map_ = F.interpolate(word_heat_map_.unsqueeze(0).unsqueeze(0),
-                                                           size=((512, 512)),mode='bicubic').squeeze()
-                            word_heat_map_list.append(word_heat_map_)
-                        word_heat_map_ = torch.stack(word_heat_map_list, dim=0) # (word_num, 512, 512)
-                        # saving word_heat_map
-                        # ------------------------------------------------------------------------------------------------------------------------------
-                        # mask = [512,512]
-                        mask_ = mask[batch_idx].to(attention_prob.dtype) # (512,512)
-                        # thresholding, convert to 1 if upper than threshold else itself
-                        mask_ = torch.where(mask_ > mask_threshold, torch.ones_like(mask_), mask_)
-                        # check if mask_ is frozen, it should not be updated
-                        assert mask_.requires_grad == False, 'mask_ should not be updated'
-                        masked_heat_map = word_heat_map_ * mask_
-                        attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
-                        controller.store(attn_loss, layer_name)
-                # check if torch.no_grad() is in effect
-                elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
-                    if mask is None:
-                        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
-                    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
-            """
             hidden_states = torch.bmm(attention_probs, value)
-            #if is_cross_attention :
-            #    print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
@@ -166,7 +110,55 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
 
+def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
+    """ Register cross attention layers to controller. """
+    def ca_forward(self, layer_name):
 
+        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
+            is_cross_attention = False
+            if context is not None:
+                is_cross_attention = True
+            query = self.to_q(hidden_states)
+            context = context if context is not None else hidden_states
+            key = self.to_k(context)
+            value = self.to_v(context)
+
+            query = self.reshape_heads_to_batch_dim(query)
+            key = self.reshape_heads_to_batch_dim(key)
+            value = self.reshape_heads_to_batch_dim(value)
+            if self.upcast_attention:
+                query = query.float()
+                key = key.float()
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
+                                                         device=query.device),
+                                             query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
+            attention_probs = attention_scores.softmax(dim=-1)
+            attention_probs = attention_probs.to(value.dtype)
+
+            hidden_states = torch.bmm(attention_probs, value)
+            hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
+            hidden_states = self.to_out[0](hidden_states)
+            return hidden_states
+        return forward
+    def register_recr(net_, count, layer_name):
+        if net_.__class__.__name__ == 'CrossAttention':
+            net_.forward = ca_forward(net_, layer_name)
+            return count + 1
+        elif hasattr(net_, 'children'):
+            for name__, net__ in net_.named_children():
+                full_name = f'{layer_name}_{name__}'
+                count = register_recr(net__, count, full_name)
+        return count
+
+    cross_att_count = 0
+    for net in unet.named_children():
+        if "down" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "up" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+        elif "mid" in net[0]:
+            cross_att_count += register_recr(net[1], 0, net[0])
+    controller.num_att_layers = cross_att_count
 
 def load_512(image_path, left=0, right=0, top=0, bottom=0):
     if type(image_path) is str:
@@ -427,6 +419,35 @@ def main(args) :
             save_dir = os.path.join(args.output_dir, f'generating_{t.item()}.jpg')
             os.makedirs(args.output_dir, exist_ok=True)
             Image.fromarray(trg_img_np).save(save_dir)
+
+    vae.to(device)
+    if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
+        scheduler.config.clip_sample = True
+    from library.lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
+    pipeline = StableDiffusionLongPromptWeightingPipeline(text_encoder=text_encoder, vae=vae, unet=unet, tokenizer=tokenizer,
+                                                          scheduler=scheduler,
+                                                          safety_checker=None, feature_extractor=None, requires_safety_checker=False,
+                                                          clip_skip=args.clip_skip, )
+    pipeline.to(device)
+    prompt = 'teddy bear, wearing sunglasses'
+    unregister_attention_control(unet, attention_storer)
+    with torch.no_grad():
+        negative_prompt =  'low quality, worst quality, bad anatomy,bad composition, poor, low effort'
+        sample_steps = 30
+        width = 512
+        height = 512
+        scale = 8
+        seed = 42
+        controlnet_image = None
+        prompt = prompt
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        height = max(64, height - height % 8)  # round to divisible by 8
+        width = max(64, width - width % 8)  # round to divisible by 8
+        latents = pipeline(prompt=prompt, height=height, width=width, num_inference_steps=sample_steps,
+                           guidance_scale=scale, negative_prompt=negative_prompt,
+                           controlnet_image=controlnet_image, )
+        image = pipeline.latents_to_image(latents)[0]
 
     """
 
