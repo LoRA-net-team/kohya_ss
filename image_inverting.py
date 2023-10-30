@@ -110,10 +110,9 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             if not is_cross_attention and mask is not None:
                 if args.self_key_control :
                     unkey, con_key = key.chunk(2)
-                    key = torch.cat([unkey, mask[1][layer_name]], dim=0)
+                    key = torch.cat([unkey, mask[0][layer_name]], dim=0)
                 unvalue, con_value = value.chunk(2)
-                value = torch.cat([unvalue, mask[2][layer_name]], dim=0)
-
+                value = torch.cat([unvalue, mask[1][layer_name]], dim=0)
 
             if self.upcast_attention:
                 query = query.float()
@@ -422,7 +421,7 @@ def main(args) :
                     else :
                         global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
                         global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
-
+    g_self_k_dict, g_self_v_dict = {},{}
     total_times = global_self_k_dict.keys()
     for t_ in total_times :
         layer_k_dict = global_self_k_dict[t_]
@@ -431,13 +430,12 @@ def main(args) :
         for layer_n in layer_names :
             list_torches_k = layer_k_dict[layer_n]
             list_torches_v = layer_v_dict[layer_n]
-            print(f'layer {layer_n} has {len(list_torches_k)} tensors')
+            if t_ not in g_self_k_dict.keys() :
+                g_self_k_dict[t_] = {}
+                g_self_k_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_k), dim=0)
+                g_self_v_dict[t_] = {}
+                g_self_v_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_v), dim=0)
 
-
-
-
-
-    """
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
     vae.to(device)
@@ -498,15 +496,19 @@ def main(args) :
                 latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
 
                 # predict the noise residual
-                self_q_dict = self_query_dict[save_time]
-                self_k_dict = self_key_dict[save_time]
-                self_v_dict = self_value_dict[save_time]
-                cross_q_dict = cross_query_dict[save_time]
-                cross_k_dict = cross_key_dict[save_time]
-                cross_v_dict = cross_value_dict[save_time]
 
-                self_store =  [self_q_dict, self_k_dict, self_v_dict]
-                cross_store = [cross_q_dict,cross_k_dict,cross_v_dict]
+                #self_q_dict = self_query_dict[save_time]
+                #self_k_dict = self_key_dict[save_time]
+                #self_v_dict = self_value_dict[save_time]
+                self_k_dict = g_self_k_dict[save_time]
+                self_v_dict = g_self_v_dict[save_time]
+                #cross_q_dict = cross_query_dict[save_time]
+                #cross_k_dict = cross_key_dict[save_time]
+                #cross_v_dict = cross_value_dict[save_time]
+
+                #self_store =  [self_q_dict, self_k_dict, self_v_dict]
+                self_store = [self_k_dict, self_v_dict]
+                #cross_store = [cross_q_dict,cross_k_dict,cross_v_dict]
 
                 if args.min_value < iteration_num and self_input_time < max_self_input_time :
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
