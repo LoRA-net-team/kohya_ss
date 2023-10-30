@@ -113,7 +113,7 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
                     key = torch.cat([unkey, mask[1][layer_name]], dim=0)
                 unvalue, con_value = value.chunk(2)
                 value = torch.cat([unvalue, mask[2][layer_name]], dim=0)
-            
+
 
             if self.upcast_attention:
                 query = query.float()
@@ -326,75 +326,85 @@ def main(args) :
     context = init_prompt(tokenizer, text_encoder, device, prompt)
 
     print(f' (2.2) image condition')
-    image_gt_np = load_512(args.concept_image)
+    concept_img_dirs = os.listdir(args.concept_image_folder)
+    self_q, self_k, self_v, cross_q, cross_k, cross_v = {}, {}, {}, {}, {}, {}
+    for concept_img in concept_img_dirs :
+        concept_img_dir = os.path.join(args.concept_image_folder, concept_img)
+        image_gt_np = load_512(concept_img_dir)
+        latent = image2latent(image_gt_np, vae, device, weight_dtype)
+        scheduler.set_timesteps(args.num_ddim_steps)
+        ddim_latents, time_steps = ddim_loop(latent, context, args.num_ddim_steps, scheduler, unet)
+        layer_names = attention_storer.self_query_store.keys()
+        self_query_collection = attention_storer.self_query_store
+        self_key_collection = attention_storer.self_key_store
+        self_value_collection = attention_storer.self_value_store
+        self_query_dict, self_key_dict, self_value_dict = {}, {}, {}
+        cross_query_dict, cross_key_dict, cross_value_dict = {}, {}, {}
+        for layer in layer_names:
+            self_query_list = attention_storer.self_query_store[layer]
+            self_key_list = attention_storer.self_key_store[layer]
+            self_value_list = attention_storer.self_value_store[layer]
+            cross_layer = layer.replace('attn1', 'attn2')
+            cross_query_list = attention_storer.cross_query_store[cross_layer]
+            cross_key_list = attention_storer.cross_key_store[cross_layer]
+            cross_value_list = attention_storer.cross_value_store[cross_layer]
+            i = 0
+            for self_query, self_key, self_value, cross_query, cross_key, cross_value in zip(self_query_list,
+                                                                                             self_key_list,
+                                                                                             self_value_list,
+                                                                                             cross_query_list,
+                                                                                             cross_key_list,
+                                                                                             cross_value_list,) :
+                time_step = time_steps[i]
+                if type(time_step) == torch.Tensor :
+                    time_step = int(time_step.item())
 
-    print(f' \n step 3. image inverting')
-    latent = image2latent(image_gt_np, vae, device, weight_dtype)
-    scheduler.set_timesteps(args.num_ddim_steps)
-    ddim_latents, time_steps = ddim_loop(latent, context, args.num_ddim_steps, scheduler, unet)
-    start_latents = ddim_latents[-1]
-    print(f'base latent : {start_latents.shape}')
+                if time_step not in self_query_dict.keys() :
+                    self_query_dict[time_step] = {}
+                    self_query_dict[time_step][layer] = self_query
+                else :
+                    self_query_dict[time_step][layer] = self_query
 
-    layer_names = attention_storer.self_query_store.keys()
-    self_query_collection = attention_storer.self_query_store
-    self_key_collection = attention_storer.self_key_store
-    self_value_collection = attention_storer.self_value_store
-    self_query_dict, self_key_dict, self_value_dict = {}, {}, {}
-    cross_query_dict, cross_key_dict, cross_value_dict = {}, {}, {}
-    for layer in layer_names:
-        self_query_list = attention_storer.self_query_store[layer]
-        self_key_list = attention_storer.self_key_store[layer]
-        self_value_list = attention_storer.self_value_store[layer]
-        cross_layer = layer.replace('attn1', 'attn2')
-        cross_query_list = attention_storer.cross_query_store[cross_layer]
-        cross_key_list = attention_storer.cross_key_store[cross_layer]
-        cross_value_list = attention_storer.cross_value_store[cross_layer]
-        i = 0
-        for self_query, self_key, self_value, cross_query, cross_key, cross_value in zip(self_query_list, self_key_list, self_value_list,
-                                                                                         cross_query_list,cross_key_list,cross_value_list,) :
-            time_step = time_steps[i]
-            if type(time_step) == torch.Tensor :
-                time_step = int(time_step.item())
+                if time_step not in self_key_dict.keys() :
+                    self_key_dict[time_step] = {}
+                    self_key_dict[time_step][layer] = self_key
+                else :
+                    self_key_dict[time_step][layer] = self_key
 
-            if time_step not in self_query_dict.keys() :
-                self_query_dict[time_step] = {}
-                self_query_dict[time_step][layer] = self_query
-            else :
-                self_query_dict[time_step][layer] = self_query
+                if time_step not in self_value_dict.keys() :
+                    self_value_dict[time_step] = {}
+                    self_value_dict[time_step][layer] = self_value
+                else :
+                    self_value_dict[time_step][layer] = self_value
 
-            if time_step not in self_key_dict.keys() :
-                self_key_dict[time_step] = {}
-                self_key_dict[time_step][layer] = self_key
-            else :
-                self_key_dict[time_step][layer] = self_key
+                if time_step not in cross_query_dict.keys() :
+                    cross_query_dict[time_step] = {}
+                    cross_query_dict[time_step][layer] = cross_query
+                else :
+                    cross_query_dict[time_step][layer] = cross_query
 
-            if time_step not in self_value_dict.keys() :
-                self_value_dict[time_step] = {}
-                self_value_dict[time_step][layer] = self_value
-            else :
-                self_value_dict[time_step][layer] = self_value
+                if time_step not in cross_key_dict.keys() :
+                    cross_key_dict[time_step] = {}
+                    cross_key_dict[time_step][layer] = cross_key
+                else :
+                    cross_key_dict[time_step][layer] = cross_key
 
-            if time_step not in cross_query_dict.keys() :
-                cross_query_dict[time_step] = {}
-                cross_query_dict[time_step][layer] = cross_query
-            else :
-                cross_query_dict[time_step][layer] = cross_query
-
-            if time_step not in cross_key_dict.keys() :
-                cross_key_dict[time_step] = {}
-                cross_key_dict[time_step][layer] = cross_key
-            else :
-                cross_key_dict[time_step][layer] = cross_key
-
-            if time_step not in cross_value_dict.keys() :
-                cross_value_dict[time_step] = {}
-                cross_value_dict[time_step][layer] = cross_value
-            else :
-                cross_value_dict[time_step][layer] = cross_value
+                if time_step not in cross_value_dict.keys() :
+                    cross_value_dict[time_step] = {}
+                    cross_value_dict[time_step][layer] = cross_value
+                else :
+                    cross_value_dict[time_step][layer] = cross_value
 
 
-            i += 1
-
+                i += 1
+        concept_img_name = os.path.splitext(concept_img)[0]
+        self_q[concept_img_name] = self_query_dict
+        self_k[concept_img_name] = self_key_dict
+        self_v[concept_img_name] = self_value_dict
+        cross_q[concept_img_name] = cross_query_dict
+        cross_k[concept_img_name] = cross_key_dict
+        cross_v[concept_img_name] = cross_value_dict
+    """
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
     vae.to(device)
@@ -486,7 +496,7 @@ def main(args) :
             prompt_save_name = prompt.replace(' ','_')
             image_save_dir = os.path.join(args.output_dir, f'{prompt_save_name}_from_{str(args.min_value)}_selfcontroll_{str(self_input_time)}_times.jpg')
             image.save(image_save_dir)
-
+    """
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
@@ -510,6 +520,7 @@ if __name__ == "__main__":
     parser.add_argument("--min_value", type=int, default=3)
     parser.add_argument("--guidance_scale", type=float, default=7.5)
     parser.add_argument("--self_key_control", action='store_true')
+    parser.add_argument("--concept_image_folder", type=str)
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
     main(args)
