@@ -435,6 +435,7 @@ def main(args) :
                 g_self_k_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_k), dim=0)
                 g_self_v_dict[t_] = {}
                 g_self_v_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_v), dim=0)
+                print(f'layer_nave : {layer_n}')
 
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
