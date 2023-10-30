@@ -423,6 +423,18 @@ def main(args) :
                         global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
                         global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
 
+    total_times = global_self_k_dict.keys()
+    for t_ in total_times :
+        layer_k_dict = global_self_k_dict[t_]
+        layer_v_dict = global_self_v_dict[t_]
+        layer_names = layer_k_dict.keys()
+        for layer_n in layer_names :
+            list_torches_k = layer_k_dict[layer_n]
+            list_torches_v = layer_v_dict[layer_n]
+            print(f'layer {layer_n} has {len(list_torches_k)} tensors')
+
+
+
 
 
     """
