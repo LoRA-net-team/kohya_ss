@@ -71,5 +71,15 @@ class AttentionStore :
         return query_value, key_value, value_value
 
     def reset(self):
-        self.step_store = {}
+        self.cur_step = 0
+        self.num_att_layers = -1
+        self.cur_att_layer = 0
+        self.step_store = self.get_empty_store()
         self.attention_store = {}
+        self.heatmap_store = {}
+        self.self_query_store = {}
+        self.self_key_store = {}
+        self.self_value_store = {}
+        self.cross_query_store = {}
+        self.cross_key_store = {}
+        self.cross_value_store = {}

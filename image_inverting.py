@@ -393,6 +393,7 @@ def main(args) :
         cross_q[concept_img_name] = cross_query_dict
         cross_k[concept_img_name] = cross_key_dict
         cross_v[concept_img_name] = cross_value_dict
+        attention_storer.reset()
 
 
 
