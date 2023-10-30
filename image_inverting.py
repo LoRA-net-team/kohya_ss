@@ -385,10 +385,6 @@ def main(args) :
                     cross_value_dict[time_step][layer] = cross_value
                 i += 1
         concept_img_name = os.path.splitext(concept_img)[0]
-        print(f'concept_img_name : {concept_img_name}')
-        print(f'self_key_dict : {self_key_dict}')
-        import time
-        time.sleep(10)
         self_q[concept_img_name] = self_query_dict
         self_k[concept_img_name] = self_key_dict
         self_v[concept_img_name] = self_value_dict
@@ -400,12 +396,13 @@ def main(args) :
     global_self_k_dict, global_self_v_dict = {},{}
     img_variants = self_k.keys()
     for img_variant in img_variants :
-        self_k_dict = self_q[img_variant]
-        self_v_dict = self_k[img_variant]
+        self_k_dict = self_k[img_variant]
+        self_v_dict = self_v[img_variant]
         timestep_list = self_k_dict.keys()
         for timestep_elem in timestep_list :
             layer_list = self_k_dict[timestep_elem].keys()
             for layer_elem in layer_list :
+                print(f'layer_elem : {layer_elem}')
                 if timestep_elem not in global_self_k_dict.keys() :
                     global_self_k_dict[timestep_elem] = {}
                     global_self_v_dict[timestep_elem] = {}
