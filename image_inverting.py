@@ -350,53 +350,41 @@ def main(args) :
             cross_key_list = attention_storer.cross_key_store[cross_layer]
             cross_value_list = attention_storer.cross_value_store[cross_layer]
             i = 0
-            for self_query, self_key, self_value, cross_query, cross_key, cross_value in zip(self_query_list,
-                                                                                             self_key_list,
-                                                                                             self_value_list,
-                                                                                             cross_query_list,
-                                                                                             cross_key_list,
-                                                                                             cross_value_list,) :
+            for self_query, self_key, self_value, cross_query, cross_key, cross_value in zip(self_query_list,self_key_list,self_value_list,cross_query_list,cross_key_list,cross_value_list,) :
+                print(f'i : {i}')
                 time_step = time_steps[i]
                 if type(time_step) == torch.Tensor :
                     time_step = int(time_step.item())
-
                 if time_step not in self_query_dict.keys() :
                     self_query_dict[time_step] = {}
                     self_query_dict[time_step][layer] = self_query
                 else :
                     self_query_dict[time_step][layer] = self_query
-
                 if time_step not in self_key_dict.keys() :
                     self_key_dict[time_step] = {}
                     self_key_dict[time_step][layer] = self_key
                 else :
                     self_key_dict[time_step][layer] = self_key
-
                 if time_step not in self_value_dict.keys() :
                     self_value_dict[time_step] = {}
                     self_value_dict[time_step][layer] = self_value
                 else :
                     self_value_dict[time_step][layer] = self_value
-
                 if time_step not in cross_query_dict.keys() :
                     cross_query_dict[time_step] = {}
                     cross_query_dict[time_step][layer] = cross_query
                 else :
                     cross_query_dict[time_step][layer] = cross_query
-
                 if time_step not in cross_key_dict.keys() :
                     cross_key_dict[time_step] = {}
                     cross_key_dict[time_step][layer] = cross_key
                 else :
                     cross_key_dict[time_step][layer] = cross_key
-
                 if time_step not in cross_value_dict.keys() :
                     cross_value_dict[time_step] = {}
                     cross_value_dict[time_step][layer] = cross_value
                 else :
                     cross_value_dict[time_step][layer] = cross_value
-
-
                 i += 1
         concept_img_name = os.path.splitext(concept_img)[0]
         self_q[concept_img_name] = self_query_dict
@@ -405,6 +393,10 @@ def main(args) :
         cross_q[concept_img_name] = cross_query_dict
         cross_k[concept_img_name] = cross_key_dict
         cross_v[concept_img_name] = cross_value_dict
+
+
+
+
     """
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
