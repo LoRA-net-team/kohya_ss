@@ -13,6 +13,7 @@ class AttentionStore :
         self.self_value_store = {}
         self.cross_query_store = {}
         self.cross_key_store = {}
+        self.cross_value_store = {}
     def get_empty_store(self):
         return {}
 
@@ -54,16 +55,20 @@ class AttentionStore :
             self.self_key_store[layer_name].append(key_value)
             self.self_value_store[layer_name].append(value_value)
         return query_value, key_value, value_value
-    def cross_query_key_caching(self, query_value, key_value, layer_name):
+
+    def cross_query_key_value_caching(self, query_value, key_value, value_value, layer_name):
         if layer_name not in self.cross_query_store.keys() :
             self.cross_query_store[layer_name] = []
             self.cross_key_store[layer_name] = []
+            self.cross_value_store[layer_name] = []
             self.cross_query_store[layer_name].append(query_value)
             self.cross_key_store[layer_name].append(key_value)
+            self.cross_value_store[layer_name].append(value_value)
         else :
             self.cross_query_store[layer_name].append(query_value)
             self.cross_key_store[layer_name].append(key_value)
-        return query_value, key_value
+            self.cross_value_store[layer_name].append(value_value)
+        return query_value, key_value, value_value
 
     def reset(self):
         self.step_store = {}

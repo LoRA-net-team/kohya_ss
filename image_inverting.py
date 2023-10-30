@@ -1,32 +1,13 @@
-import importlib
 import argparse
-import gc
-import re
-import math
 import os
-import sys
 import random
-import time
 import json
-from multiprocessing import Value
-from tqdm import tqdm
-import toml
-import tempfile
 from accelerate.utils import set_seed
-from diffusers import DDPMScheduler
-from library import model_util
 import library.train_util as train_util
-from library.train_util import (DreamBoothDataset,)
 import library.config_util as config_util
-from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
-import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
 import torch
 from torch import nn
-import torch.nn.functional as F
-from functools import lru_cache
 from attention_store import AttentionStore
 import wandb
 import numpy as np
@@ -44,8 +25,9 @@ try:
         ipex_init()
 except Exception:
     pass
-from diffusers import (DDPMScheduler,EulerAncestralDiscreteScheduler,DPMSolverMultistepScheduler, DPMSolverSinglestepScheduler,
-                       LMSDiscreteScheduler,PNDMScheduler,DDIMScheduler, EulerDiscreteScheduler,HeunDiscreteScheduler,KDPM2DiscreteScheduler,KDPM2AncestralDiscreteScheduler)
+from diffusers import (DDPMScheduler,EulerAncestralDiscreteScheduler,DPMSolverMultistepScheduler,DPMSolverSinglestepScheduler,
+                       LMSDiscreteScheduler,PNDMScheduler,DDIMScheduler,EulerDiscreteScheduler,HeunDiscreteScheduler,
+                       KDPM2DiscreteScheduler,KDPM2AncestralDiscreteScheduler)
 
 def register_attention_control(unet : nn.Module, controller:AttentionStore) :
     """ Register cross attention layers to controller. """
@@ -80,9 +62,10 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore) :
                                                                             value_value=value,
                                                                             layer_name=layer_name)
             else :
-                query, key = controller.cross_query_key_caching(query_value=query,
-                                                                key_value=key,
-                                                                layer_name=layer_name)
+                query, key, value = controller.cross_query_key_value_caching(query_value=query,
+                                                                             key_value=key,
+                                                                             value_value=value,
+                                                                             layer_name=layer_name)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
@@ -124,12 +107,14 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
+
             if not is_cross_attention and mask is not None:
                 if args.self_key_control :
                     unkey, con_key = key.chunk(2)
                     key = torch.cat([unkey, mask[1][layer_name]], dim=0)
                 unvalue, con_value = value.chunk(2)
                 value = torch.cat([unvalue, mask[2][layer_name]], dim=0)
+
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
@@ -144,6 +129,7 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
         return forward
+
     def register_recr(net_, count, layer_name):
         if net_.__class__.__name__ == 'CrossAttention':
             net_.forward = ca_forward(net_, layer_name)
@@ -354,8 +340,7 @@ def main(args) :
     self_key_collection = attention_storer.self_key_store
     self_value_collection = attention_storer.self_value_store
     self_query_dict, self_key_dict, self_value_dict = {}, {}, {}
-    cross_query_dict, cross_key_dict = {}, {}
-
+    cross_query_dict, cross_key_dict, cross_value_dict = {}, {}, {}
     for layer in layer_names:
         self_query_list = attention_storer.self_query_store[layer]
         self_key_list = attention_storer.self_key_store[layer]
@@ -363,9 +348,10 @@ def main(args) :
         cross_layer = layer.replace('attn1', 'attn2')
         cross_query_list = attention_storer.cross_query_store[cross_layer]
         cross_key_list = attention_storer.cross_key_store[cross_layer]
+        cross_value_list = attention_storer.cross_value_store[cross_layer]
         i = 0
-        for self_query, self_key, self_value, cross_query, cross_key in zip(self_query_list,self_key_list,self_value_list,
-                                                                            cross_query_list,cross_key_list) :
+        for self_query, self_key, self_value, cross_query, cross_key, cross_value in zip(self_query_list, self_key_list, self_value_list,
+                                                                                         cross_query_list,cross_key_list,cross_value_list,) :
             time_step = time_steps[i]
             if type(time_step) == torch.Tensor :
                 time_step = int(time_step.item())
@@ -387,6 +373,25 @@ def main(args) :
                 self_value_dict[time_step][layer] = self_value
             else :
                 self_value_dict[time_step][layer] = self_value
+
+            if time_step not in cross_query_dict.keys() :
+                cross_query_dict[time_step] = {}
+                cross_query_dict[time_step][layer] = cross_query
+            else :
+                cross_query_dict[time_step][layer] = cross_query
+
+            if time_step not in cross_key_dict.keys() :
+                cross_key_dict[time_step] = {}
+                cross_key_dict[time_step][layer] = cross_key
+            else :
+                cross_key_dict[time_step][layer] = cross_key
+
+            if time_step not in cross_value_dict.keys() :
+                cross_value_dict[time_step] = {}
+                cross_value_dict[time_step][layer] = cross_value
+            else :
+                cross_value_dict[time_step][layer] = cross_value
+
 
             i += 1
 
@@ -453,9 +458,16 @@ def main(args) :
                 self_q_dict = self_query_dict[save_time]
                 self_k_dict = self_key_dict[save_time]
                 self_v_dict = self_value_dict[save_time]
-                self_store = [self_q_dict,self_k_dict,self_v_dict]
+                cross_q_dict = cross_query_dict[save_time]
+                cross_k_dict = cross_key_dict[save_time]
+                cross_v_dict = cross_value_dict[save_time]
+
+                self_store =  [self_q_dict, self_k_dict, self_v_dict]
+                cross_store = [cross_q_dict,cross_k_dict,cross_v_dict]
+
                 if args.min_value < iteration_num and self_input_time < max_self_input_time :
-                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
+                    #noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,mask_imgs=cross_store).sample
                     self_input_time += 1
                     iteration_num += 1
                 else :
