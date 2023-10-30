@@ -393,27 +393,35 @@ def main(args) :
         cross_v[concept_img_name] = cross_value_dict
         attention_storer.reset()
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
-    global_self_k_dict = {}
+    global_self_k_dict, global_self_v_dict = {},{}
     img_variants = self_k.keys()
     for img_variant in img_variants :
         self_k_dict = self_q[img_variant]
+        self_v_dict = self_k[img_variant]
         timestep_list = self_k_dict.keys()
         for timestep_elem in timestep_list :
             layer_list = self_k_dict[timestep_elem].keys()
             for layer_elem in layer_list :
                 if timestep_elem not in global_self_k_dict.keys() :
                     global_self_k_dict[timestep_elem] = {}
+                    global_self_v_dict[timestep_elem] = {}
                     if layer_elem not in global_self_k_dict[timestep_elem].keys() :
                         global_self_k_dict[timestep_elem][layer_elem] = []
                         global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                        global_self_v_dict[timestep_elem][layer_elem] = []
+                        global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
                     else :
                         global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                        global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
                 else :
                     if layer_elem not in global_self_k_dict[timestep_elem].keys() :
                         global_self_k_dict[timestep_elem][layer_elem] = []
                         global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                        global_self_v_dict[timestep_elem][layer_elem] = []
+                        global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
                     else :
                         global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                        global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
 
 
 
