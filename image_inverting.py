@@ -531,7 +531,7 @@ def main(args) :
             prompt_save_name = prompt.replace(' ','_')
             image_save_dir = os.path.join(args.output_dir, f'{prompt_save_name}_from_{str(args.min_value)}_selfcontroll_{str(self_input_time)}_times.jpg')
             image.save(image_save_dir)
-    """
+            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
