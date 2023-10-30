@@ -402,7 +402,6 @@ def main(args) :
         for timestep_elem in timestep_list :
             layer_list = self_k_dict[timestep_elem].keys()
             for layer_elem in layer_list :
-                print(f'layer_elem : {layer_elem}')
                 if timestep_elem not in global_self_k_dict.keys() :
                     global_self_k_dict[timestep_elem] = {}
                     global_self_v_dict[timestep_elem] = {}
@@ -425,6 +424,9 @@ def main(args) :
                         global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
     g_self_k_dict, g_self_v_dict = {},{}
     total_times = global_self_k_dict.keys()
+    print(f'global_self_k_dict : {global_self_k_dict}')
+    import time
+    time.sleep(100)
     for t_ in total_times :
         layer_k_dict = global_self_k_dict[t_]
         layer_v_dict = global_self_v_dict[t_]
