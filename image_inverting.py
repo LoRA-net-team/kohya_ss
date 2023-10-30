@@ -340,6 +340,7 @@ def main(args) :
         self_query_dict, self_key_dict, self_value_dict = {}, {}, {}
         cross_query_dict, cross_key_dict, cross_value_dict = {}, {}, {}
         for layer in layer_names:
+            print(f'layer : {layer}')
             self_query_list = attention_storer.self_query_store[layer]
             self_key_list = attention_storer.self_key_store[layer]
             self_value_list = attention_storer.self_value_store[layer]
@@ -384,6 +385,10 @@ def main(args) :
                     cross_value_dict[time_step][layer] = cross_value
                 i += 1
         concept_img_name = os.path.splitext(concept_img)[0]
+        print(f'concept_img_name : {concept_img_name}')
+        print(f'self_key_dict : {self_key_dict}')
+        import time
+        time.sleep(10)
         self_q[concept_img_name] = self_query_dict
         self_k[concept_img_name] = self_key_dict
         self_v[concept_img_name] = self_value_dict
