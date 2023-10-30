@@ -107,13 +107,13 @@ def unregister_attention_control(unet : nn.Module, controller:AttentionStore) :
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
-
             if not is_cross_attention and mask is not None:
                 if args.self_key_control :
                     unkey, con_key = key.chunk(2)
                     key = torch.cat([unkey, mask[1][layer_name]], dim=0)
                 unvalue, con_value = value.chunk(2)
                 value = torch.cat([unvalue, mask[2][layer_name]], dim=0)
+            
 
             if self.upcast_attention:
                 query = query.float()
@@ -466,8 +466,7 @@ def main(args) :
                 cross_store = [cross_q_dict,cross_k_dict,cross_v_dict]
 
                 if args.min_value < iteration_num and self_input_time < max_self_input_time :
-                    #noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
-                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,mask_imgs=cross_store).sample
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
                     self_input_time += 1
                     iteration_num += 1
                 else :
