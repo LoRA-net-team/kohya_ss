@@ -334,7 +334,6 @@ def main(args) :
         latent = image2latent(image_gt_np, vae, device, weight_dtype)
         scheduler.set_timesteps(args.num_ddim_steps)
         ddim_latents, time_steps = ddim_loop(latent, context, args.num_ddim_steps, scheduler, unet)
-        print(f'time_steps : {time_steps}')
         layer_names = attention_storer.self_query_store.keys()
         self_query_collection = attention_storer.self_query_store
         self_key_collection = attention_storer.self_key_store
@@ -351,7 +350,6 @@ def main(args) :
             cross_value_list = attention_storer.cross_value_store[cross_layer]
             i = 0
             for self_query, self_key, self_value, cross_query, cross_key, cross_value in zip(self_query_list,self_key_list,self_value_list,cross_query_list,cross_key_list,cross_value_list,) :
-                print(f'i : {i}')
                 time_step = time_steps[i]
                 if type(time_step) == torch.Tensor :
                     time_step = int(time_step.item())
@@ -394,6 +392,21 @@ def main(args) :
         cross_k[concept_img_name] = cross_key_dict
         cross_v[concept_img_name] = cross_value_dict
         attention_storer.reset()
+    # ------------------------------------------------------------------------------------------------------------------------------------------------------
+    global_self_k_dict = {}
+    img_variants = self_k.keys()
+    for img_variant in img_variants :
+        self_k_dict = self_q[img_variant]
+        timestep_list = self_k_dict.keys()
+        for timestep_elem in timestep_list :
+            layer_list = self_k_dict[timestep_elem].keys()
+            for layer_elem in layer_list :
+                if timestep_elem not in global_self_k_dict.keys() :
+                    global_self_k_dict[timestep_elem] = {}
+                    global_self_k_dict[timestep_elem][layer_elem] = []
+                    global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                else :
+                    global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
 
 
 
