@@ -403,11 +403,17 @@ def main(args) :
             for layer_elem in layer_list :
                 if timestep_elem not in global_self_k_dict.keys() :
                     global_self_k_dict[timestep_elem] = {}
-                    global_self_k_dict[timestep_elem][layer_elem] = []
-                    global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                    if layer_elem not in global_self_k_dict[timestep_elem].keys() :
+                        global_self_k_dict[timestep_elem][layer_elem] = []
+                        global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                    else :
+                        global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
                 else :
-                    global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
-
+                    if layer_elem not in global_self_k_dict[timestep_elem].keys() :
+                        global_self_k_dict[timestep_elem][layer_elem] = []
+                        global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
+                    else :
+                        global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
 
 
 
