@@ -439,7 +439,9 @@ def main(args) :
                 g_self_k_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_k), dim=0)
                 g_self_v_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_v), dim=0)
     attention_storer.reset()
-
+# ------------------------------------------------------------------------------------------------------------------------------------------------------
+    # memory erasing
+    del global_self_k_dict, global_self_v_dict, self_q, self_k, self_v, cross_q, cross_k, cross_v
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
     vae.to(device)
@@ -500,7 +502,6 @@ def main(args) :
                 latent_model_input = pipeline.scheduler.scale_model_input(latent_model_input, t)
 
                 # predict the noise residual
-
                 #self_q_dict = self_query_dict[save_time]
                 #self_k_dict = self_key_dict[save_time]
                 #self_v_dict = self_value_dict[save_time]
@@ -509,7 +510,6 @@ def main(args) :
                 #cross_q_dict = cross_query_dict[save_time]
                 #cross_k_dict = cross_key_dict[save_time]
                 #cross_v_dict = cross_value_dict[save_time]
-
                 #self_store =  [self_q_dict, self_k_dict, self_v_dict]
                 self_store = [self_k_dict, self_v_dict]
                 #cross_store = [cross_q_dict,cross_k_dict,cross_v_dict]
