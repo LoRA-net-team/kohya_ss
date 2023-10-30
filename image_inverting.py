@@ -427,9 +427,6 @@ def main(args) :
         layer_k_dict = global_self_k_dict[t_]
         layer_v_dict = global_self_v_dict[t_]
         layer_names = layer_k_dict.keys()
-        print(f'layer_names : {layer_names}')
-        import time
-        time.sleep(10)
         for layer_n in layer_names :
             list_torches_k = layer_k_dict[layer_n]
             list_torches_v = layer_v_dict[layer_n]
@@ -438,7 +435,10 @@ def main(args) :
                 g_self_k_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_k), dim=0)
                 g_self_v_dict[t_] = {}
                 g_self_v_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_v), dim=0)
-                print(f'layer_nave : {layer_n}')
+            else :
+                g_self_k_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_k), dim=0)
+                g_self_v_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_v), dim=0)
+
 
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
