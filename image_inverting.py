@@ -340,7 +340,6 @@ def main(args) :
         self_query_dict, self_key_dict, self_value_dict = {}, {}, {}
         cross_query_dict, cross_key_dict, cross_value_dict = {}, {}, {}
         for layer in layer_names:
-            print(f'layer : {layer}')
             self_query_list = attention_storer.self_query_store[layer]
             self_key_list = attention_storer.self_key_store[layer]
             self_value_list = attention_storer.self_value_store[layer]
@@ -424,13 +423,13 @@ def main(args) :
                         global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
     g_self_k_dict, g_self_v_dict = {},{}
     total_times = global_self_k_dict.keys()
-    print(f'global_self_k_dict : {global_self_k_dict}')
-    import time
-    time.sleep(100)
     for t_ in total_times :
         layer_k_dict = global_self_k_dict[t_]
         layer_v_dict = global_self_v_dict[t_]
         layer_names = layer_k_dict.keys()
+        print(f'layer_names : {layer_names}')
+        import time
+        time.sleep(10)
         for layer_n in layer_names :
             list_torches_k = layer_k_dict[layer_n]
             list_torches_v = layer_v_dict[layer_n]
