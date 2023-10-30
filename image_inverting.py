@@ -438,7 +438,7 @@ def main(args) :
             else :
                 g_self_k_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_k), dim=0)
                 g_self_v_dict[t_][layer_n] = torch.mean(torch.stack(list_torches_v), dim=0)
-
+    attention_storer.reset()
 
     # ------------------------------------------------------------------------------------------------------------------------------------------------------
     print(f' \n step 3. generating image')
