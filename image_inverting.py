@@ -442,6 +442,7 @@ def main(args) :
             extra_step_kwargs = pipeline.prepare_extra_step_kwargs(generator, 0.0)
             # 8. Denoising loop
             self_input_time = 0
+            iteration_num = 0
             for i, t in enumerate(pipeline.progress_bar(timesteps)):
                 save_time = int(t.item())-1
                 # expand the latents if we are doing classifier free guidance
@@ -453,14 +454,13 @@ def main(args) :
                 self_k_dict = self_key_dict[save_time]
                 self_v_dict = self_value_dict[save_time]
                 self_store = [self_q_dict,self_k_dict,self_v_dict]
-                if args.min_value < self_input_time and self_input_time < max_self_input_time :
-                    print(f'self_input_time : {self_input_time} | ***self attention controlling***')
+                if args.min_value < iteration_num and self_input_time < max_self_input_time :
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
                     self_input_time += 1
+                    iteration_num += 1
                 else :
-                    print(f'self_input_time : {self_input_time} | just inference')
                     noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,).sample
-                    self_input_time += 1
+                    iteration_num += 1
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
@@ -473,9 +473,7 @@ def main(args) :
                         return None
             image = pipeline.latents_to_image(latents)[0]
             prompt_save_name = prompt.replace(' ','_')
-            save_base = os.path.join(args.output_dir, f'max_epoch_{max_self_input_time}')
-            os.makedirs(save_base, exist_ok=True)
-            image_save_dir = os.path.join(save_base, f'{prompt_save_name}.jpg')
+            image_save_dir = os.path.join(args.output_dir, f'{prompt_save_name}_from_{str(args.min_value)}_selfcontroll_{str(self_input_time)}_times.jpg')
             image.save(image_save_dir)
 
 if __name__ == "__main__":
