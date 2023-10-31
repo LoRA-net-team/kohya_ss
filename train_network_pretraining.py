@@ -230,8 +230,7 @@ class NetworkTrainer:
         return batch_index_list
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
-        input_ids = batch["input_ids"].to(accelerator.device) # batch, torch_num, sen_len
-        print(f'input_ids of text : {input_ids}')
+        input_ids = batch["input_ids"].to(accelerator.device)
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,tokenizers[0], text_encoders[0],weight_dtype )
         return encoder_hidden_states
 
@@ -365,7 +364,6 @@ class NetworkTrainer:
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
-
 
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)

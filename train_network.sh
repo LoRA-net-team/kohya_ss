@@ -1,5 +1,5 @@
 accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_0_1_config train_network_pretraining.py \
-                  --process_title parksooyeon --wandb_init_name iom_pretraining --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
+                  --logging_dir ./result/logs --process_title parksooyeon --wandb_init_name iom_pretraining --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
                   --seed 42 --log_with wandb --output_dir ./result/perfusion_experiment/cat/text_pretraining_unet_down_2_mid_up_1 \
                   --max_token_length 225 --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
                   --train_data_dir /data7/sooyeon/MyData/perfusion_dataset/iom \
