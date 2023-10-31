@@ -328,7 +328,6 @@ class BlueprintGenerator:
 
     mask_dir = argparse_namespace.mask_dir
     sanitized_user_config = self.sanitizer.sanitize_user_config(user_config)
-    print(f'sanitized_user_config : {sanitized_user_config}')
     sanitized_argparse_namespace = self.sanitizer.sanitize_argparse_namespace(argparse_namespace)
     optname_map = self.sanitizer.ARGPARSE_OPTNAME_TO_CONFIG_OPTNAME
     argparse_config = {optname_map.get(optname, optname): value for optname, value in vars(sanitized_argparse_namespace).items()}
@@ -509,7 +508,6 @@ def generate_dreambooth_subsets_config_by_subdirs(train_data_dir: Optional[str] 
                        "class_tokens": class_tokens,
                        "class_caption": class_caption,}
       subsets_config.append(subset_config)
-
     return subsets_config
 
   subsets_config = []

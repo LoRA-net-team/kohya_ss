@@ -333,6 +333,9 @@ def main(args) :
         latent = image2latent(image_gt_np, vae, device, weight_dtype)
         scheduler.set_timesteps(args.num_ddim_steps)
         ddim_latents, time_steps = ddim_loop(latent, context, args.num_ddim_steps, scheduler, unet)
+
+
+
         layer_names = attention_storer.self_query_store.keys()
         self_query_collection = attention_storer.self_query_store
         self_key_collection = attention_storer.self_key_store
@@ -421,6 +424,7 @@ def main(args) :
                     else :
                         global_self_k_dict[timestep_elem][layer_elem].append(self_k_dict[timestep_elem][layer_elem])
                         global_self_v_dict[timestep_elem][layer_elem].append(self_v_dict[timestep_elem][layer_elem])
+
     g_self_k_dict, g_self_v_dict = {},{}
     total_times = global_self_k_dict.keys()
     for t_ in total_times :
@@ -515,7 +519,8 @@ def main(args) :
                 #cross_store = [cross_q_dict,cross_k_dict,cross_v_dict]
 
                 if args.min_value < iteration_num and self_input_time < max_self_input_time :
-                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings, mask_imgs = self_store).sample
+                    noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                                      mask_imgs = self_store).sample
                     self_input_time += 1
                     iteration_num += 1
                 else :
