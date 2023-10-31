@@ -18,7 +18,6 @@ import diffusers
 import numpy as np
 import torch
 import torchvision
-from utils import expand_image, image_overlay_heat_map
 from diffusers import (AutoencoderKL,DDPMScheduler,EulerAncestralDiscreteScheduler,
                        DPMSolverMultistepScheduler,DPMSolverSinglestepScheduler,LMSDiscreteScheduler,
                        PNDMScheduler,DDIMScheduler,EulerDiscreteScheduler,HeunDiscreteScheduler,
