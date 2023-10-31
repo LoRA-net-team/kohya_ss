@@ -933,7 +933,7 @@ class NetworkTrainer:
                     attn_loss = 0
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = loss
-                    """
+
                     # ------------------------------------------------------------------------------------
                     if args.heatmap_loss :
                         layer_names = atten_collection.keys()
@@ -941,19 +941,16 @@ class NetworkTrainer:
                         heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
-                                if 'down_blocks_2_attentions_0_transformer_blocks_0_attn2' not in layer_name and 'up_blocks_1_attentions_2' not in layer_name :
-                                    sum_of_attn = sum(atten_collection[layer_name])
-                                    attn_loss = attn_loss + sum_of_attn
-                                    attention_losses["loss/attention_loss_" + layer_name] = sum_of_attn
+                                sum_of_attn = sum(atten_collection[layer_name])
+                                attn_loss = attn_loss + sum_of_attn
+                                attention_losses["loss/attention_loss_" + layer_name] = sum_of_attn
                         attention_losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         if args.heatmap_backprop :
                             loss = task_loss + args.attn_loss_ratio * attn_loss
                     else:
                         attention_losses = {}
-                    """
                     accelerator.backward(loss)
-
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
@@ -1059,7 +1056,6 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
 
 
 if __name__ == "__main__":
