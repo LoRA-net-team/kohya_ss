@@ -1179,7 +1179,6 @@ class BaseDataset(torch.utils.data.Dataset):
                                     trg_indexs.append(i)
                         return trg_indexs
                     trg_indexs = generate_text_embedding(caption,  self.tokenizers[0])
-                    print(f'caption : {caption} | trg_indexs : {trg_indexs}')
                     trg_indexs_list.append(trg_indexs)
                     #------------------------------------------------------------------------------------------
                     if len(self.tokenizers) > 1:
