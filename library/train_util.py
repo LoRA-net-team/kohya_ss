@@ -4200,12 +4200,17 @@ def sample_images_common(pipe_class,
 
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
+
     if args.sample_every_n_epochs is not None:
+        print(f'epoch : {epoch}')
+
         if epoch is None :
             return
+
         else :
             if epoch != 0 and epoch > 0 and epoch % args.sample_every_n_epochs != 0:
                 return
+
     else:
         if steps % args.sample_every_n_steps != 0 or epoch is not None:  # steps is not divisible or end of epoch
             return

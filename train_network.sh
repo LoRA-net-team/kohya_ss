@@ -10,4 +10,4 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_0_1_config train_netw
                   --optimizer_type AdamW --lr_scheduler cosine_with_restarts --lr_warmup_steps 144 \
                   --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 \
                   --pretraining_epochs 10 --unet_net_key_names 'down_blocks_2,mid,up_blocks_1' \
-                  --sample_prompts /data7/sooyeon/LyCORIS/test/test_iom.txt
+                  --save_every_n_epochs 1 --sample_prompts /data7/sooyeon/LyCORIS/test/test_iom.txt
