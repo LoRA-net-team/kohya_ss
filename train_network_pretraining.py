@@ -278,9 +278,13 @@ class NetworkTrainer:
             input_ids = torch.stack(iids_list)  # 3,77
         return input_ids
 
+
+
+
+
+
     def train(self, args):
 
-        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 1. start session")
         if args.process_title :
             setproctitle(args.process_title)
@@ -357,10 +361,9 @@ class NetworkTrainer:
                     if use_class_caption:
                         for subset in user_config["datasets"][0]["subsets"]:
                             subset["class_caption"] = args.class_caption
-            print(f'User config: {user_config}')
-            # blueprint_generator = BlueprintGenerator
-            print('start of generate function ...')
             blueprint = blueprint_generator.generate(user_config,args,tokenizer=tokenizer)
+            data_args = blueprint.dataset_group_blueprint
+            print(f'Generated data args: {data_args}')
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
@@ -909,7 +912,7 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,
                            text_encoder, unet)
-
+        """
         # training loop
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
@@ -991,6 +994,50 @@ class NetworkTrainer:
                     attn_loss = 0
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = loss
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
                     accelerator.backward(loss)
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1097,7 +1144,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
+        """
 
 
 if __name__ == "__main__":

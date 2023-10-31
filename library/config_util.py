@@ -360,11 +360,12 @@ class BlueprintGenerator:
                                                     general_config,
                                                     argparse_config,
                                                     runtime_params])
-        print(f'params : {params}')
         subset_blueprints.append(SubsetBlueprint(params))
-
       params = self.generate_params_by_fallbacks(dataset_params_klass,
-                                                 [dataset_config, general_config, argparse_config, runtime_params])
+                                                 [dataset_config,
+                                                  general_config,
+                                                  argparse_config,
+                                                  runtime_params])
       dataset_blueprints.append(DatasetBlueprint(is_dreambooth,
                                                  is_controlnet,
                                                  params,

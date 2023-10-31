@@ -1120,6 +1120,7 @@ class BaseDataset(torch.utils.data.Dataset):
                 # hardcoded 'girl' for research
                 class_caption = 'girl' ## TODO remove
             class_caption = caption.replace(trg_concept, class_caption)
+
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
