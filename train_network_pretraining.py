@@ -1061,21 +1061,17 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
-
-                    # logs --------------------------------------------------------------------------------------------------------------------------------------------------------
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
                     if is_main_process:
                         #wandb_tracker = accelerator.get_tracker("wandb")
                         wandb.log(logs)
-
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
                 logs = {"loss/epoch": loss_total / len(loss_list)}
                 accelerator.log(logs, step=epoch + 1)
             accelerator.wait_for_everyone()
-
             # 指定エポックごとにモデルを保存
             if args.save_every_n_epochs is not None:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs

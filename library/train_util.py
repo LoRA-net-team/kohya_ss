@@ -2577,21 +2577,15 @@ def add_optimizer_arguments(parser: argparse.ArgumentParser):
 def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: bool):
     parser.add_argument("--output_dir", type=str, default=None, help="directory to output trained model / 学習後のモデル出力先ディレクトリ")
     parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
-    parser.add_argument(
-        "--huggingface_repo_id", type=str, default=None, help="huggingface repo name to upload / huggingfaceにアップロードするリポジトリ名"
+    parser.add_argument("--huggingface_repo_id", type=str, default=None, help="huggingface repo name to upload / huggingfaceにアップロードするリポジトリ名"
     )
-    parser.add_argument(
-        "--huggingface_repo_type", type=str, default=None, help="huggingface repo type to upload / huggingfaceにアップロードするリポジトリの種類"
-    )
-    parser.add_argument(
-        "--huggingface_path_in_repo",
+    parser.add_argument("--huggingface_repo_type", type=str, default=None, help="huggingface repo type to upload / huggingfaceにアップロードするリポジトリの種類")
+    parser.add_argument("--huggingface_path_in_repo",
         type=str,
         default=None,
-        help="huggingface model path to upload files / huggingfaceにアップロードするファイルのパス",
-    )
+        help="huggingface model path to upload files / huggingfaceにアップロードするファイルのパス",    )
     parser.add_argument("--huggingface_token", type=str, default=None, help="huggingface token / huggingfaceのトークン")
-    parser.add_argument(
-        "--huggingface_repo_visibility",
+    parser.add_argument(        "--huggingface_repo_visibility",
         type=str,
         default=None,
         help="huggingface repository visibility ('public' for public, 'private' or None for private) / huggingfaceにアップロードするリポジトリの公開設定（'public'で公開、'private'またはNoneで非公開）",
@@ -2773,14 +2767,7 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         type=float,
         default=None,
         help="enable input perturbation noise. used for regularization. recommended value: around 0.1 (from arxiv.org/abs/2301.11706) "
-        + "/  input perturbation noiseを有効にする。正則化に使用される。推奨値: 0.1程度 (arxiv.org/abs/2301.11706 より)",
-    )
-    # parser.add_argument(
-    #     "--perlin_noise",
-    #     type=int,
-    #     default=None,
-    #     help="enable perlin noise and set the octaves / perlin noiseを有効にしてoctavesをこの値に設定する",
-    # )
+        + "/  input perturbation noiseを有効にする。正則化に使用される。推奨値: 0.1程度 (arxiv.org/abs/2301.11706 より)",    )
     parser.add_argument(
         "--multires_noise_discount",
         type=float,
@@ -2863,7 +2850,6 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
     parser.add_argument(
         "--output_config", action="store_true", help="output command line args to given .toml file / 引数を.tomlファイルに出力する"
     )
-
     # SAI Model spec
     parser.add_argument(
         "--metadata_title",
@@ -2895,7 +2881,6 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
         default=None,
         help="tags for model metadata, separated by comma / メタデータに書き込まれるモデルタグ、カンマ区切り",
     )
-
     if support_dreambooth:
         # DreamBooth training
         parser.add_argument(
@@ -2914,20 +2899,6 @@ def verify_training_args(args: argparse.Namespace):
         print(
             "cache_latents_to_disk is enabled, so cache_latents is also enabled / cache_latents_to_diskが有効なため、cache_latentsを有効にします"
         )
-
-    # noise_offset, perlin_noise, multires_noise_iterations cannot be enabled at the same time
-    # # Listを使って数えてもいいけど並べてしまえ
-    # if args.noise_offset is not None and args.multires_noise_iterations is not None:
-    #     raise ValueError(
-    #         "noise_offset and multires_noise_iterations cannot be enabled at the same time / noise_offsetとmultires_noise_iterationsを同時に有効にできません"
-    #     )
-    # if args.noise_offset is not None and args.perlin_noise is not None:
-    #     raise ValueError("noise_offset and perlin_noise cannot be enabled at the same time / noise_offsetとperlin_noiseは同時に有効にできません")
-    # if args.perlin_noise is not None and args.multires_noise_iterations is not None:
-    #     raise ValueError(
-    #         "perlin_noise and multires_noise_iterations cannot be enabled at the same time / perlin_noiseとmultires_noise_iterationsを同時に有効にできません"
-    #     )
-
     if args.adaptive_noise_scale is not None and args.noise_offset is None:
         raise ValueError("adaptive_noise_scale requires noise_offset / adaptive_noise_scaleを使用するにはnoise_offsetが必要です")
 
@@ -2935,19 +2906,14 @@ def verify_training_args(args: argparse.Namespace):
         raise ValueError(
             "scale_v_pred_loss_like_noise_pred can be enabled only with v_parameterization / scale_v_pred_loss_like_noise_predはv_parameterizationが有効なときのみ有効にできます"
         )
-
     if args.v_pred_like_loss and args.v_parameterization:
         raise ValueError(
             "v_pred_like_loss cannot be enabled with v_parameterization / v_pred_like_lossはv_parameterizationが有効なときには有効にできません"
         )
-
     if args.zero_terminal_snr and not args.v_parameterization:
         print(
             f"zero_terminal_snr is enabled, but v_parameterization is not enabled. training will be unexpected"
-            + " / zero_terminal_snrが有効ですが、v_parameterizationが有効ではありません。学習結果は想定外になる可能性があります"
-        )
-
-
+            + " / zero_terminal_snrが有効ですが、v_parameterizationが有効ではありません。学習結果は想定外になる可能性があります")
 def add_dataset_arguments(parser: argparse.ArgumentParser, support_dreambooth: bool, support_caption: bool, support_caption_dropout: bool):
     # dataset common
     parser.add_argument("--train_data_dir", type=str, default=None, help="directory for train images / 学習画像データのディレクトリ")
