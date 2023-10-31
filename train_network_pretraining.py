@@ -1049,7 +1049,6 @@ class NetworkTrainer:
                     accelerator.log(logs, step=global_step)
 
                     if is_main_process:
-                        print('logging on wandb ...')
                         #wandb_tracker = accelerator.get_tracker("wandb")
                         wandb.log(logs)
 
