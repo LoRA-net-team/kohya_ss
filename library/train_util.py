@@ -1447,6 +1447,8 @@ class DreamBoothDataset(BaseDataset):
                         raise FileNotFoundError(f"mask file not found / マスクファイルが見つかりませんでした: {img_path}")
                 else:
                     mask_path = None
+                # --------------------------------------------------------------------------------------------
+                # each data
                 info = ImageInfo(img_path,
                                 subset.num_repeats,
                                 caption,
