@@ -370,6 +370,7 @@ class BlueprintGenerator:
                                                  is_controlnet,
                                                  params,
                                                  subset_blueprints)) # trg_concept
+    print(f' ** dataset_blueprints : {dataset_blueprints}')
     dataset_group_blueprint = DatasetGroupBlueprint(dataset_blueprints)
     return Blueprint(dataset_group_blueprint)
 

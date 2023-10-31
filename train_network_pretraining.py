@@ -362,8 +362,6 @@ class NetworkTrainer:
                         for subset in user_config["datasets"][0]["subsets"]:
                             subset["class_caption"] = args.class_caption
             blueprint = blueprint_generator.generate(user_config,args,tokenizer=tokenizer)
-            data_args = blueprint.dataset_group_blueprint
-            print(f'Generated data args: {data_args}')
             train_dataset_group = config_util.generate_dataset_group_by_blueprint(blueprint.dataset_group)
         else:
             train_dataset_group = train_util.load_arbitrary_dataset(args, tokenizer)
