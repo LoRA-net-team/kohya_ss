@@ -380,9 +380,8 @@ class NetworkTrainer:
             assert (train_dataset_group.is_latent_cacheable()), "when caching latents, either color_aug or random_crop cannot be used / latentをキャッシュするときはcolor_augとrandom_cropは使えません"
         self.assert_extra_args(args, train_dataset_group)
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
-        train_dataloader = torch.utils.data.DataLoader(train_dataset_group, batch_size=1, shuffle=True,
-                                                       collate_fn=collater, num_workers=n_workers,
-                                                       persistent_workers=args.persistent_data_loader_workers, )
+        train_dataloader = torch.utils.data.DataLoader(train_dataset_group, batch_size=1, shuffle=True, collate_fn=collater,
+                                                       num_workers=n_workers, persistent_workers=args.persistent_data_loader_workers, )
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 6. Dataset & Loader 2")
@@ -910,8 +909,8 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,
                            text_encoder, unet)
-        """
-        # training loop
+
+        print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
@@ -1142,7 +1141,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-        """
+       
 
 
 if __name__ == "__main__":

@@ -370,7 +370,6 @@ class BlueprintGenerator:
                                                  is_controlnet,
                                                  params,
                                                  subset_blueprints)) # trg_concept
-    print(f' ** dataset_blueprints : {dataset_blueprints}')
     dataset_group_blueprint = DatasetGroupBlueprint(dataset_blueprints)
     return Blueprint(dataset_group_blueprint)
 
@@ -382,7 +381,6 @@ class BlueprintGenerator:
     default_params = asdict(param_klass())
     param_names = default_params.keys()
     params = {name: search_value(name_map.get(name, name), fallbacks, default_params.get(name)) for name in param_names}
-    print(f' in generate parmas, params : {params}')
     return param_klass(**params)
 
   @staticmethod
