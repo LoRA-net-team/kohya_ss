@@ -4202,8 +4202,6 @@ def sample_images_common(pipe_class,
         return
 
     if args.sample_every_n_epochs is not None:
-        print(f'epoch : {epoch}')
-
         if epoch is None :
             return
 
