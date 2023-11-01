@@ -3022,6 +3022,7 @@ if __name__ == "__main__":
                         nargs="*",help="ControlNet guidance ratio for steps / ControlNetでガイドするステップ比率",)
     parser.add_argument("--device", default='cuda')
     parser.add_argument("--trg_token", type=str)
+    parser.add_argument("--class_token", type=str)
     parser.add_argument("--negative_prompt", type=str)
     parser.add_argument("--erase_selfattn",  action = 'store_true')
     parser.add_argument("--erase_crossattn", action = 'store_true' )
