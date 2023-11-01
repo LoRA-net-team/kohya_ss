@@ -2667,20 +2667,23 @@ def main(args):
                 if args.use_original_file_name and init_images is not None:
                     if type(init_images) is list:
                         fln = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".png"
+                        flt = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".txt"
                     else:
                         fln = os.path.splitext(os.path.basename(init_images.filename))[0] + ".png"
+                        flt = os.path.splitext(os.path.basename(init_images.filename))[0] + ".txt"
                 elif args.sequential_file_name:
                     fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
+                    flt = f"im_{highres_prefix}{step_first + i + 1:06d}.txt"
                 else:
                     fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
+                    flt = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.txt"
+
                 parent, folder = os.path.split(args.outdir)
                 os.makedirs(parent, exist_ok=True)
-                base_folder = os.path.join(args.outdir, f'{folder}_{save_index}')
-                print(f'base_folder : {base_folder}')
-                os.makedirs(base_folder, exist_ok=True)
-                image.save(os.path.join(base_folder, fln), pnginfo=metadata)
-                prompt_save_dir = os.path.join(base_folder, f'prompt.txt')
-                with open(prompt_save_dir, 'w') as f:
+                img_save_dir = os.path.join(args.outdir, fln)
+                txt_save_dir = os.path.join(args.outdir, flt)
+                image.save(img_save_dir,pnginfo=metadata)
+                with open(txt_save_dir, 'w') as f:
                     f.write(prompt)
                 """    
                 # ------------------------------------------------------------------------------------------------
