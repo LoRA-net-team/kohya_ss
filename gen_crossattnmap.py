@@ -2440,8 +2440,8 @@ def main(args):
             cn.net.to(memory_format=torch.channels_last)
 
     print(f'\n step 13. make pipeline')
-    attention_storer = AttentionStore()
-    register_attention_control(unet, attention_storer)
+    #attention_storer = AttentionStore()
+    #register_attention_control(unet, attention_storer)
     pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,clip_model,
                         args.clip_guidance_scale, args.clip_image_guidance_scale,vgg16_model,args.vgg16_guidance_scale,
                         args.vgg16_guidance_layer,)
