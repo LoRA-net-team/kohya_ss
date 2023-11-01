@@ -2685,7 +2685,9 @@ def main(args):
 
                 parent, folder = os.path.split(args.outdir)
                 os.makedirs(parent, exist_ok=True)
-                base_folder = os.path.join(args.outdir, naming)
+                n_ = naming.replace(",", "_")
+                base_folder = os.path.join(args.outdir, n_)
+                os.makedirs(base_folder, exist_ok=True)
                 img_save_dir = os.path.join(base_folder, fln)
                 txt_save_dir = os.path.join(base_folder, flt)
                 image.save(img_save_dir,pnginfo=metadata)
