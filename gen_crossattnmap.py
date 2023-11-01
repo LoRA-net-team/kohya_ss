@@ -1,28 +1,21 @@
 import itertools
-import json
 from typing import Any, List, NamedTuple, Optional, Tuple, Union, Callable
 import glob
 import importlib
 import inspect
 import time
-import zipfile
 from diffusers.utils import deprecate
 from diffusers.configuration_utils import FrozenDict
-import argparse
-import math
-import os
-import random
-import re
+import argparse, math, os, random, re
 from attention_store import AttentionStore
 import diffusers
 import numpy as np
-import torch
-import torchvision
+import torch,torchvision
+from utils import expand_image, image_overlay_heat_map
 from diffusers import (AutoencoderKL,DDPMScheduler,EulerAncestralDiscreteScheduler,
                        DPMSolverMultistepScheduler,DPMSolverSinglestepScheduler,LMSDiscreteScheduler,
                        PNDMScheduler,DDIMScheduler,EulerDiscreteScheduler,HeunDiscreteScheduler,
-                       KDPM2DiscreteScheduler,KDPM2AncestralDiscreteScheduler,    # UNet2DConditionModel,
-                       StableDiffusionPipeline,)
+                       KDPM2DiscreteScheduler,KDPM2AncestralDiscreteScheduler, StableDiffusionPipeline,)
 from einops import rearrange
 from tqdm import tqdm
 from torchvision import transforms
@@ -37,7 +30,6 @@ import tools.original_control_net as original_control_net
 from tools.original_control_net import ControlNetInfo
 from library.original_unet import UNet2DConditionModel
 from library.original_unet import FlashAttentionFunction
-#from XTI_hijack import unet_forward_XTI, downblock_forward_XTI, upblock_forward_XTI
 
 # scheduler:
 SCHEDULER_LINEAR_START = 0.00085
@@ -2141,7 +2133,11 @@ def register_attention_control(unet, controller):
 def generate_text_embedding(args, prompt, tokenizer, text_encoder, device):
     cls_token = 49406
     pad_token = 49407
-    trg_token = args.trg_token
+    if args.trg_token is in prompt :
+        trg_token = args.trg_token
+    else :
+        trg_token = args.class_token
+
     token_input = tokenizer([trg_token], padding="max_length", max_length=tokenizer.model_max_length,
                             truncation=True, return_tensors="pt", )
     token_ids = token_input.input_ids[0]
@@ -2440,8 +2436,8 @@ def main(args):
             cn.net.to(memory_format=torch.channels_last)
 
     print(f'\n step 13. make pipeline')
-    #attention_storer = AttentionStore()
-    #register_attention_control(unet, attention_storer)
+    attention_storer = AttentionStore()
+    register_attention_control(unet, attention_storer)
     pipe = PipelineLike(device, vae,text_encoder,tokenizer,unet,scheduler,args.clip_skip,clip_model,
                         args.clip_guidance_scale, args.clip_image_guidance_scale,vgg16_model,args.vgg16_guidance_scale,
                         args.vgg16_guidance_layer,)
@@ -2689,12 +2685,13 @@ def main(args):
 
                 parent, folder = os.path.split(args.outdir)
                 os.makedirs(parent, exist_ok=True)
-                img_save_dir = os.path.join(args.outdir, fln)
-                txt_save_dir = os.path.join(args.outdir, flt)
+                base_folder = os.path.join(args.outdir, naming)
+                img_save_dir = os.path.join(base_folder, fln)
+                txt_save_dir = os.path.join(base_folder, flt)
                 image.save(img_save_dir,pnginfo=metadata)
                 with open(txt_save_dir, 'w') as f:
                     f.write(prompt)
-                """    
+
                 # ------------------------------------------------------------------------------------------------
                 print(f'save attn map')
                 print(f'prompt : {prompt}')
@@ -2703,9 +2700,8 @@ def main(args):
                 attention_storer.step_store = {}
                 layer_names = atten_collection.keys()
                 total_heat_map = []
-
-
                 total_layers = []
+
                 for layer_name in layer_names:
                     attn_list = atten_collection[layer_name]  # number is head, each shape = 400 number of [77, H, W]
                     attns = torch.stack(attn_list, dim=0)  # batch, 8*batch, pix_len, sen_len
@@ -2748,9 +2744,6 @@ def main(args):
 
                 total_layers_heat_map_dir = os.path.join(base_folder, f'total_heatmap.jpg')
                 img.save(total_layers_heat_map_dir)
-                """
-
-
 
             if not args.no_preview and not highres_1st and args.interactive:
                 try:
