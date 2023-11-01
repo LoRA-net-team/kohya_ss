@@ -2133,7 +2133,7 @@ def register_attention_control(unet, controller):
 def generate_text_embedding(args, prompt, tokenizer, text_encoder, device):
     cls_token = 49406
     pad_token = 49407
-    if args.trg_token is in prompt :
+    if args.trg_token in prompt :
         trg_token = args.trg_token
     else :
         trg_token = args.class_token
