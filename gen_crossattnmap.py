@@ -2650,6 +2650,7 @@ def main(args):
                                                                                          negative_prompts,
                                                                                          seeds,
                                                                                          clip_prompts)):
+                naming = prompt.replace(" ", "_")
                 if highres_fix:
                     seed -= 1  # record original seed
                 metadata = PngInfo()
@@ -2666,17 +2667,25 @@ def main(args):
                     metadata.add_text("clip-prompt", clip_prompt)
                 if args.use_original_file_name and init_images is not None:
                     if type(init_images) is list:
-                        fln = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".png"
-                        flt = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".txt"
+                        #fln = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".png"
+                        #flt = os.path.splitext(os.path.basename(init_images[i % len(init_images)].filename))[0] + ".txt"
+                        fln = naming + ".png"
+                        flt = naming + ".txt"
                     else:
-                        fln = os.path.splitext(os.path.basename(init_images.filename))[0] + ".png"
-                        flt = os.path.splitext(os.path.basename(init_images.filename))[0] + ".txt"
+                        #fln = os.path.splitext(os.path.basename(init_images.filename))[0] + ".png"
+                        #flt = os.path.splitext(os.path.basename(init_images.filename))[0] + ".txt"
+                        fln = naming + ".png"
+                        flt = naming + ".txt"
                 elif args.sequential_file_name:
-                    fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
-                    flt = f"im_{highres_prefix}{step_first + i + 1:06d}.txt"
+                    #fln = f"im_{highres_prefix}{step_first + i + 1:06d}.png"
+                    #flt = f"im_{highres_prefix}{step_first + i + 1:06d}.txt"
+                    fln = naming + ".png"
+                    flt = naming + ".txt"
                 else:
-                    fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
-                    flt = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.txt"
+                    #fln = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.png"
+                    #flt = f"im_{ts_str}_{highres_prefix}{i:03d}_{seed}.txt"
+                    fln = naming + ".png"
+                    flt = naming + ".txt"
 
                 parent, folder = os.path.split(args.outdir)
                 os.makedirs(parent, exist_ok=True)
