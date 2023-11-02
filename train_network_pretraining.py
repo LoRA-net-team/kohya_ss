@@ -1126,7 +1126,8 @@ class NetworkTrainer:
                 if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
                 else :
-                    print(f'efficient : {layer_name}')
+                    weight = weights_sd[layer_name]
+                    print(f'efficient : {layer_name} : {weight}')
 
                     
                 weights_sd[layer_name] = weights_sd[layer_name].cpu()
@@ -1144,7 +1145,7 @@ class NetworkTrainer:
                                                                                   unet=unet_copy,
                                                                                   weights_sd=weights_sd,
                                                                                   for_inference=True)
-
+            temp_network.load_state_dict(weights_sd, False)
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer, text_encoder_copy,
                                unet_copy,
                                efficient=True)
