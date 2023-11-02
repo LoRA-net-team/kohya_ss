@@ -663,6 +663,7 @@ class NetworkTrainer:
 
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
+        text_encoder_org = accelerator.unwrap_model(text_encoder_org)
         efficient_layers = args.efficient_layer.split(",")
         unwrapped_nw = accelerator.unwrap_model(network)
         weights_sd = unwrapped_nw.state_dict()
@@ -677,7 +678,7 @@ class NetworkTrainer:
             weights_sd[layer_name] = weights_sd[layer_name].cpu()
         import copy
         vae_copy = copy.deepcopy(vae_org)
-        text_encoder_org = accelerator.unwrap_model(text_encoder_org)
+
         text_encoder_copy = copy.deepcopy(text_encoder_org)
         unet_copy = copy.deepcopy(unet_org)
         temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
