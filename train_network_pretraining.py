@@ -1113,6 +1113,8 @@ class NetworkTrainer:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
             efficient_layers = args.efficient_layer.split(",")
+
+
             unwrapped_nw = accelerator.unwrap_model(network)
             weights_sd = unwrapped_nw.state_dict()
             layer_names = weights_sd.keys()
@@ -1123,6 +1125,10 @@ class NetworkTrainer:
                         score += 1
                 if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
+                else :
+                    print(f'efficient : {layer_name}')
+
+                    
                 weights_sd[layer_name] = weights_sd[layer_name].cpu()
             import copy
             vae_copy = copy.deepcopy(vae_org)
@@ -1175,7 +1181,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-                
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
