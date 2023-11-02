@@ -1115,8 +1115,9 @@ class NetworkTrainer:
             efficient_layers = args.efficient_layer.split(",")
 
 
-            unwrapped_nw = accelerator.unwrap_model(network)
-            weights_sd = unwrapped_nw.state_dict()
+            #unwrapped_nw = accelerator.unwrap_model(network)
+            #weights_sd = unwrapped_nw.state_dict()
+            weights_sd = network.state_dict()
             layer_names = weights_sd.keys()
             for layer_name in layer_names:
                 score = 0
