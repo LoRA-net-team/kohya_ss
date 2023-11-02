@@ -382,7 +382,6 @@ class NetworkTrainer:
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
         train_dataloader = torch.utils.data.DataLoader(train_dataset_group, batch_size=1, shuffle=True, collate_fn=collater,
                                                        num_workers=n_workers, persistent_workers=args.persistent_data_loader_workers, )
-        print(f' *** args.class_token : {args.class_token}')
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 6. Dataset & Loader 2")
         class_caption_dir = args.class_caption_dir
@@ -540,10 +539,6 @@ class NetworkTrainer:
                                                                                    tokenizers[0], text_encoders[0],
                                                                                    weight_dtype)
                 concept_caption = batch['concept_caption']
-                print(f'Check Captions')
-                print(f' (1) class caption : {class_caption}')
-                print(f' (2) concept_caption : {concept_caption}')
-
                 concept_captions_input_ids = self.get_input_ids(args, concept_caption, tokenizer).unsqueeze(0)
                 concept_captions_lora_hidden_states = train_util.get_hidden_states(args,concept_captions_input_ids.to(accelerator.device),
                                                                                    tokenizers[0], text_encoders[0],
