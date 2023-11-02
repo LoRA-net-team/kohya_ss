@@ -2263,6 +2263,7 @@ def main(args):
         scheduler_num_noises_per_step = 2
     if args.v_parameterization:
         sched_init_args["prediction_type"] = "v_prediction"
+
     class NoiseManager:
         def __init__(self):
             self.sampler_noises = None

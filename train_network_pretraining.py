@@ -673,6 +673,7 @@ class NetworkTrainer:
                     score += 1
             if score == 0:
                 weights_sd[layer_name] = weights_sd[layer_name] * 0
+            weights_sd[layer_name] = weights_sd[layer_name].cpu()
         import copy
         vae_copy = copy.deepcopy(vae_org)
         text_encoder_copy = copy.deepcopy(text_encoder_org)
@@ -685,6 +686,7 @@ class NetworkTrainer:
                                                                           unet=unet_copy,
                                                                           weights_sd = weights_sd,
                                                                           for_inference=True)
+
         print(f"temporary network are loaded")
 
 
