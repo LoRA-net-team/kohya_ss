@@ -1138,7 +1138,7 @@ class NetworkTrainer:
                                                                                   unet=unet_copy,
                                                                                   weights_sd=weights_sd,
                                                                                   for_inference=True)
-            
+
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer, text_encoder_copy,
                                unet_copy,
                                efficient=True)
@@ -1175,8 +1175,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-        """
-
+                
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
