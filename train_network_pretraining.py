@@ -539,8 +539,12 @@ class NetworkTrainer:
                 class_captions_lora_hidden_states = train_util.get_hidden_states(args,class_token_ids.to(accelerator.device),
                                                                                    tokenizers[0], text_encoders[0],
                                                                                    weight_dtype)
-                concept_captions = batch['concept_caption']
-                concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
+                concept_caption = batch['concept_caption']
+                print(f'Check Captions')
+                print(f' (1) class caption : {class_caption}')
+                print(f' (2) concept_caption : {concept_caption}')
+
+                concept_captions_input_ids = self.get_input_ids(args, concept_caption, tokenizer).unsqueeze(0)
                 concept_captions_lora_hidden_states = train_util.get_hidden_states(args,concept_captions_input_ids.to(accelerator.device),
                                                                                    tokenizers[0], text_encoders[0],
                                                                                    weight_dtype)
