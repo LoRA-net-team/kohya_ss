@@ -246,8 +246,10 @@ class NetworkTrainer:
                           mask_imgs=mask_imgs, ).sample
         return noise_pred
 
-    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet):
-        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet)
+    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet
+                      ,efficient=False):
+        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                                 efficient=efficient)
 
     def get_input_ids(self, args, caption, tokenizer):
         tokenizer_max_length = args.max_token_length + 2
@@ -689,7 +691,8 @@ class NetworkTrainer:
                                                                           unet=unet_copy,
                                                                           weights_sd = weights_sd,
                                                                           for_inference=True)
-        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae_copy, tokenizer, text_encoder_copy, unet_copy)
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae_copy, tokenizer, text_encoder_copy, unet_copy,
+                           efficient=True)
 
         print(f"temporary network are loaded")
 
