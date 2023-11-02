@@ -1125,9 +1125,6 @@ class NetworkTrainer:
                         score += 1
                 if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
-                else :
-                    weight = weights_sd[layer_name]
-                    print(f'efficient : {layer_name} : {weight}')
 
                     
                 weights_sd[layer_name] = weights_sd[layer_name].cpu()
