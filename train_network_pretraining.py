@@ -533,25 +533,32 @@ class NetworkTrainer:
                                                                             class_token_ids.to(accelerator.device),
                                                                             tokenizers[0], text_encoders_org[0],
                                                                             weight_dtype)
-                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+                # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                concept_captions_lora_hidden_states = train_util.get_hidden_states(args,class_token_ids.to(accelerator.device),
+                                                                                   tokenizers[0], text_encoders[0],
+                                                                                   weight_dtype)
                 concept_captions = batch['concept_caption']
                 concept_captions_input_ids = self.get_input_ids(args, concept_captions, tokenizer).unsqueeze(0)
-                concept_captions_hidden_states = train_util.get_hidden_states(args,
-                                                                              concept_captions_input_ids.to(
-                                                                                  accelerator.device),
-                                                                              tokenizers[0], text_encoders[0],
-                                                                              weight_dtype)
+                concept_captions_lora_hidden_states = train_util.get_hidden_states(args,concept_captions_input_ids.to(accelerator.device),
+                                                                                   tokenizers[0], text_encoders[0],
+                                                                                   weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # shape = [3,77,768]
+                preservating_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
+                                                                 concept_captions_lora_hidden_states.float(),
+                                                                 reduction="none")
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
-                                                                concept_captions_hidden_states.float(),
+                                                                concept_captions_lora_hidden_states.float(),
                                                                 reduction="none")
+                pretraining_losses["loss/preservating_loss"] = preservating_loss.mean().item()
                 pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                 if is_main_process:
                     # accelerator.log(pretraining_losses)
                     wandb.log(pretraining_losses)
-                pretraining_loss = pretraining_loss.mean()
-                accelerator.backward(pretraining_loss)
+                te_loss = preservating_loss.mean() + pretraining_loss.mean()
+                accelerator.backward(te_loss)
                 optimizer.step()
                 lr_scheduler.step()
 
@@ -649,6 +656,7 @@ class NetworkTrainer:
             register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
         else:
             attention_storer = None
+        """
 
 
 
@@ -1111,6 +1119,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
+        """
 
 
 
