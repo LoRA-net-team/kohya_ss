@@ -1125,12 +1125,9 @@ class NetworkTrainer:
                         score += 1
                 if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
-
-                    
                 weights_sd[layer_name] = weights_sd[layer_name].cpu()
             import copy
             vae_copy = copy.deepcopy(vae_org)
-
             text_encoder_copy = copy.deepcopy(text_encoder_org)
             unet_copy = copy.deepcopy(unet_org)
             temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
@@ -1143,7 +1140,10 @@ class NetworkTrainer:
                                                                                   weights_sd=weights_sd,
                                                                                   for_inference=True)
             temp_network.load_state_dict(weights_sd, False)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer, text_encoder_copy,
+            temp_network.to(weight_dtype)
+            self.sample_images(accelerator, args, epoch + 1, global_step,
+                               accelerator.device, vae_copy, tokenizer,
+                               text_encoder_copy,
                                unet_copy,
                                efficient=True)
 
