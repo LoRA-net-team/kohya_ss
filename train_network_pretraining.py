@@ -536,7 +536,7 @@ class NetworkTrainer:
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                concept_captions_lora_hidden_states = train_util.get_hidden_states(args,class_token_ids.to(accelerator.device),
+                class_captions_lora_hidden_states = train_util.get_hidden_states(args,class_token_ids.to(accelerator.device),
                                                                                    tokenizers[0], text_encoders[0],
                                                                                    weight_dtype)
                 concept_captions = batch['concept_caption']
@@ -547,7 +547,7 @@ class NetworkTrainer:
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # shape = [3,77,768]
                 preservating_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
-                                                                 concept_captions_lora_hidden_states.float(),
+                                                                 class_captions_lora_hidden_states.float(),
                                                                  reduction="none")
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_lora_hidden_states.float(),
