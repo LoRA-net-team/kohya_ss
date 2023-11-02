@@ -325,10 +325,14 @@ class NetworkTrainer:
         tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
-        _, text_encoder_org, _, _ = self.load_target_model(args, weight_dtype, accelerator)
+
+        _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
+
+
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
             vae.set_use_memory_efficient_attention_xformers(args.xformers)
@@ -660,8 +664,7 @@ class NetworkTrainer:
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
         efficient_layers = args.efficient_layer.split(",")
-        temp_net = network.detach()
-        weights_sd = temp_net.state_dict()
+        weights_sd = network.state_dict()
         layer_names = weights_sd.keys()
         for layer_name in layer_names:
             score = 0
@@ -670,8 +673,18 @@ class NetworkTrainer:
                     score += 1
             if score == 0:
                 weights_sd[layer_name] = weights_sd[layer_name] * 0
-        info = temp_net.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
-        print(f"weights are loaded")
+
+        temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
+                                                                          file=None,
+                                                                          block_wise=[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                                                                          vae=vae_org.copy(),
+                                                                          text_encoder=text_encoder_org.copy(),
+                                                                          unet=unet_org.copy(),
+                                                                          weights_sd = weights_sd,
+                                                                          for_inference=True)
+        print(f"temporary network are loaded")
+
+
         """
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
