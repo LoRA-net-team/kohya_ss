@@ -535,9 +535,9 @@ class NetworkTrainer:
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                class_captions_lora_hidden_states = train_util.get_hidden_states(args,class_token_ids.to(accelerator.device),
-                                                                                   tokenizers[0], text_encoders[0],
-                                                                                   weight_dtype)
+                #class_captions_lora_hidden_states = train_util.get_hidden_states(args,class_token_ids.to(accelerator.device),
+                #                                                                   tokenizers[0], text_encoders[0],
+                #                                                                   weight_dtype)
                 concept_caption = batch['concept_caption']
                 concept_captions_input_ids = self.get_input_ids(args, concept_caption, tokenizer).unsqueeze(0)
                 concept_captions_lora_hidden_states = train_util.get_hidden_states(args,concept_captions_input_ids.to(accelerator.device),
@@ -545,18 +545,19 @@ class NetworkTrainer:
                                                                                    weight_dtype)
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # shape = [3,77,768]
-                preservating_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
-                                                                 class_captions_lora_hidden_states.float(),
-                                                                 reduction="none")
+                #preservating_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
+                #                                                 class_captions_lora_hidden_states.float(),
+                #                                                 reduction="none")
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_lora_hidden_states.float(),
                                                                 reduction="none")
-                pretraining_losses["loss/preservating_loss"] = preservating_loss.mean().item()
+                #pretraining_losses["loss/preservating_loss"] = preservating_loss.mean().item()
                 pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                 if is_main_process:
                     # accelerator.log(pretraining_losses)
                     wandb.log(pretraining_losses)
-                te_loss = preservating_loss.mean() + pretraining_loss.mean()
+                #te_loss = preservating_loss.mean() + pretraining_loss.mean()
+                te_loss = pretraining_loss.mean()
                 accelerator.backward(te_loss)
                 optimizer.step()
                 lr_scheduler.step()
@@ -656,10 +657,22 @@ class NetworkTrainer:
         else:
             attention_storer = None
 
-
-
-
-
+        # -----------------------------------------------------------------------------------------------------------------
+        # effective sampling
+        efficient_layers = args.efficient_layer.split(",")
+        temp_net = network.detach()
+        weights_sd = temp_net.state_dict()
+        layer_names = weights_sd.keys()
+        for layer_name in layer_names:
+            score = 0
+            for efficient_layer in efficient_layers:
+                if efficient_layer in layer_name:
+                    score += 1
+            if score == 0:
+                weights_sd[layer_name] = weights_sd[layer_name] * 0
+        info = temp_net.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
+        print(f"weights are loaded")
+        """
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -1036,6 +1049,16 @@ class NetworkTrainer:
                     progress_bar.update(1)
                     global_step += 1
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+
+                    
+
+
+
+
+
+
+
+
                     if attention_storer is not None:
                         attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
@@ -1118,7 +1141,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
+        """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -1191,6 +1214,7 @@ if __name__ == "__main__":
     parser.add_argument('--class_token', default='cat', type=str)
     parser.add_argument('--unet_net_key_names', default='proj_in,ff_net', type=str)
     parser.add_argument("--te_freeze", action='store_true')
+    parser.add_argument("--efficient_layer", type=str)
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:

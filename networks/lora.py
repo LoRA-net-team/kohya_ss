@@ -1303,7 +1303,6 @@ class LoRANetwork(torch.nn.Module):
             metadata = None
 
         state_dict = self.state_dict()
-
         if dtype is not None:
             for key in list(state_dict.keys()):
                 v = state_dict[key]
