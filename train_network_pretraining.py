@@ -686,6 +686,8 @@ class NetworkTrainer:
                                                                           unet=unet_copy,
                                                                           weights_sd = weights_sd,
                                                                           for_inference=True)
+        vae_copy, text_encoder_copy, unet_copy = accelerator.prepare(vae_copy, text_encoder_copy, unet_copy)
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae_copy, tokenizer, text_encoder_copy, unet_copy)
 
         print(f"temporary network are loaded")
 
