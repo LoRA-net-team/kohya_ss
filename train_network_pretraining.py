@@ -686,9 +686,6 @@ class NetworkTrainer:
                                                                           unet=unet_copy,
                                                                           weights_sd = weights_sd,
                                                                           for_inference=True)
-        vae_copy, text_encoder_copy, unet_copy,temp_network = accelerator.prepare(vae_copy, text_encoder_copy, unet_copy,temp_network)
-        #text_encoder_copy = train_util.transform_models_if_DDP(text_encoder_copy)
-        #unet_copy, temp_network = train_util.transform_models_if_DDP([unet_copy, temp_network])
         self.sample_images(accelerator, args, 0, 0, accelerator.device, vae_copy, tokenizer, text_encoder_copy, unet_copy)
 
         print(f"temporary network are loaded")
