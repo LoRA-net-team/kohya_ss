@@ -656,7 +656,7 @@ class NetworkTrainer:
             register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
         else:
             attention_storer = None
-        """
+
 
 
 
@@ -1119,8 +1119,6 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-        """
-
 
 
 if __name__ == "__main__":
