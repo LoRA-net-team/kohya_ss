@@ -519,6 +519,7 @@ class NetworkTrainer:
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
         pretraining_losses = {}
+        """
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 class_caption = batch['class_caption']
@@ -556,7 +557,7 @@ class NetworkTrainer:
                 accelerator.backward(te_loss)
                 optimizer.step()
                 lr_scheduler.step()
-
+        """
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-2. prepare unet network")
         network = accelerator.unwrap_model(network)
@@ -920,6 +921,7 @@ class NetworkTrainer:
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
+            """
             metadata["ss_epoch"] = str(epoch + 1)
             network.on_epoch_start(text_encoder, unet)
             for step, batch in enumerate(train_dataloader):
@@ -1108,18 +1110,23 @@ class NetworkTrainer:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
                 # because alpha is np, should be on cpu
                 weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
+            """
             # ------------------------------------------------------------------------------------------------------
             # 2) make empty network
+            import copy
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
             temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,  block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                                                                                   vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
                                                                                   weights_sd=weights_sd,for_inference=False)
             print(f'before loading, print out org state dict')
             org_temp_net_state_dict = temp_network.state_dict()
+            # there is no state dictionary
+            print(f" *** Let's printing out org temp net *** ")
             temp_net_layer_names = org_temp_net_state_dict.keys()
+            print(f" temp_net_layer_names : {temp_net_layer_names} ")
             for layer_name in temp_net_layer_names :
                 print(f'temp net {layer_name} : {org_temp_net_state_dict[layer_name]}')
-                
+
             print(f'org_temp_net_state_dict')
 
 
