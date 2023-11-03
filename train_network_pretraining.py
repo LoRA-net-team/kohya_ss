@@ -1116,8 +1116,10 @@ class NetworkTrainer:
                             score += 1
                     if score == 0:
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
-                    weights_sd[layer_name] = weights_sd[layer_name].to(accelerator.device)
+                    # because alpha is np, should be on cpu
+                    weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
                 import copy
+                weights_sd = weights_sd.to(accelerator.device)
                 vae_copy = copy.deepcopy(vae_org)
                 text_encoder_copy = copy.deepcopy(text_encoder_org).to("cpu")
                 unet_copy = copy.deepcopy(unet_org)
@@ -1138,8 +1140,10 @@ class NetworkTrainer:
                 vae_copy.to(weight_dtype).to(accelerator.device)
                 unet_copy.to(weight_dtype).to(accelerator.device)
                 text_encoder_copy.to(weight_dtype).to(accelerator.device)
+
                 # 4) applying to deeplearning network
                 temp_network.apply_to(text_encoder_org, unet_org)
+
                 self.sample_images(accelerator, args, epoch + 1, global_step,
                                    accelerator.device, vae_copy, tokenizer,
                                    text_encoder_copy,
