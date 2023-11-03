@@ -907,15 +907,19 @@ class NetworkTrainer:
         # sampling right after text pretraining
         self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
 
+
+
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
-            accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
+            accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-            metadata["ss_epoch"] = str(epoch + 1)
-            network.on_epoch_start(text_encoder, unet)
-            for step, batch in enumerate(train_dataloader):
 
+            metadata["ss_epoch"] = str(epoch + 1)
+
+            network.on_epoch_start(text_encoder, unet)
+
+            for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -923,6 +927,7 @@ class NetworkTrainer:
                         if "latents" in batch and batch["latents"] is not None:
                             latents = batch["latents"].to(accelerator.device)
                         else:
+                            # latentに変換
                             latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
                             # NaNが含まれていれば警告を表示し0に置き換える
                             if torch.any(torch.isnan(latents)):
@@ -933,24 +938,29 @@ class NetworkTrainer:
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(tokenizer,text_encoder,
-                                                                              batch["captions"],accelerator.device,
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer, text_encoder,
+                                                                              batch["captions"], accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
-                                                                              clip_skip=args.clip_skip,)
+                                                                              clip_skip=args.clip_skip, )
                         else:
-                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders, weight_dtype)
+                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders,
+                                                                    weight_dtype)
                     # Sample noise, sample a random timestep for each image, and add noise to the latents,
                     # with noise offset and/or multires noise if specified
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
+                                                                                                       noise_scheduler,
+                                                                                                       latents)
                     # Predict the noise residual
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
-                                                    batch,weight_dtype, batch["trg_indexs_list"], #trg_index_list,
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
+                                                    text_encoder_conds,
+                                                    batch, weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    # trg_index_list,
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
                             attention_storer.step_store = {}
-
 
                     if args.v_parameterization:
                         # v-parameterization training
@@ -959,12 +969,24 @@ class NetworkTrainer:
                         target = noise
                     ### Masked loss ###
                     if args.masked_loss:
+                        # get mask images then set to device
+                        # batch['mask_imgs'] is actually List[Tensor]
+                        # for each images, get mask image and resize to noise_pred size
+                        # we may not be able to use batch['mask_imgs'] directly because of different image size
+                        # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
+                        # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
+                        # noise_pred:torch.Tensor
+                        # print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        # print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
+                        # print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
+                        # [256, 256] -> [1, 1, 256, 256]
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
                         # interpolate
-                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in mask_imgs]
+                        mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in
+                                     mask_imgs]
                         # to Tensor
-                        mask_imgs = torch.cat(mask_imgs, dim=0) # [batch_size, 1, 256, 256]
-                        #print("mask_imgs size: ", mask_imgs[0].size()) # debug
+                        mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
+                        # print("mask_imgs size: ", mask_imgs[0].size()) # debug
                         # multiply mask to noise_pred and target
                         # element-wise multiplication
                         noise_pred = noise_pred * mask_imgs
@@ -1013,7 +1035,7 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(
                         args.scale_weight_norms, accelerator.device)
-                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm }
+                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
 
@@ -1072,7 +1094,12 @@ class NetworkTrainer:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
                 if is_main_process and saving:
                     ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-                    save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
+                    # -------------------------------------------------------------------------------------------------
+                    # model saving
+                    print('model saving ...')
+                    save_model(ckpt_name,
+                               accelerator.unwrap_model(network),
+                               global_step, epoch + 1)
                     remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
                     if remove_epoch_no is not None:
                         remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
