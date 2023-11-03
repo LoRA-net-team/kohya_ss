@@ -1128,7 +1128,7 @@ class NetworkTrainer:
                                                                                   text_encoder=text_encoder_copy,
                                                                                   unet=unet_copy,
                                                                                   weights_sd=weights_sd,
-                                                                                  for_inference=True)
+                                                                                  for_inference=False)
             # load state dict
             temp_network.load_state_dict(weights_sd, False)
             temp_network.to(weight_dtype)
