@@ -1121,7 +1121,7 @@ class NetworkTrainer:
                 import copy
                 weights_sd = weights_sd.to(accelerator.device)
                 vae_copy = copy.deepcopy(vae_org)
-                text_encoder_copy = copy.deepcopy(text_encoder_org).to("cpu")
+                text_encoder_copy = copy.deepcopy(text_encoder_org).to("cpu" )
                 unet_copy = copy.deepcopy(unet_org)
                 # 1) make empty temp network (everything on cpu)
                 print(f'main device : {accelerator.device} ***** ')
