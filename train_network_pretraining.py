@@ -934,7 +934,9 @@ class NetworkTrainer:
             metadata["ss_epoch"] = str(epoch + 1)
             network.on_epoch_start(text_encoder, unet)
             for step, batch in enumerate(train_dataloader):
+
                 current_step.value = global_step
+                """
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
                     with torch.no_grad():
@@ -1100,6 +1102,7 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
+            """
             #self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
             efficient_layers = args.efficient_layer.split(",")
 
@@ -1118,14 +1121,7 @@ class NetworkTrainer:
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
                     # because alpha is np, should be on cpu
                     weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
-                import copy
-                temp_network.load_state_dict(weights_sd, False)
-                temp_network.to(weight_dtype).to(accelerator.device)
 
-                # check weather temp_network all on gpu
-                for name, param in temp_network.named_parameters():
-                    print(f'name : {name} , device : {param.device} , dtype : {param.dtype}')
-                    time.sleep(5)
 
 
 
@@ -1144,6 +1140,13 @@ class NetworkTrainer:
                                                                                       weights_sd=weights_sd,
                                                                                       for_inference=False)
                 # 2) load pretrained state (not applying to network yet, on cpu)
+                import copy
+                temp_network.load_state_dict(weights_sd, False)
+                temp_network.to(weight_dtype).to(accelerator.device)
+                # check weather temp_network all on gpu
+                for name, param in temp_network.named_parameters():
+                    print(f'name : {name} , device : {param.device} , dtype : {param.dtype}')
+                    time.sleep(5)
 
                 # 3) to accelerator.device
 
