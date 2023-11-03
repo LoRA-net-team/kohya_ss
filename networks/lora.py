@@ -1008,7 +1008,6 @@ class LoRANetwork(torch.nn.Module):
 
         # extend U-Net target modules if conv2d 3x3 is enabled, or load from weights
         target_modules = LoRANetwork.UNET_TARGET_REPLACE_MODULE
-        print(f'unet target_modules : {target_modules}')
         if modules_dim is not None or self.conv_lora_dim is not None or conv_block_dims is not None:
             target_modules += LoRANetwork.UNET_TARGET_REPLACE_MODULE_CONV2D_3X3
         self.unet_loras, skipped_un = create_modules(True, None, unet, target_modules)

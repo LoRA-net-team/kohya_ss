@@ -50,7 +50,7 @@ def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
         if re.match(regex, layer_name):
             return True
     return False
-def register_attention_control(unet : nn.Module, controller:AttentionStore, mask_threshold:float=1): #if mask_threshold is 1, use itself
+def register_attention_control(unet : nn.Module, controller:AttentionStore, mask_threshold:float=1) :
     """
     Register cross attention layers to controller.
     """
@@ -71,7 +71,8 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1],
+                                                         key.shape[1], dtype=query.dtype,
                                                          device=query.device),
                                              query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
@@ -234,22 +235,13 @@ class NetworkTrainer:
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,tokenizers[0], text_encoders[0],weight_dtype )
         return encoder_hidden_states
 
-    def call_unet(self,args, accelerator, unet,
-                  noisy_latents, timesteps,
-                  text_conds, batch, weight_dtype,
-                  trg_indexs_list,
-                  mask_imgs):
-        noise_pred = unet(noisy_latents,
-                          timesteps,
-                          text_conds,
-                          trg_indexs_list=trg_indexs_list,
-                          mask_imgs=mask_imgs, ).sample
+    def call_unet(self,args, accelerator, unet, noisy_latents, timesteps, text_conds, batch, weight_dtype,
+                  trg_indexs_list, mask_imgs):
+        noise_pred = unet(noisy_latents, timesteps, text_conds, trg_indexs_list=trg_indexs_list, mask_imgs=mask_imgs, ).sample
         return noise_pred
 
-    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet
-                      ,efficient=False):
-        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
-                                 efficient=efficient)
+    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=False):
+        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=efficient)
 
     def get_input_ids(self, args, caption, tokenizer):
         tokenizer_max_length = args.max_token_length + 2
@@ -519,7 +511,7 @@ class NetworkTrainer:
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
         pretraining_losses = {}
-        """
+
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 class_caption = batch['class_caption']
@@ -557,7 +549,7 @@ class NetworkTrainer:
                 accelerator.backward(te_loss)
                 optimizer.step()
                 lr_scheduler.step()
-        """
+
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-2. prepare unet network")
         network = accelerator.unwrap_model(network)
@@ -568,14 +560,13 @@ class NetworkTrainer:
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         except TypeError:
-            accelerator.print(
-                "Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
+            accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
 
         if args.te_freeze :
             trainable_params = [trainable_params[-1]]
-
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
+
         print("\n step 9-2. learning rate")
         lr_scheduler = train_util.get_scheduler_fix(args, optimizer, accelerator.num_processes)
         if args.full_fp16:
@@ -598,6 +589,7 @@ class NetworkTrainer:
         unet.to(dtype=weight_dtype)
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
+
         print("\n step 11-2. module to accelerate")
         if len(text_encoders) > 1:
             unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
@@ -610,7 +602,6 @@ class NetworkTrainer:
             text_encoders = [text_encoder]
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
-
 
         if args.gradient_checkpointing:
             # according to TI example in Diffusers, train is required
@@ -656,10 +647,6 @@ class NetworkTrainer:
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
         text_encoder_org = accelerator.unwrap_model(text_encoder_org)
-
-
-
-
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
