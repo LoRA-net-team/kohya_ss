@@ -201,6 +201,7 @@ class LoRAInfModule(LoRAModule):
 
         self.network: LoRANetwork = None
         self.org_weight = org_module.weight.detach().clone()
+
     def set_network(self, network):
         self.network = network
 
@@ -276,6 +277,7 @@ class LoRAInfModule(LoRAModule):
 
         if self.network is None or self.network.sub_prompt_index is None:
             return self.default_forward(x)
+
         if not self.regional and not self.use_sub_prompt:
             return self.default_forward(x)
 
@@ -852,9 +854,15 @@ def create_network_from_weights(multiplier, file, block_wise, vae, text_encoder,
         if key not in modules_alpha:
             modules_alpha[key] = modules_dim[key]
 
+    # LoRAInfModule for inference, LoRAModule for training
     module_class = LoRAInfModule if for_inference else LoRAModule
-    network = LoRANetwork(text_encoder, unet, block_wise=block_wise,
-                          multiplier=multiplier, modules_dim=modules_dim, modules_alpha=modules_alpha, module_class=module_class)
+    network = LoRANetwork(text_encoder, unet,
+                          block_wise=block_wise,
+                          multiplier=multiplier,
+                          modules_dim=modules_dim,
+                          modules_alpha=modules_alpha,
+                          # module_class = LoRAInfModule
+                          module_class=module_class)
 
     # block lr
     down_lr_weight, mid_lr_weight, up_lr_weight = parse_block_lr_kwargs(kwargs)
@@ -896,9 +904,11 @@ class LoRANetwork(torch.nn.Module):
         conv_block_alphas: Optional[List[float]] = None,
         modules_dim: Optional[Dict[str, int]] = None,
         modules_alpha: Optional[Dict[str, int]] = None,
+        # LoRAInfModule
         module_class: Type[object] = LoRAModule,
         varbose: Optional[bool] = False,
         net_key_names: Optional[bool] = False,) -> None:
+
         super().__init__()
         self.multiplier = multiplier
         self.lora_dim = lora_dim
@@ -984,6 +994,7 @@ class LoRANetwork(torch.nn.Module):
                             else :
                                 for i, block in enumerate(BLOCKS) :
                                     if block in lora_name and block_wise[i] == 1:
+                                        print(f'[{module_class}] : make lora {lora_name} | ')
                                         lora = module_class(lora_name,
                                                             child_module,
                                                             self.multiplier,
