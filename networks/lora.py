@@ -164,6 +164,7 @@ class LoRAModule(torch.nn.Module):
         else:
             scale = self.scale
         lx = self.lora_up(lx)
+        print(f'loaded origian + lora')
         return org_forwarded + lx * self.multiplier * scale
 
 
@@ -184,11 +185,15 @@ class LoRAInfModule(LoRAModule):
         self.enabled = True
 
         # check regional or not by lora_name
+
+        # --------------------------------------------------------------------------------------------
+        # text encoder lora
         self.text_encoder = False
         if lora_name.startswith("lora_te_"):
             self.regional = False
             self.use_sub_prompt = True
             self.text_encoder = True
+
         elif "attn2_to_k" in lora_name or "attn2_to_v" in lora_name:
             self.regional = False
             self.use_sub_prompt = True
@@ -272,8 +277,12 @@ class LoRAInfModule(LoRAModule):
         return self.org_forward(x) + self.lora_up(self.lora_down(x)) * self.multiplier * self.scale
 
     def forward(self, x):
+
+        # --------------------------------------------------------------------------------------------------------
+        # if not enable, just return original forward
         if not self.enabled:
             return self.org_forward(x)
+
 
         if self.network is None or self.network.sub_prompt_index is None:
             return self.default_forward(x)
@@ -772,8 +781,7 @@ def get_block_lr_weight(
 
 
 # lr_weightが0のblockをblock_dimsから除外する、外部から呼び出す可能性を考慮しておく
-def remove_block_dims_and_alphas(
-    block_dims, block_alphas, conv_block_dims, conv_block_alphas, down_lr_weight, mid_lr_weight, up_lr_weight):
+def remove_block_dims_and_alphas( block_dims, block_alphas, conv_block_dims, conv_block_alphas, down_lr_weight, mid_lr_weight, up_lr_weight):
     # set 0 to block dim without learning rate to remove the block
     if down_lr_weight != None:
         for i, lr in enumerate(down_lr_weight):
@@ -876,9 +884,6 @@ class LoRANetwork(torch.nn.Module):
     NUM_OF_BLOCKS = 12  # フルモデル相当でのup,downの層の数
     UNET_TARGET_REPLACE_MODULE = ["Transformer2DModel"]
     UNET_TARGET_REPLACE_MODULE_CONV2D_3X3 = ["ResnetBlock2D", "Downsample2D", "Upsample2D"]
-    # "ResnetBlock2D" : kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
-    # "Downsample2D" : kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)
-    # "Upsample2D" : kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
     UNET_TEXT_PART = 'attentions_0'
 
     TEXT_ENCODER_TARGET_REPLACE_MODULE = ["CLIPAttention", "CLIPMLP"]
