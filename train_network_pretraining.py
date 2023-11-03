@@ -1116,7 +1116,7 @@ class NetworkTrainer:
                             score += 1
                     if score == 0:
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
-                    weights_sd[layer_name] = weights_sd[layer_name].cpu()
+                    weights_sd[layer_name] = weights_sd[layer_name].to(accelerator.device)
                 import copy
                 vae_copy = copy.deepcopy(vae_org)
                 text_encoder_copy = copy.deepcopy(text_encoder_org).to("cpu")
