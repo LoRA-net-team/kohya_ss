@@ -1145,7 +1145,7 @@ class NetworkTrainer:
                 unet_loras = temp_network.unet_loras
                 for text_encoder_lora in text_encoder_loras :
                     text_encoder_lora.to(weight_dtype).to(accelerator.device)
-                    print(f'text_encoder_lora device : {text_encoder_lora.device} , dtype : {text_encoder_lora.dtype}')
+                    #print(f'text_encoder_lora device : {text_encoder_lora.device} , dtype : {text_encoder_lora.dtype}')
                 for unet_lora in unet_loras :
                     unet_lora.to(weight_dtype).to(accelerator.device)
 
