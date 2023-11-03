@@ -1106,39 +1106,40 @@ class NetworkTrainer:
 
             #unwrapped_nw = accelerator.unwrap_model(network)
             #weights_sd = unwrapped_nw.state_dict()
-            weights_sd = network.state_dict()
-            layer_names = weights_sd.keys()
-            for layer_name in layer_names:
-                score = 0
-                for efficient_layer in efficient_layers:
-                    if efficient_layer in layer_name:
-                        score += 1
-                if score == 0:
-                    weights_sd[layer_name] = weights_sd[layer_name] * 0
-                weights_sd[layer_name] = weights_sd[layer_name].cpu()
-            import copy
-            vae_copy = copy.deepcopy(vae_org)
-            text_encoder_copy = copy.deepcopy(text_encoder_org)
-            unet_copy = copy.deepcopy(unet_org)
-            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
-                                                                                  file=None,
-                                                                                  block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                                                                              1, 1, 1, 1, 1, 1, 1, 1],
-                                                                                  vae=vae_copy,
-                                                                                  text_encoder=text_encoder_copy,
-                                                                                  unet=unet_copy,
-                                                                                  weights_sd=weights_sd,
-                                                                                  for_inference=False)
-            # load state dict
-            temp_network.load_state_dict(weights_sd, False)
-            temp_network.to(weight_dtype)
-            self.sample_images(accelerator, args, epoch + 1, global_step,
-                               accelerator.device, vae_copy, tokenizer,
-                               text_encoder_copy,
-                               unet_copy,
-                               efficient=True)
+            if is_main_process:
+                weights_sd = network.state_dict()
+                layer_names = weights_sd.keys()
+                for layer_name in layer_names:
+                    score = 0
+                    for efficient_layer in efficient_layers:
+                        if efficient_layer in layer_name:
+                            score += 1
+                    if score == 0:
+                        weights_sd[layer_name] = weights_sd[layer_name] * 0
+                    weights_sd[layer_name] = weights_sd[layer_name].cpu()
+                import copy
+                vae_copy = copy.deepcopy(vae_org)
+                text_encoder_copy = copy.deepcopy(text_encoder_org)
+                unet_copy = copy.deepcopy(unet_org)
+                temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
+                                                                                      file=None,
+                                                                                      block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                                                                                     1, 1, 1, 1, 1, 1, 1, 1],
+                                                                                      vae=vae_copy,
+                                                                                      text_encoder=text_encoder_copy,
+                                                                                      unet=unet_copy,
+                                                                                      weights_sd=weights_sd,
+                                                                                      for_inference=False)
+                # load state dict
+                temp_network.load_state_dict(weights_sd, False)
+                temp_network.to(weight_dtype)
+                self.sample_images(accelerator, args, epoch + 1, global_step,
+                                   accelerator.device, vae_copy, tokenizer,
+                                   text_encoder_copy,
+                                   unet_copy,
+                                   efficient=True)
 
-            print(f"temporary network are loaded")
+                print(f"temporary network are loaded")
 
 
 
