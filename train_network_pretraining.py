@@ -28,6 +28,7 @@ from torch import nn
 import torch.nn.functional as F
 from functools import lru_cache
 from attention_store import AttentionStore
+import copy
 try:
     from setproctitle import setproctitle
 except (ImportError, ModuleNotFoundError):
@@ -39,6 +40,7 @@ try:
         ipex_init()
 except Exception:
     pass
+
 @lru_cache(maxsize=128)
 def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
     """
@@ -371,6 +373,7 @@ class NetworkTrainer:
         n_workers = min(args.max_data_loader_n_workers, os.cpu_count() - 1)  # cpu_count-1 ただし最大で指定された数まで
         train_dataloader = torch.utils.data.DataLoader(train_dataset_group, batch_size=1, shuffle=True, collate_fn=collater,
                                                        num_workers=n_workers, persistent_workers=args.persistent_data_loader_workers, )
+
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 6. Dataset & Loader 2")
         class_caption_dir = args.class_caption_dir
@@ -380,13 +383,16 @@ class NetworkTrainer:
         class_captions = [caption.lower() for caption in class_captions]
 
         class TE_dataset(torch.utils.data.Dataset):
+
             def __init__(self, class_captions):
                 class_token = args.class_token
                 trg_concept = args.trg_concept
                 self.class_captions = class_captions
                 self.concept_captions = [caption.replace(class_token, trg_concept) for caption in class_captions]
+
             def __len__(self):
                 return len(self.class_captions)
+
             def __getitem__(self, idx):
                 te_example = {}
                 # 1) class
@@ -397,6 +403,7 @@ class NetworkTrainer:
                 te_example['class_caption'] = class_caption
                 te_example['concept_caption'] = concept_caption
                 return te_example
+
         pretraining_datset = TE_dataset(class_captions=class_captions)
         pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset, batch_size=1, shuffle=True,
                                                              num_workers=n_workers,
@@ -506,7 +513,7 @@ class NetworkTrainer:
             unwrapped_nw.save_weights(ckpt_file, save_dtype,metadata=None)
 
         print("\n step 13. image inference before training anything")
-        #self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
+        self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
 
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
@@ -726,9 +733,7 @@ class NetworkTrainer:
                     "min_bucket_reso": dataset.min_bucket_reso,
                     "max_bucket_reso": dataset.max_bucket_reso,
                     "tag_frequency": dataset.tag_frequency,
-                    "bucket_info": dataset.bucket_info,
-
-                }
+                    "bucket_info": dataset.bucket_info,}
 
                 subsets_metadata = []
                 for subset in dataset.subsets:
@@ -739,8 +744,7 @@ class NetworkTrainer:
                         "flip_aug": bool(subset.flip_aug),
                         "random_crop": bool(subset.random_crop),
                         "shuffle_caption": bool(subset.shuffle_caption),
-                        "keep_tokens": subset.keep_tokens,
-                    }
+                        "keep_tokens": subset.keep_tokens,}
 
                     image_dir_or_metadata_file = None
                     if subset.image_dir:
@@ -805,9 +809,7 @@ class NetworkTrainer:
                                                                 "img_count": subset.img_count}
             else:
                 for subset in dataset.subsets:
-                    dataset_dirs_info[os.path.basename(subset.metadata_file)] = {
-                        "n_repeats": subset.num_repeats,
-                        "img_count": subset.img_count,}
+                    dataset_dirs_info[os.path.basename(subset.metadata_file)] = {"n_repeats": subset.num_repeats,"img_count": subset.img_count,}
             metadata.update(
                 {
                     "ss_batch_size_per_device": args.train_batch_size,
@@ -901,14 +903,15 @@ class NetworkTrainer:
         if is_main_process :
             ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, 0)
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
-        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
+        # ------------------------------------------------------------------------------------------------------
+        # sampling right after text pretraining
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-            """
             metadata["ss_epoch"] = str(epoch + 1)
             network.on_epoch_start(text_encoder, unet)
             for step, batch in enumerate(train_dataloader):
@@ -942,9 +945,7 @@ class NetworkTrainer:
                     # Predict the noise residual
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args,accelerator,unet,noisy_latents,timesteps,text_encoder_conds,
-                                                    batch,weight_dtype,
-                                                    batch["trg_indexs_list"],
-                                                    #trg_index_list,
+                                                    batch,weight_dtype, batch["trg_indexs_list"], #trg_index_list,
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
@@ -956,8 +957,6 @@ class NetworkTrainer:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
-
-
                     ### Masked loss ###
                     if args.masked_loss:
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
@@ -1005,7 +1004,6 @@ class NetworkTrainer:
                     else:
                         attention_losses = {}
                     accelerator.backward(loss)
-
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
@@ -1023,7 +1021,9 @@ class NetworkTrainer:
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
-                    #self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+                    # ------------------------------------------------------------------------------------------------------------------------------------------
+                    # sampling every epoch
+                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
                     if attention_storer is not None:
                         attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
@@ -1079,13 +1079,11 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-
-
-
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,  text_encoder, unet)
+            if attention_storer is not None:
+                attention_storer.step_store = {}
             # ------------------------------------------------------------------------------------------------------
-            """
             # learned network state dict
-            import copy
             weights_sd = network.state_dict()
             layer_names = weights_sd.keys()
             efficient_layers = args.efficient_layer.split(",")
@@ -1127,12 +1125,6 @@ class NetworkTrainer:
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
                                text_encoder_copy, unet_copy, efficient=True)
             print(f"temporary network are loaded")
-            # ----------------------------------------------------------------------------------------------------------
-
-            if attention_storer is not None:
-                attention_storer.step_store = {}
-            # end of epoch
-
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
         if is_main_process:
