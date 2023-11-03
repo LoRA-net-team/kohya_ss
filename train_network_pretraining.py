@@ -1115,17 +1115,20 @@ class NetworkTrainer:
             # ------------------------------------------------------------------------------------------------------
             # 2) make empty network
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
-            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,
-                                                                                  block_wise=None,
+            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,block_wise=None,
                                                                                   vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
-                                                                                  weights_sd=weights_sd,for_inference=False,
-                                                                                  net_key_names=['lora'])
+                                                                                  weights_sd=weights_sd,for_inference=False,)
             print(f'before loading, print out org state dict')
             org_temp_net_state_dict = temp_network.state_dict()
             # there is no state dictionary
             print(f" *** Let's printing out org temp net *** ")
+            text_encoder_loras = temp_network.text_encoder_loras
+            print(f'temp net has {len(text_encoder_loras)} text_encoder_loras')
+            
             temp_net_layer_names = org_temp_net_state_dict.keys()
             print(f" temp_net_layer_names : {temp_net_layer_names} ")
+
+
             for layer_name in temp_net_layer_names :
                 print(f'temp net {layer_name} : {org_temp_net_state_dict[layer_name]}')
 
@@ -1140,14 +1143,15 @@ class NetworkTrainer:
             unet_loras = temp_network.unet_loras
             for text_encoder_lora in text_encoder_loras :
                 lora_name = text_encoder_lora.lora_name
-                text_encoder_lora.lora_down.weight = weights_sd[f'{lora_name}.lora_down.weight']
-                text_encoder_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
-                text_encoder_lora.to(weight_dtype).to(accelerator.device)
+
+                #text_encoder_lora.lora_down.weight = weights_sd[f'{lora_name}.lora_down.weight']
+                #text_encoder_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
+                #text_encoder_lora.to(weight_dtype).to(accelerator.device)
             for unet_lora in unet_loras :
                 lora_name = unet_lora.lora_name
-                unet_lora.lora_down.weight = weights_sd[f'{lora_name}.lora_down.weight']
-                unet_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
-                unet_lora.to(weight_dtype).to(accelerator.device)
+                #unet_lora.lora_down.weight = weights_sd[f'{lora_name}.lora_down.weight']
+                #unet_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
+                #unet_lora.to(weight_dtype).to(accelerator.device)
             # 3) to accelerator.device
             vae_copy.to(weight_dtype).to(accelerator.device)
             unet_copy.to(weight_dtype).to(accelerator.device)
