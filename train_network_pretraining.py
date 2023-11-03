@@ -1095,13 +1095,11 @@ class NetworkTrainer:
 
             # ------------------------------------------------------------------------------------------------------
             # learned network state dict
+            import copy
             weights_sd = network.state_dict()
-            print(f'weights_sd : {weights_sd}')
-            time.sleep(1000)
             layer_names = weights_sd.keys()
             efficient_layers = args.efficient_layer.split(",")
             for layer_name in layer_names:
-
                 score = 0
                 for efficient_layer in efficient_layers:
                     if efficient_layer in layer_name:
@@ -1109,32 +1107,37 @@ class NetworkTrainer:
                 if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
                 # because alpha is np, should be on cpu
-                weights_sd[layer_name] = 1000 * weights_sd[layer_name].to("cpu")
+                weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
+            # ------------------------------------------------------------------------------------------------------
+            # 2) make empty network
+            vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
+            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,  block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                                                                                  vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
+                                                                                  weights_sd=weights_sd,for_inference=False)
+            print(f'before loading, print out org state dict')
+            org_temp_net_state_dict = temp_network.state_dict()
+            temp_net_layer_names = org_temp_net_state_dict.keys()
+            for layer_name in temp_net_layer_names :
+                print(f'temp net {layer_name} : {org_temp_net_state_dict[layer_name]}')
+                
+            print(f'org_temp_net_state_dict')
 
-            import copy
-            vae_copy = copy.deepcopy(vae_org)
-            text_encoder_copy = copy.deepcopy(text_encoder_org).to("cpu" )
-            unet_copy = copy.deepcopy(unet_org)
-            # 1) make empty temp network (everything on cpu)
-            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
-                                                                                  file=None,
-                                                                                  block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                                                                                  vae=vae_copy,
-                                                                                  text_encoder=text_encoder_copy,
-                                                                                  unet=unet_copy,
-                                                                                  weights_sd=weights_sd,
-                                                                                  for_inference=False)
+
             # 2) load pretrained state (not applying to network yet, on cpu)
             temp_network.load_state_dict(weights_sd, False)
             temp_network.to(weight_dtype).to(accelerator.device)
             # check weather temp_network all on gpu (there is no named_parameters)
-
             text_encoder_loras = temp_network.text_encoder_loras
             unet_loras = temp_network.unet_loras
             for text_encoder_lora in text_encoder_loras :
                 lora_name = text_encoder_lora.lora_name
+                text_encoder_lora.lora_down.weight = weights_sd[f'{lora_name}.lora_down.weight']
+                text_encoder_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
                 text_encoder_lora.to(weight_dtype).to(accelerator.device)
             for unet_lora in unet_loras :
+                lora_name = unet_lora.lora_name
+                unet_lora.lora_down.weight = weights_sd[f'{lora_name}.lora_down.weight']
+                unet_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
                 unet_lora.to(weight_dtype).to(accelerator.device)
             # 3) to accelerator.device
             vae_copy.to(weight_dtype).to(accelerator.device)
@@ -1145,6 +1148,7 @@ class NetworkTrainer:
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
                                text_encoder_copy, unet_copy, efficient=True)
             print(f"temporary network are loaded")
+            # ----------------------------------------------------------------------------------------------------------
 
             if attention_storer is not None:
                 attention_storer.step_store = {}
@@ -1152,7 +1156,6 @@ class NetworkTrainer:
 
         # metadata["ss_epoch"] = str(num_train_epochs)
         metadata["ss_training_finished_at"] = str(time.time())
-
         if is_main_process:
             network = accelerator.unwrap_model(network)
 
