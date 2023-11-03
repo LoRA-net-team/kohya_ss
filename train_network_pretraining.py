@@ -924,8 +924,7 @@ class NetworkTrainer:
         if is_main_process :
             ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, 0)
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
-        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,
-                           text_encoder, unet)
+        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
@@ -1045,17 +1044,7 @@ class NetworkTrainer:
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
-                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-
-                    
-
-
-
-
-
-
-
-
+                    #self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
                     if attention_storer is not None:
                         attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
@@ -1111,7 +1100,7 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+            #self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
             efficient_layers = args.efficient_layer.split(",")
 
 
@@ -1140,6 +1129,7 @@ class NetworkTrainer:
                                                                                   unet=unet_copy,
                                                                                   weights_sd=weights_sd,
                                                                                   for_inference=True)
+            # load state dict
             temp_network.load_state_dict(weights_sd, False)
             temp_network.to(weight_dtype)
             self.sample_images(accelerator, args, epoch + 1, global_step,
