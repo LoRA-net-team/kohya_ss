@@ -1125,8 +1125,7 @@ class NetworkTrainer:
                 print(f'main device : {accelerator.device} ***** ')
                 temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
                                                                                       file=None,
-                                                                                      block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                                                                                     1, 1, 1, 1, 1, 1, 1, 1],
+                                                                                      block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                                                                                       vae=vae_copy,
                                                                                       text_encoder=text_encoder_copy,
                                                                                       unet=unet_copy,
