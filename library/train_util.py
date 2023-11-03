@@ -4218,9 +4218,7 @@ def sample_images_common(pipe_class,
     pipeline = pipe_class(text_encoder=text_encoder,vae=vae,unet=unet,tokenizer=tokenizer,scheduler=scheduler,
                           safety_checker=None,feature_extractor=None,requires_safety_checker=False,
                           clip_skip=args.clip_skip,)
-
-
-
+    print(f'pipeline to device, device : {device}')
     pipeline.to(device)
     save_dir = args.output_dir + "/sample"
     if efficient :
