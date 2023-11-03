@@ -1096,10 +1096,12 @@ class NetworkTrainer:
             # ------------------------------------------------------------------------------------------------------
             # learned network state dict
             weights_sd = network.state_dict()
+            print(f'weights_sd : {weights_sd}')
+            time.sleep(1000)
             layer_names = weights_sd.keys()
             efficient_layers = args.efficient_layer.split(",")
             for layer_name in layer_names:
-                """
+
                 score = 0
                 for efficient_layer in efficient_layers:
                     if efficient_layer in layer_name:
@@ -1107,7 +1109,6 @@ class NetworkTrainer:
                 if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
                 # because alpha is np, should be on cpu
-                """
                 weights_sd[layer_name] = 1000 * weights_sd[layer_name].to("cpu")
 
             import copy
