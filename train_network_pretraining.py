@@ -1139,7 +1139,20 @@ class NetworkTrainer:
                 # 2) load pretrained state (not applying to network yet, on cpu)
                 temp_network.load_state_dict(weights_sd, False)
                 temp_network.to(weight_dtype).to(accelerator.device)
-                # check weather temp_network all on gpu
+                # check weather temp_network all on gpu (there is no named_parameters)
+
+                text_encoder_loras = temp_network.text_encoder_loras
+                unet_loras = temp_network.unet_loras
+                for text_encoder_lora in text_encoder_loras :
+                    text_encoder_lora.to(weight_dtype).to(accelerator.device)
+                    print(f'text_encoder_lora device : {text_encoder_lora.device} , dtype : {text_encoder_lora.dtype}')
+                for unet_lora in unet_loras :
+                    unet_lora.to(weight_dtype).to(accelerator.device)
+
+
+
+
+
                 for name, param in temp_network.named_parameters():
                     print(f'name : {name} , device : {param.device} , dtype : {param.dtype}')
                     time.sleep(5)

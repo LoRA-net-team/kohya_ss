@@ -828,7 +828,6 @@ def create_network_from_weights(multiplier, file, block_wise, vae, text_encoder,
     for key, value in weights_sd.items():
         if "." not in key:
             continue
-
         lora_name = key.split(".")[0]
         if "alpha" in key:
             modules_alpha[lora_name] = value
@@ -1015,10 +1014,8 @@ class LoRANetwork(torch.nn.Module):
         print(f'unet target_modules : {target_modules}')
         if modules_dim is not None or self.conv_lora_dim is not None or conv_block_dims is not None:
             target_modules += LoRANetwork.UNET_TARGET_REPLACE_MODULE_CONV2D_3X3
-
         self.unet_loras, skipped_un = create_modules(True, None, unet, target_modules)
         print(f"create LoRA for U-Net: {len(self.unet_loras)} modules.")
-
         skipped = skipped_te + skipped_un
         if varbose and len(skipped) > 0:
             print(
