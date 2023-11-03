@@ -1121,6 +1121,7 @@ class NetworkTrainer:
                 vae_copy = copy.deepcopy(vae_org)
                 text_encoder_copy = copy.deepcopy(text_encoder_org)
                 unet_copy = copy.deepcopy(unet_org)
+                # 1) make empty temp network
                 temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
                                                                                       file=None,
                                                                                       block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -1130,10 +1131,11 @@ class NetworkTrainer:
                                                                                       unet=unet_copy,
                                                                                       weights_sd=weights_sd,
                                                                                       for_inference=False)
-                # load state dict
+                # 2) load pretrained state (not applying to network yet)
                 temp_network.load_state_dict(weights_sd, False)
+                # 3) applying to deeplearning network
+                temp_network.to(weight_dtype).to(accelerator.device)
                 temp_network.apply_to(text_encoder_org, unet_org)
-                temp_network.to(weight_dtype)
                 self.sample_images(accelerator, args, epoch + 1, global_step,
                                    accelerator.device, vae_copy, tokenizer,
                                    text_encoder_copy,

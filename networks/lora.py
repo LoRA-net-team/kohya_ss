@@ -92,17 +92,8 @@ class LoRAModule(torch.nn.Module):
             kernel_size = org_module.kernel_size
             stride = org_module.stride
             padding = org_module.padding
-
             self.lora_down = torch.nn.Conv2d(in_dim, self.lora_dim, kernel_size, stride, padding, bias=False)
             self.lora_up = torch.nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
-            """
-            filt_cnt_3x3 = int(out_dim * 0.167)
-            filt_cnt_5x5 = int(out_dim * 0.333)
-            filt_cnt_7x7 = int(out_dim * 0.5)
-            self.lora_down   = torch.nn.Conv2d(in_dim, filt_cnt_3x3, kernel_size, stride, padding, bias=False)
-            self.lora_middle = torch.nn.Conv2d(in_dim, filt_cnt_5x5, kernel_size, stride, padding, bias=False)
-            self.lora_up     = torch.nn.Conv2d(in_dim, filt_cnt_7x7, kernel_size, stride, padding, bias=False)
-            """
         else:
             self.lora_down = torch.nn.Linear(in_dim, self.lora_dim, bias=False)
             self.lora_up = torch.nn.Linear(self.lora_dim, out_dim, bias=False)
@@ -134,21 +125,15 @@ class LoRAModule(torch.nn.Module):
         del self.org_module
 
     def forward(self, x):
-
-
         org_forwarded = self.org_forward(x)
-
         # module dropout
         if self.module_dropout is not None and self.training:
             if torch.rand(1) < self.module_dropout:
                 return org_forwarded
-
         lx = self.lora_down(x)
-
         # normal dropout
         if self.dropout is not None and self.training:
             lx = torch.nn.functional.dropout(lx, p=self.dropout)
-
         # rank dropout
         if self.rank_dropout is not None and self.training:
             mask = torch.rand((lx.size(0), self.lora_dim), device=lx.device) > self.rank_dropout
@@ -157,14 +142,12 @@ class LoRAModule(torch.nn.Module):
             elif len(lx.size()) == 4:
                 mask = mask.unsqueeze(-1).unsqueeze(-1)  # for Conv2d
             lx = lx * mask
-
             # scaling for rank dropout: treat as if the rank is changed
             # maskから計算することも考えられるが、augmentation的な効果を期待してrank_dropoutを用いる
             scale = self.scale * (1.0 / (1.0 - self.rank_dropout))  # redundant for readability
         else:
             scale = self.scale
         lx = self.lora_up(lx)
-        print(f'loaded origian + lora')
         return org_forwarded + lx * self.multiplier * scale
 
 
