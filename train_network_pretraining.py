@@ -936,7 +936,6 @@ class NetworkTrainer:
             for step, batch in enumerate(train_dataloader):
 
                 current_step.value = global_step
-                """
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
                     with torch.no_grad():
@@ -1102,7 +1101,7 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-            """
+
             #self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
             efficient_layers = args.efficient_layer.split(",")
 
@@ -1127,7 +1126,6 @@ class NetworkTrainer:
                 text_encoder_copy = copy.deepcopy(text_encoder_org).to("cpu" )
                 unet_copy = copy.deepcopy(unet_org)
                 # 1) make empty temp network (everything on cpu)
-                print(f'main device : {accelerator.device} ***** ')
                 temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1,
                                                                                       file=None,
                                                                                       block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -1145,38 +1143,17 @@ class NetworkTrainer:
                 unet_loras = temp_network.unet_loras
                 for text_encoder_lora in text_encoder_loras :
                     text_encoder_lora.to(weight_dtype).to(accelerator.device)
-                    #print(f'text_encoder_lora device : {text_encoder_lora.device} , dtype : {text_encoder_lora.dtype}')
                 for unet_lora in unet_loras :
                     unet_lora.to(weight_dtype).to(accelerator.device)
-
-
-
-
-
-                for name, param in temp_network.named_parameters():
-                    print(f'name : {name} , device : {param.device} , dtype : {param.dtype}')
-                    time.sleep(5)
-
                 # 3) to accelerator.device
-
                 vae_copy.to(weight_dtype).to(accelerator.device)
                 unet_copy.to(weight_dtype).to(accelerator.device)
                 text_encoder_copy.to(weight_dtype).to(accelerator.device)
-
                 # 4) applying to deeplearning network
                 temp_network.apply_to(text_encoder_org, unet_org)
-
-                self.sample_images(accelerator, args, epoch + 1, global_step,
-                                   accelerator.device, vae_copy, tokenizer,
-                                   text_encoder_copy,
-                                   unet_copy,
-                                   efficient=True)
-
+                self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
+                                   text_encoder_copy, unet_copy, efficient=True)
                 print(f"temporary network are loaded")
-
-
-
-
 
             if attention_storer is not None:
                 attention_storer.step_store = {}
