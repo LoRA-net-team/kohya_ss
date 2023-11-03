@@ -1044,7 +1044,7 @@ class NetworkTrainer:
                     progress_bar.update(1)
                     global_step += 1
                     # ------------------------------------------------------------------------------------------------------------------------------------------
-                    # sampling every epoch
+                    # sampling every step
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
                     if attention_storer is not None:
                         attention_storer.step_store = {}
@@ -1094,7 +1094,7 @@ class NetworkTrainer:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
                 if is_main_process and saving:
                     ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-                    # -------------------------------------------------------------------------------------------------
+                    # --------------------------------------------------------------------------------------------------
                     # model saving
                     print('model saving ...')
                     save_model(ckpt_name,
@@ -1106,7 +1106,10 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,  text_encoder, unet)
+            # ----------------------------------------------------------------------------------------------------------
+            # inference every epoch
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
+                               text_encoder, unet)
             if attention_storer is not None:
                 attention_storer.step_store = {}
             # ------------------------------------------------------------------------------------------------------
@@ -1151,8 +1154,7 @@ class NetworkTrainer:
             temp_network.apply_to(text_encoder_org, unet_org)
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
                                text_encoder_copy, unet_copy, efficient=True)
-            print(f"temporary network are loaded")
-        # metadata["ss_epoch"] = str(num_train_epochs)
+
         metadata["ss_training_finished_at"] = str(time.time())
         if is_main_process:
             network = accelerator.unwrap_model(network)

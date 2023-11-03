@@ -12,38 +12,34 @@ def main(args) :
     for generated_image_folder in generated_image_folders :
         if generated_image_folder ==  args.trg_condition :
             generated_image_folder_dir = os.path.join(args.generated_image_folder, generated_image_folder)
-            try :
-                sample_dir = os.path.join(generated_image_folder_dir, 'sample')
-                print(f'sample_dir : {sample_dir}')
-                images = os.listdir(sample_dir)
-                for image in images :
-                    image_dir = os.path.join(sample_dir, image)
-                    name, ext = os.path.splitext(image)
-                    epoch = name.split('_')[1]
-                    epoch = epoch.split('e')[-1]
-                    epoch_dir = os.path.join(sample_dir, str(epoch))
-                    os.makedirs(epoch_dir, exist_ok=True)
-                    new_dir = os.path.join(epoch_dir, image)
-                    os.rename(image_dir, new_dir)
-            except :
-                continue
-
-            try :
-                inference_sample_dir = os.path.join(generated_image_folder_dir, 'inference_sample')
-                print(f'inference_sample_dir : {inference_sample_dir}')
-                images = os.listdir(inference_sample_dir)
-                for image in images:
-                    image_dir = os.path.join(inference_sample_dir, image)
-                    name, ext = os.path.splitext(image)
-                    epoch = name.split('_')[1]
-                    epoch = epoch.split('e')[-1]
-                    epoch_dir = os.path.join(inference_sample_dir, str(epoch))
-                    os.makedirs(epoch_dir, exist_ok=True)
-                    new_dir = os.path.join(epoch_dir, image)
-                    os.rename(image_dir, new_dir)
-            except :
-                continue
-
+            folders = os.listdir(generated_image_folder_dir)
+            for folder in folders :
+                if folder == 'sample' :
+                    sample_dir = os.path.join(generated_image_folder_dir, 'sample')
+                    print(f'sample_dir : {sample_dir}')
+                    images = os.listdir(sample_dir)
+                    for image in images :
+                        image_dir = os.path.join(sample_dir, image)
+                        name, ext = os.path.splitext(image)
+                        epoch = name.split('_')[1]
+                        epoch = epoch.split('e')[-1]
+                        epoch_dir = os.path.join(sample_dir, str(epoch))
+                        os.makedirs(epoch_dir, exist_ok=True)
+                        new_dir = os.path.join(epoch_dir, image)
+                        os.rename(image_dir, new_dir)
+                elif folder == 'inference_sample' :
+                    inference_sample_dir = os.path.join(generated_image_folder_dir, 'inference_sample')
+                    images = os.listdir(inference_sample_dir)
+                    for image in images:
+                        image_dir = os.path.join(inference_sample_dir, image)
+                        name, ext = os.path.splitext(image)
+                        epoch = name.split('_')[1]
+                        epoch = epoch.split('e')[-1]
+                        epoch_dir = os.path.join(inference_sample_dir, str(epoch))
+                        os.makedirs(epoch_dir, exist_ok=True)
+                        new_dir = os.path.join(epoch_dir, image)
+                        os.rename(image_dir, new_dir)
+            
 
 
 
