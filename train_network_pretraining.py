@@ -1119,18 +1119,18 @@ class NetworkTrainer:
                                                                                   vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
                                                                                   weights_sd=weights_sd,for_inference=False,)
             text_encoder_loras = temp_network.text_encoder_loras
-            unet_loras = temp_network.unet_loras
             for text_encoder_lora in text_encoder_loras :
                 lora_name = text_encoder_lora.lora_name
-                te_down_weight = weights_sd[f'{lora_name}.lora_down.weight']
-                text_encoder_lora.lora_down.weight().data = te_down_weight
-                #text_encoder_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
-                #text_encoder_lora.to(weight_dtype).to(accelerator.device)
+                text_encoder_lora.lora_down.weight.data = weights_sd[f'{lora_name}.lora_down.weight']
+                text_encoder_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
+                text_encoder_lora.to(weight_dtype).to(accelerator.device)
+            unet_loras = temp_network.unet_loras
             for unet_lora in unet_loras :
                 lora_name = unet_lora.lora_name
-                #unet_lora.lora_down.weight = weights_sd[f'{lora_name}.lora_down.weight']
-                #unet_lora.lora_up.weight = weights_sd[f'{lora_name}.lora_up.weight']
-                #unet_lora.to(weight_dtype).to(accelerator.device)
+                unet_lora.lora_down.weight.data = weights_sd[f'{lora_name}.lora_down.weight']
+                unet_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
+                unet_lora.to(weight_dtype).to(accelerator.device)
+
             # 3) to accelerator.device
             vae_copy.to(weight_dtype).to(accelerator.device)
             unet_copy.to(weight_dtype).to(accelerator.device)
