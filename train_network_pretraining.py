@@ -1119,7 +1119,7 @@ class NetworkTrainer:
                                                                                   block_wise=None,
                                                                                   vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
                                                                                   weights_sd=weights_sd,for_inference=False,
-                                                                                  net_key_names='lora')
+                                                                                  net_key_names=['lora'])
             print(f'before loading, print out org state dict')
             org_temp_net_state_dict = temp_network.state_dict()
             # there is no state dictionary

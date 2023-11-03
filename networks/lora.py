@@ -966,6 +966,7 @@ class LoRANetwork(torch.nn.Module):
                                 continue
                             if block_wise == None :
                                 for key_word in net_key_names :
+                                    print(f'when making lora, key_word : {key_word}')
                                     if key_word in lora_name :
                                         lora = module_class(lora_name,
                                                             child_module,
