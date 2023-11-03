@@ -605,7 +605,7 @@ def create_network_blockwise(
         block_alphas=block_alphas,
         conv_block_dims=conv_block_dims,
         conv_block_alphas=conv_block_alphas,
-        varbose=True,
+        varbose=True,**kwargs
     )
 
     if up_lr_weight is not None or mid_lr_weight is not None or down_lr_weight is not None:
@@ -850,7 +850,8 @@ def create_network_from_weights(multiplier, file, block_wise,
                           modules_dim=modules_dim,
                           modules_alpha=modules_alpha,
                           # module_class = LoRAInfModule
-                          module_class=module_class)
+                          module_class=module_class,
+                          **kwargs )
 
     # block lr
     down_lr_weight, mid_lr_weight, up_lr_weight = parse_block_lr_kwargs(kwargs)
@@ -986,7 +987,6 @@ class LoRANetwork(torch.nn.Module):
                                                             dropout=dropout,
                                                             rank_dropout=rank_dropout,
                                                             module_dropout=module_dropout,)
-
                                         loras.append(lora)
             return loras, skipped
 
