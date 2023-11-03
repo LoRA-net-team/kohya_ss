@@ -1119,7 +1119,17 @@ class NetworkTrainer:
                     # because alpha is np, should be on cpu
                     weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
                 import copy
-                weights_sd = weights_sd.to(accelerator.device)
+                temp_network.load_state_dict(weights_sd, False)
+                temp_network.to(weight_dtype).to(accelerator.device)
+
+                # check weather temp_network all on gpu
+                for name, param in temp_network.named_parameters():
+                    print(f'name : {name} , device : {param.device} , dtype : {param.dtype}')
+                    time.sleep(5)
+
+
+
+
                 vae_copy = copy.deepcopy(vae_org)
                 text_encoder_copy = copy.deepcopy(text_encoder_org).to("cpu" )
                 unet_copy = copy.deepcopy(unet_org)
@@ -1134,9 +1144,9 @@ class NetworkTrainer:
                                                                                       weights_sd=weights_sd,
                                                                                       for_inference=False)
                 # 2) load pretrained state (not applying to network yet, on cpu)
-                temp_network.load_state_dict(weights_sd, False)
+
                 # 3) to accelerator.device
-                temp_network.to(weight_dtype).to(accelerator.device)
+
                 vae_copy.to(weight_dtype).to(accelerator.device)
                 unet_copy.to(weight_dtype).to(accelerator.device)
                 text_encoder_copy.to(weight_dtype).to(accelerator.device)
