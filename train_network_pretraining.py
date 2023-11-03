@@ -1131,8 +1131,9 @@ class NetworkTrainer:
                                                                                       weights_sd=weights_sd,
                                                                                       for_inference=False)
                 # load state dict
-                print(f'right before loadint state, weights_sd is {weights_sd}')
-                temp_network.load_state_dict(weights_sd, False)
+                #print(f'right before loadint state, weights_sd is {weights_sd}')
+                info = temp_network.load_state_dict(weights_sd, False)
+                print('info is ', info)
                 temp_network.to(weight_dtype)
                 self.sample_images(accelerator, args, epoch + 1, global_step,
                                    accelerator.device, vae_copy, tokenizer,
