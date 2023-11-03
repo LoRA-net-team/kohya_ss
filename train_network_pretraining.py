@@ -1096,6 +1096,7 @@ class NetworkTrainer:
 
 
             # ------------------------------------------------------------------------------------------------------
+            """
             # learned network state dict
             import copy
             weights_sd = network.state_dict()
@@ -1110,12 +1111,11 @@ class NetworkTrainer:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
                 # because alpha is np, should be on cpu
                 weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
-            """
+
             # ------------------------------------------------------------------------------------------------------
             # 2) make empty network
-            import copy
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
-            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,  block_wise=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,  block_wise=None,
                                                                                   vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
                                                                                   weights_sd=weights_sd,for_inference=False)
             print(f'before loading, print out org state dict')
