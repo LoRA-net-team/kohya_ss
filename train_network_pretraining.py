@@ -280,11 +280,6 @@ class NetworkTrainer:
             input_ids = torch.stack(iids_list)  # 3,77
         return input_ids
 
-
-
-
-
-
     def train(self, args):
 
         print("\n step 1. start session")
@@ -303,8 +298,7 @@ class NetworkTrainer:
         use_class_caption = args.class_caption is not None # if class_caption is provided, for subsets, add key 'class_caption' to each subset
 
         print("\n step 2. seed")
-        if args.seed is None:
-            args.seed = random.randint(0, 2**32)
+        if args.seed is None : args.seed = random.randint(0, 2**32)
         set_seed(args.seed)
 
         print("\n step 3. preparing accelerator")
@@ -330,11 +324,8 @@ class NetworkTrainer:
 
         _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
-
-
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
             vae.set_use_memory_efficient_attention_xformers(args.xformers)
@@ -460,10 +451,8 @@ class NetworkTrainer:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
         else:
             # LyCORIS will work with this...
-            network = network_module.create_network(1.0, args.network_dim, args.network_alpha,
-                                                    vae, text_encoder, unet,
-                                                    neuron_dropout=args.network_dropout,
-                                                    **net_kwargs,)
+            network = network_module.create_network(1.0, args.network_dim, args.network_alpha, vae, text_encoder, unet,
+                                                    neuron_dropout=args.network_dropout, **net_kwargs,)
         if network is None:
             return
         if hasattr(network, "prepare_network"):
