@@ -965,18 +965,15 @@ class LoRANetwork(torch.nn.Module):
                                     skipped.append(lora_name)
                                 continue
                             if block_wise == None :
-                                for key_word in net_key_names :
-                                    print(f'when making lora, key_word : {key_word}')
-                                    if key_word in lora_name :
-                                        lora = module_class(lora_name,
-                                                            child_module,
-                                                            self.multiplier,
-                                                            dim,
-                                                            alpha,
-                                                            dropout=dropout,
-                                                            rank_dropout=rank_dropout,
-                                                            module_dropout=module_dropout,)
-                                        loras.append(lora)
+                                lora = module_class(lora_name,
+                                                    child_module,
+                                                    self.multiplier,
+                                                    dim,
+                                                    alpha,
+                                                    dropout=dropout,
+                                                    rank_dropout=rank_dropout,
+                                                    module_dropout=module_dropout,)
+                                loras.append(lora)
                             else :
                                 for i, block in enumerate(BLOCKS) :
                                     if block in lora_name and block_wise[i] == 1:
