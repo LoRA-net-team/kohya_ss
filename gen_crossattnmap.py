@@ -2365,7 +2365,8 @@ def main(args):
                     for layer in weights_sd.keys():
                         if block in layer:
                             block_wise[i] = 1
-                network, weights_sd = imported_module.create_network_from_weights(network_mul, network_weight,block_wise,
+                network, weights_sd = imported_module.create_network_from_weights(network_mul, network_weight,
+                                                                                  block_wise,
                                                                                   vae, text_encoder, unet,
                                                                                   for_inference=True, **net_kwargs)
 
@@ -2393,12 +2394,9 @@ def main(args):
 
                 info = network.load_state_dict(weights_sd, False)  # network.load_weightsを使うようにするとよい
                 print(f"weights are loaded")
-
-
                 if args.opt_channels_last:
                     network.to(memory_format=torch.channels_last)
                 network.to(dtype).to(device)
-
                 if network_pre_calc:
                     print("backup original weights")
                     network.backup_weights()
