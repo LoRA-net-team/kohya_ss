@@ -405,9 +405,12 @@ class NetworkTrainer:
                 return te_example
 
         pretraining_datset = TE_dataset(class_captions=class_captions)
-        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset, batch_size=1, shuffle=True,
+        pretraining_dataloader = torch.utils.data.DataLoader(pretraining_datset,
+                                                             batch_size=args.train_batch_size,
+                                                             shuffle=True,
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers, )
+
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-1. prepare network")
@@ -920,6 +923,7 @@ class NetworkTrainer:
             network.on_epoch_start(text_encoder, unet)
 
             for step, batch in enumerate(train_dataloader):
+                print(f'step : {step}')
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
