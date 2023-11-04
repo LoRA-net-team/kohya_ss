@@ -905,7 +905,7 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         # ------------------------------------------------------------------------------------------------------
         # sampling right after text pretraining
-        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
+        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
