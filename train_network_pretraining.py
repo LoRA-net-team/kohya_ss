@@ -43,9 +43,7 @@ except Exception:
 
 @lru_cache(maxsize=128)
 def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
-    """
-    Check if layer_name matches regex_list_str.
-    """
+    """Check if layer_name matches regex_list_str."""
     regex_list = regex_list_str.split(',')
     for regex in regex_list:
         regex = regex.strip() # remove space
