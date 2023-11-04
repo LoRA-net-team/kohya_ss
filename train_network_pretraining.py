@@ -140,6 +140,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
     cross_att_count = 0
     print(f'registering, unet.named_children() : {unet.named_children()}')
     for net in unet.named_children():
+        print(f'net : {net[0]}')
         if "down" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
         elif "up" in net[0]:
