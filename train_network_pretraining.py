@@ -411,7 +411,8 @@ class NetworkTrainer:
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers,)
 
-
+        print(f'len img dataloader : {len(train_dataloader)}')
+        print(f'len sentence dataloader : {len(pretraining_dataloader)}')
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-1. prepare network")
         sys.path.append(os.path.dirname(__file__))
