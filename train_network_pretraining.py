@@ -978,6 +978,7 @@ class NetworkTrainer:
                     task_loss = loss
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = loss
+                    print(f'attention_losses elem, loss : {loss}')
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 2) heatmap loss
@@ -1058,6 +1059,7 @@ class NetworkTrainer:
                     p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
                     preservating_loss += p_loss.mean()
                 attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
+                print(f'attention_losses elem, preservating_loss.mean() : {preservating_loss.mean()}')
                 if is_main_process:
                     wandb.log(attention_losses)
                 optimizer.step()
