@@ -113,11 +113,13 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                         masked_heat_map = word_heat_map_ * mask_
                         attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                         controller.store(attn_loss, layer_name)
+
+
                 # check if torch.no_grad() is in effect
-                elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
-                    if mask is None:
-                        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
-                    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
+                #elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
+                #    if mask is None:
+                #        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
+                #    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
 
             hidden_states = torch.bmm(attention_probs, value)
             #if is_cross_attention :
