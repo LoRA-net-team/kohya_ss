@@ -532,7 +532,7 @@ class NetworkTrainer:
                 #                                                            tokenizers[0], text_encoders_org[0],
                 #                                                            weight_dtype)
                 class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
-                                                                  batch["captions"], accelerator.device,
+                                                                  batch["class_caption"], accelerator.device,
                                                                   args.max_token_length // 75 if args.max_token_length else 1,
                                                                   clip_skip=args.clip_skip, )
 
