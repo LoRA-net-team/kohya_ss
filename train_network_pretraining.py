@@ -611,7 +611,6 @@ class NetworkTrainer:
             text_encoders = [text_encoder]
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
-        #unet_org = train_util.transform_models_if_DDP([unet_org])
 
         if args.gradient_checkpointing:
             # according to TI example in Diffusers, train is required
@@ -655,7 +654,7 @@ class NetworkTrainer:
         attention_storer_org = AttentionStore()
         register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
 
-        """ 
+
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
         text_encoder_org = accelerator.unwrap_model(text_encoder_org)
@@ -1035,15 +1034,9 @@ class NetworkTrainer:
 
                 # -----------------------------------------------------------------------------------------------------------------------------------------------
                 #attention_storer.reset()
-
-
                 for batch in pretraining_dataloader:
                     # ------------------------------------------------------------------------------------------------------------------------------
                     unet_org = accelerator.prepare(unet_org)
-                    attention_storer_org = AttentionStore()
-                    print(f'registering attention controller')
-                    register_attention_control(unet_org, attention_storer_org,
-                                               mask_threshold=args.mask_threshold)
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                                 batch["class_caption"],
                                                                                 accelerator.device,
@@ -1239,7 +1232,6 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
