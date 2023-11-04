@@ -1083,7 +1083,7 @@ class NetworkTrainer:
                         remove_step_no = train_util.get_remove_step_no(args, global_step)
                         if remove_step_no is not None:
                             remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
-                            remove_model(remove_ckpt_name)
+                            remove_model(remove_ckpt_name )
                 """
                 # -------------------------------------------------------------------------------------------------------------------------------------------------
                 # showing loss without preservating loss
