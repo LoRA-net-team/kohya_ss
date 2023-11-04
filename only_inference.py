@@ -319,6 +319,7 @@ class NetworkTrainer:
                     #save_folder_name = 'efficient_' +'_'.join(efficient_layers )
                     save_folder_name = 'efficient_in_condition'
                     for layer_name in layer_names:
+                        print(f'layer_name : {layer_name}')
                         score = 0
                         for efficient_layer in efficient_layers:
                             if efficient_layer in layer_name:
