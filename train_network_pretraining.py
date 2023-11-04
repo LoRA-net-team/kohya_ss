@@ -324,6 +324,7 @@ class NetworkTrainer:
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+        train_util.replace_unet_modules(unet_org, args.mem_eff_attn, args.xformers, args.sdpa)
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
             vae.set_use_memory_efficient_attention_xformers(args.xformers)
