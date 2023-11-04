@@ -14,8 +14,8 @@ def main(args) :
             generated_image_folder_dir = os.path.join(args.generated_image_folder, generated_image_folder)
             folders = os.listdir(generated_image_folder_dir)
             for folder in folders :
-                if folder == 'sample' :
-                    sample_dir = os.path.join(generated_image_folder_dir, 'inference_efficient_in_condition')
+                if folder == 'inference_efficient_in_condition' :
+                    sample_dir = os.path.join(generated_image_folder_dir, folder)
                     print(f'sample_dir : {sample_dir}')
                     images = os.listdir(sample_dir)
                     for image in images :
@@ -27,6 +27,7 @@ def main(args) :
                         os.makedirs(epoch_dir, exist_ok=True)
                         new_dir = os.path.join(epoch_dir, image)
                         os.rename(image_dir, new_dir)
+                """
                 elif folder == 'inference_sample' :
                     inference_sample_dir = os.path.join(generated_image_folder_dir, 'inference_sample')
                     images = os.listdir(inference_sample_dir)
@@ -39,10 +40,7 @@ def main(args) :
                         os.makedirs(epoch_dir, exist_ok=True)
                         new_dir = os.path.join(epoch_dir, image)
                         os.rename(image_dir, new_dir)
-
-
-
-
+                """
 
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
