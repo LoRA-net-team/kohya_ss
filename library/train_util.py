@@ -4148,7 +4148,8 @@ def sample_images_common(pipe_class,
     unet,
     prompt_replacement=None,
     controlnet=None,
-    attention_storer=None, efficient=False):
+    attention_storer=None, efficient=False,
+                         save_folder_name = None):
 
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
@@ -4221,7 +4222,7 @@ def sample_images_common(pipe_class,
     pipeline.to(device)
     save_dir = args.output_dir + "/sample"
     if efficient :
-        save_dir = args.output_dir + "/inference_sample"
+        save_dir = os.path.join(args.output_dir,f"inference_{save_folder_name}")
     os.makedirs(save_dir, exist_ok=True)
     rng_state = torch.get_rng_state()
     cuda_rng_state = torch.cuda.get_rng_state() if torch.cuda.is_available() else None

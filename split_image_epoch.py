@@ -39,7 +39,7 @@ def main(args) :
                         os.makedirs(epoch_dir, exist_ok=True)
                         new_dir = os.path.join(epoch_dir, image)
                         os.rename(image_dir, new_dir)
-            
+
 
 
 
