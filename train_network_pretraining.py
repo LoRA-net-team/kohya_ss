@@ -81,6 +81,9 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
+                controller.cross_query_key_value_caching(query,key,value, layer_name)
+
+
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -492,16 +495,16 @@ class NetworkTrainer:
             t_enc.requires_grad_(False)
         print("\n step 11-1. module to accelerate")
         if len(text_encoders) > 1:
-            t_enc1, t_enc2, t_org_enc1, t_org_enc2, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(text_encoders[0], text_encoders[1],
+            t_enc1, t_enc2, t_org_enc1, t_org_enc2, network, optimizer, pretraining_dataloader, lr_scheduler, unet_org = accelerator.prepare(text_encoders[0], text_encoders[1],
                                                                                                                                    text_encoders_org[0],text_encoders_org[1],
                                                                                                                                    network,optimizer,pretraining_dataloader,
-                                                                                                                                   lr_scheduler)
+                                                                                                                                   lr_scheduler, unet_org)
             text_encoder = text_encoders = [t_enc1, t_enc2]
             text_encoder_org = text_encoders_org = [t_org_enc1,t_org_enc2]
             del t_enc1, t_enc2, t_org_enc1,t_org_enc2
         else:
-            text_encoder, text_encoder_org, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(text_encoder, text_encoder_org,
-                                                                                                                           network, optimizer, pretraining_dataloader, lr_scheduler)
+            text_encoder, text_encoder_org, network, optimizer, pretraining_dataloader, lr_scheduler, unet_org = accelerator.prepare(text_encoder, text_encoder_org,
+                                                                                                                           network, optimizer, pretraining_dataloader, lr_scheduler, unet_org)
             text_encoders = [text_encoder]
             text_encoders_org = [text_encoder_org]
 
@@ -661,15 +664,17 @@ class NetworkTrainer:
         num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
-        if args.heatmap_loss:
-            attention_storer = AttentionStore()
-            register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
-        else:
-            attention_storer = None
+
+        attention_storer = AttentionStore()
+        register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+        attention_storer_org = AttentionStore()
+        register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
+
 
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
         text_encoder_org = accelerator.unwrap_model(text_encoder_org)
+
         # 学習する
         # TODO: find a way to handle total batch size when there are multiple datasets
         total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -930,11 +935,8 @@ class NetworkTrainer:
         for epoch in range(num_train_epochs):
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
-
             metadata["ss_epoch"] = str(epoch + 1)
-
             network.on_epoch_start(text_encoder, unet)
-
             for step, batch in enumerate(train_dataloader):
                 print(f'step : {step}')
                 current_step.value = global_step
@@ -986,22 +988,9 @@ class NetworkTrainer:
                         target = noise
                     ### Masked loss ###
                     if args.masked_loss:
-                        # get mask images then set to device
-                        # batch['mask_imgs'] is actually List[Tensor]
-                        # for each images, get mask image and resize to noise_pred size
-                        # we may not be able to use batch['mask_imgs'] directly because of different image size
-                        # interpolating F.interpolate(mask, model_output.size()[-2:], mode='bilinear')
-                        # noise_pred is (batch_size, 3, 256, 256), mask should be 256, 256
-                        # noise_pred:torch.Tensor
-                        # print("noise_pred size: ", noise_pred.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
-                        # print("mask_imgs size: ", batch['mask_imgs'][0].size()) # debug, it is [256, 256]
-                        # print("target size: ", target.size()) # debug [2,4,256,256] [batch_size, 4, 256, 256] # 4 is timestep?
-                        # [256, 256] -> [1, 1, 256, 256]
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
-                        # interpolate
                         mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in
                                      mask_imgs]
-                        # to Tensor
                         mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
                         # print("mask_imgs size: ", mask_imgs[0].size()) # debug
                         # multiply mask to noise_pred and target
@@ -1049,12 +1038,63 @@ class NetworkTrainer:
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
+
+                # -----------------------------------------
                 if args.scale_weight_norms:
-                    keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(
-                        args.scale_weight_norms, accelerator.device)
+                    keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
+                # -----------------------------------------------------------------------------------------------------------------------------------------------
+                for batch in pretraining_dataloader:
+                    class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
+                                                                                batch["class_caption"],
+                                                                                accelerator.device,
+                                                                                args.max_token_length // 75 if args.max_token_length else 1,
+                                                                                clip_skip=args.clip_skip, )
+                    with accelerator.autocast():
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
+                                                    class_captions_hidden_states,
+                                                    batch, weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    # trg_index_list,
+                                                    batch['mask_imgs'])
+                        cross_key_collection_dict = attention_storer.cross_key_store
+                        cross_value_collection_dict = attention_storer.cross_value_store
+                        attention_storer.reset()
+
+
+                    class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,
+                                                                                batch["class_caption"],
+                                                                                accelerator.device,
+                                                                                args.max_token_length // 75 if args.max_token_length else 1,
+                                                                                clip_skip=args.clip_skip, )
+                    unet_org = accelerator.prepare(unet_org)
+                    with accelerator.autocast():
+                        noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
+                                                    class_captions_lora_states,
+                                                    batch, weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    # trg_index_list,
+                                                    batch['mask_imgs'])
+                        cross_key_collection_dict_org = attention_storer_org.cross_key_store
+                        cross_value_collection_dict_org = attention_storer_org.cross_value_store
+                        attention_storer_org.reset()
+                    #print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
+                    #pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
+                    #                                                concept_captions_lora_hidden_states.float(),
+                    #                                                reduction="none")
+                    # pretraining_losses["loss/preservating_loss"] = preservating_loss.mean().item()
+                    # pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
+                    #if is_main_process:
+                        # accelerator.log(pretraining_losses)
+                    #    wandb.log(pretraining_losses)
+                    # te_loss = preservating_loss.mean() + pretraining_loss.mean()
+                    #te_loss = pretraining_loss.mean()
+                    #accelerator.backward(te_loss)
+                    #optimizer.step()
+                    #lr_scheduler.step()
+
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
@@ -1147,6 +1187,7 @@ class NetworkTrainer:
 
             # ------------------------------------------------------------------------------------------------------
             # 2) make empty network
+            unet_org = accelerator.unwrap_model(unet_org)
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
             temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,block_wise=None,
                                                                                   vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
