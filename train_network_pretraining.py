@@ -611,7 +611,7 @@ class NetworkTrainer:
             text_encoders = [text_encoder]
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
-        unet_org = train_util.transform_models_if_DDP([unet_org])
+        #unet_org = train_util.transform_models_if_DDP([unet_org])
 
         if args.gradient_checkpointing:
             # according to TI example in Diffusers, train is required
