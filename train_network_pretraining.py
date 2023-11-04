@@ -1062,7 +1062,10 @@ class NetworkTrainer:
                                                     batch, weight_dtype, None, None)
                         cross_key_collection_dict_org = attention_storer_org.cross_key_store
                         cross_value_collection_dict_org = attention_storer_org.cross_value_store
+                        layer_names = cross_key_collection_dict_org.keys()
+                        print(f'stored layer name of crossattn k,v : {layer_names}')
                         attention_storer_org.reset()
+                    """
                     # ------------------------------------------------------------------------------------------------------------------------------
                     class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],
                                                                                 accelerator.device,
@@ -1075,9 +1078,8 @@ class NetworkTrainer:
                                                     None, None)
                         cross_key_collection_dict = attention_storer.cross_key_store
                         cross_value_collection_dict = attention_storer.cross_value_store
-                        attention_storer_org.reset()
-                    layer_names = cross_key_collection_dict_org.keys()
-                    print(f'stored layer name of crossattn k,v : {layer_names}')
+                        attention_storer.reset()                    
+                    
 
                     preservating_loss = 0
                     for layer_name in layer_names:
@@ -1095,6 +1097,7 @@ class NetworkTrainer:
                         print(f"p_loss: {p_loss.shape}")
                         preservating_loss += p_loss.mean()
                     attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
+                    
                     # pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                     if is_main_process:
                         # accelerator.log(pretraining_losses)
@@ -1102,7 +1105,7 @@ class NetworkTrainer:
                     accelerator.backward(preservating_loss)
                     optimizer.step()
                     lr_scheduler.step()
-
+                    """
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
