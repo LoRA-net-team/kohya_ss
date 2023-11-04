@@ -956,6 +956,7 @@ class NetworkTrainer:
                                                                                                        latents)
                     
                     # Predict the noise residual
+                    """
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                     text_encoder_conds,
@@ -1024,7 +1025,7 @@ class NetworkTrainer:
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
-                    
+                    """
                 # -----------------------------------------
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
@@ -1052,7 +1053,7 @@ class NetworkTrainer:
                         layer_names = cross_key_collection_dict_org.keys()
                         print(f'stored layer name of crossattn k,v : {layer_names}')
                         attention_storer_org.reset()
-                    
+                    """
                     # ------------------------------------------------------------------------------------------------------------------------------
                     class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],
                                                                                 accelerator.device,
@@ -1084,12 +1085,12 @@ class NetworkTrainer:
                         print(f"p_loss: {p_loss.shape}")
                         preservating_loss += p_loss.mean()
                     attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
-                    
+                    """
                     # pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                     if is_main_process:
                         # accelerator.log(pretraining_losses)
                         wandb.log(attention_losses)
-                    accelerator.backward(preservating_loss)
+                    #accelerator.backward(preservating_loss)
                     optimizer.step()
                     lr_scheduler.step()
                     
@@ -1117,7 +1118,7 @@ class NetworkTrainer:
                                 remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
                                 remove_model(remove_ckpt_name)
 
-                current_loss = loss.detach().item()
+                #current_loss = loss.detach().item()
                 if epoch == 0:
                     loss_list.append(current_loss)
                 else:
@@ -1133,7 +1134,7 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
-                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
+                    #logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
                     if is_main_process:
                         #wandb_tracker = accelerator.get_tracker("wandb")
