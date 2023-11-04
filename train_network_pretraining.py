@@ -1047,14 +1047,16 @@ class NetworkTrainer:
                     for layer_name in layer_names:
 
                         org_key_list = cross_key_collection_dict_org[layer_name]
+                        org_value_list = cross_value_collection_dict_org[layer_name]
+                        org_cond = torch.cat(org_key_list + org_value_list, dim=0)
+                        print(f'org_value_list : {org_value_list[0].shape}')
                         print(f'org_key_list: {len(org_key_list)} : {org_key_list[0].shape}')
+                        print(f'org_cond: {org_cond.shape}')
                         lora_key_list = cross_key_collection_dict[layer_name]
 
 
-                        org_value_list = cross_value_collection_dict_org[layer_name]
-                        print(f'org_value_list : {org_value_list[0].shape}')
                         lora_value_list = cross_value_collection_dict[layer_name]
-                        #org_cond = torch.cat(org_key_list + org_value_list, dim=0)
+                        #
 
 
 
