@@ -905,9 +905,7 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         # ------------------------------------------------------------------------------------------------------
         # sampling right after text pretraining
-        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
-
-
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
@@ -1013,89 +1011,83 @@ class NetworkTrainer:
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
-                # -------------------------------------------------------------------------------------------------------------------------------------------------
-                # 3) preserving loss
-                print(f' From Preserving loss')
-                for batch in pretraining_dataloader:
-                    unet_org = accelerator.prepare(unet_org)
-                    class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
-                                                                                batch["class_caption"],accelerator.device,
-                                                                                args.max_token_length // 75 if args.max_token_length else 1,
-                                                                                clip_skip=args.clip_skip,)
 
-                    with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
-                                                    class_captions_hidden_states,batch, weight_dtype, None, None)
-                        cross_key_collection_dict_org = attention_storer_org.cross_key_store
-                        cross_value_collection_dict_org = attention_storer_org.cross_value_store
-                        layer_names = cross_key_collection_dict_org.keys()
-                        attention_storer_org.reset()
-
-                    class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],accelerator.device,
-                                                                               args.max_token_length // 75 if args.max_token_length else 1,
-                                                                               clip_skip=args.clip_skip, )
-                    print(f'class_captions_hidden_states (from lora loaded text encoder ) : {class_captions_hidden_states.shape}')
-                    with accelerator.autocast():
-                        attention_storer.reset()
-                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_lora_states, batch, weight_dtype,None, None)
-                        cross_key_collection_dict = attention_storer.cross_key_store
-                        cross_value_collection_dict = attention_storer.cross_value_store
-                        attention_storer.reset()
-
-                    preservating_loss = 0
-                    for layer_name in layer_names:
-                        org_key_list = cross_key_collection_dict_org[layer_name]
-                        org_value_list = cross_value_collection_dict_org[layer_name]
-                        org_cond = torch.cat(org_key_list + org_value_list, dim=0)
-
-                        lora_key_list = cross_key_collection_dict[layer_name]
-                        lora_value_list = cross_value_collection_dict[layer_name]
-                        print(f'lora_key_list : {len(lora_key_list)} : {lora_key_list[0].shape}')
-                        print(f'lora_value_list : {len(lora_value_list)} : {lora_value_list[0].shape}')
-                        lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
-                        p_loss = torch.nn.functional.mse_loss(lora_cond.float(),
-                                                              org_cond.float(),
-                                                              reduction="none")
-                        preservating_loss += p_loss.mean()
-                    attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
-
-
-
-
-                    """
-                    # pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
-                    if is_main_process:
-                        # accelerator.log(pretraining_losses)
-                        wandb.log(attention_losses)
-                    #accelerator.backward(preservating_loss)
-                    optimizer.step()
-                    lr_scheduler.step()
-                    
-
-                # Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
-                    # ------------------------------------------------------------------------------------------------------------------------------------------
-                    # sampling every step
-                    self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-                    #if attention_storer is not None:
-                    #    attention_storer.step_store = {}
-                    # 指定ステップごとにモデルを保存
-                    if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
-                        accelerator.wait_for_everyone()
-                        if accelerator.is_main_process:
-                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
-                            save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
-                            if args.save_state:
-                                train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
 
-                            remove_step_no = train_util.get_remove_step_no(args, global_step)
-                            if remove_step_no is not None:
-                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
-                                remove_model(remove_ckpt_name)
+            # -------------------------------------------------------------------------------------------------------------------------------------------------
+            # 3) preserving loss
+            print(f' From Preserving loss')
+            for batch in pretraining_dataloader:
+                unet_org = accelerator.prepare(unet_org)
+                class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,batch["class_caption"],accelerator.device,
+                                                                            args.max_token_length // 75 if args.max_token_length else 1,
+                                                                            clip_skip=args.clip_skip,)
 
-                #current_loss = loss.detach().item()
+                with accelerator.autocast():
+                    noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
+                                                class_captions_hidden_states,batch, weight_dtype, None, None)
+                    cross_key_collection_dict_org = attention_storer_org.cross_key_store
+                    cross_value_collection_dict_org = attention_storer_org.cross_value_store
+                    layer_names = cross_key_collection_dict_org.keys()
+                    attention_storer_org.reset()
+
+                class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],accelerator.device,
+                                                                           args.max_token_length // 75 if args.max_token_length else 1,
+                                                                           clip_skip=args.clip_skip, )
+                with accelerator.autocast():
+                    attention_storer.reset()
+                    noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_lora_states, batch, weight_dtype,None, None)
+                    cross_key_collection_dict = attention_storer.cross_key_store
+                    cross_value_collection_dict = attention_storer.cross_value_store
+                    attention_storer.reset()
+
+                preservating_loss = 0
+
+                for layer_name in layer_names:
+
+                    org_key_list = cross_key_collection_dict_org[layer_name]
+                    org_value_list = cross_value_collection_dict_org[layer_name]
+                    org_cond = torch.cat(org_key_list + org_value_list, dim=0)
+
+                    lora_key_list = cross_key_collection_dict[layer_name]
+                    lora_value_list = cross_value_collection_dict[layer_name]
+                    lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
+
+                    p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
+                    preservating_loss += p_loss.mean()
+                attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
+                if is_main_process:
+                    wandb.log(attention_losses)
+                optimizer.step()
+                lr_scheduler.step()
+                accelerator.backward(preservating_loss)
+
+                # Checks if the accelerator has performed an optimization step behind the scenes
+                # ------------------------------------------------------------------------------------------------------------------------------------------
+                """
+                # sampling every step
+                self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
+                #if attention_storer is not None:
+                #    attention_storer.step_store = {}
+                # 指定ステップごとにモデルを保存
+                if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
+                    accelerator.wait_for_everyone()
+                    if accelerator.is_main_process:
+                        ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
+                        save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
+                        if args.save_state:
+                            train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
+
+                        remove_step_no = train_util.get_remove_step_no(args, global_step)
+                        if remove_step_no is not None:
+                            remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
+                            remove_model(remove_ckpt_name)
+                """
+                # -------------------------------------------------------------------------------------------------------------------------------------------------
+                # showing loss without preservating loss
+                current_loss = loss.detach().item()
                 if epoch == 0:
                     loss_list.append(current_loss)
                 else:
@@ -1106,7 +1098,6 @@ class NetworkTrainer:
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 # detach attention_losses dict
                 attention_losses = {k: v.detach().item() for k, v in attention_losses.items()}
-
                 progress_bar.set_postfix(**logs)
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
@@ -1165,8 +1156,7 @@ class NetworkTrainer:
             # 2) make empty network
             unet_org = accelerator.unwrap_model(unet_org)
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
-            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,block_wise=None,
-                                                                                  vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
+            temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,block_wise=None, vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
                                                                                   weights_sd=weights_sd,for_inference=False,)
             text_encoder_loras = temp_network.text_encoder_loras
             for text_encoder_lora in text_encoder_loras :
@@ -1180,25 +1170,22 @@ class NetworkTrainer:
                 unet_lora.lora_down.weight.data = weights_sd[f'{lora_name}.lora_down.weight']
                 unet_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
                 unet_lora.to(weight_dtype).to(accelerator.device)
-
             # 3) to accelerator.devicef
             vae_copy.to(weight_dtype).to(accelerator.device)
             unet_copy.to(weight_dtype).to(accelerator.device)
             text_encoder_copy.to(weight_dtype).to(accelerator.device)
             # 4) applying to deeplearning network
             temp_network.apply_to(text_encoder_org, unet_org)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
-                               text_encoder_copy, unet_copy, efficient=True)
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy, unet_copy, efficient=True)
 
+
+        # ------------------------------------------------------------------------------------------------------
         metadata["ss_training_finished_at"] = str(time.time())
         if is_main_process:
             network = accelerator.unwrap_model(network)
-
         accelerator.end_training()
-
         if is_main_process and args.save_state:
             train_util.save_state_on_train_end(args, accelerator)
-
         if is_main_process:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
@@ -1210,7 +1197,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-        """
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
