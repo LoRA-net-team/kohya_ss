@@ -77,8 +77,9 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                                              query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
-
+            print(f'register attention control function (all)')
             if is_cross_attention:
+                print(f'register attention control function(cross)')
                 key, value = controller.cross_key_value_caching(key, value, layer_name)
 
                 if trg_indexs_list is not None and mask is not None:
@@ -933,7 +934,7 @@ class NetworkTrainer:
             network.on_epoch_start(text_encoder, unet)
             for step, batch in enumerate(train_dataloader):
                 print(f'step : {step}')
-                
+
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -1057,8 +1058,10 @@ class NetworkTrainer:
                                                                                 accelerator.device,
                                                                                 args.max_token_length // 75 if args.max_token_length else 1,
                                                                                 clip_skip=args.clip_skip, )
+                    print(f'class_captions_hidden_states size: {class_captions_hidden_states.shape}')
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps, class_captions_hidden_states,
+                        noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
+                                                    class_captions_hidden_states,
                                                     batch, weight_dtype, None, None)
                         cross_key_collection_dict_org = attention_storer_org.cross_key_store
                         cross_value_collection_dict_org = attention_storer_org.cross_value_store
