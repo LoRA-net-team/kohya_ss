@@ -601,7 +601,7 @@ class NetworkTrainer:
 
         print("\n step 11-2. module to accelerate")
         if len(text_encoders) > 1:
-            unet, unet_org,t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+            unet, unet_org, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                 unet, unet_org,text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
             text_encoder = text_encoders = [t_enc1, t_enc2]
             del t_enc1, t_enc2
@@ -611,7 +611,7 @@ class NetworkTrainer:
             text_encoders = [text_encoder]
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
-        unet_org = train_util.transform_models_if_DDP(unet_org)
+        unet_org = train_util.transform_models_if_DDP([unet_org])
 
         if args.gradient_checkpointing:
             # according to TI example in Diffusers, train is required
