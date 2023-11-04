@@ -242,8 +242,12 @@ class NetworkTrainer:
         noise_pred = unet(noisy_latents, timesteps, text_conds, trg_indexs_list=trg_indexs_list, mask_imgs=mask_imgs, ).sample
         return noise_pred
 
-    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=False):
-        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=efficient)
+    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                      efficient=False,
+                      save_folder_name=None):
+        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                                 efficient=efficient,
+                                 save_folder_name=save_folder_name)
 
     def get_input_ids(self, args, caption, tokenizer):
         tokenizer_max_length = args.max_token_length + 2
@@ -519,34 +523,26 @@ class NetworkTrainer:
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
         pretraining_losses = {}
-
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
-                class_caption = batch['class_caption']
                 class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                   batch["class_caption"], accelerator.device,
                                                                   args.max_token_length // 75 if args.max_token_length else 1,
                                                                   clip_skip=args.clip_skip, )
 
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-                concept_caption = batch['concept_caption']
                 concept_captions_lora_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder,
                                                                   batch['concept_caption'], accelerator.device,
                                                                   args.max_token_length // 75 if args.max_token_length else 1,
                                                                   clip_skip=args.clip_skip, )
 
-                # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # shape = [3,77,768]
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_lora_hidden_states.float(),
                                                                 reduction="none")
-                #pretraining_losses["loss/preservating_loss"] = preservating_loss.mean().item()
                 pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                 if is_main_process:
-                    # accelerator.log(pretraining_losses)
                     wandb.log(pretraining_losses)
-                #te_loss = preservating_loss.mean() + pretraining_loss.mean()
                 te_loss = pretraining_loss.mean()
                 accelerator.backward(te_loss)
                 optimizer.step()
@@ -558,13 +554,13 @@ class NetworkTrainer:
         unet_key_names = args.unet_net_key_names.split(",")
         network.add_unet_module(unet, net_key_names=unet_key_names)
         network.apply_unet_to(apply_unet=True, )
+
         print("\n step 8-2. optimizer (with only text encoder loras)")
         try:
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
         except TypeError:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
-
         if args.te_freeze :
             trainable_params = [trainable_params[-1]]
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
@@ -608,7 +604,6 @@ class NetworkTrainer:
         unet, network = train_util.transform_models_if_DDP([unet, network])
 
         if args.gradient_checkpointing:
-            # according to TI example in Diffusers, train is required
             unet.train()
             for t_enc in text_encoders:
                 t_enc.train()
@@ -642,13 +637,10 @@ class NetworkTrainer:
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
-        print(f' Test ')
         attention_storer = AttentionStore()
         register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
-        print(f' ORG ')
         attention_storer_org = AttentionStore()
         register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
-
 
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
@@ -774,24 +766,15 @@ class NetworkTrainer:
                             v = image_dir_or_metadata_file + f" ({i})"
                             i += 1
                         image_dir_or_metadata_file = v
-
-                        dataset_dirs_info[image_dir_or_metadata_file] = {
-                            "n_repeats": subset.num_repeats,
-                            "img_count": subset.img_count,
-                        }
-
+                        dataset_dirs_info[image_dir_or_metadata_file] = {"n_repeats": subset.num_repeats,"img_count": subset.img_count,}
                 dataset_metadata["subsets"] = subsets_metadata
                 datasets_metadata.append(dataset_metadata)
 
                 # merge tag frequency:
                 for ds_dir_name, ds_freq_for_dir in dataset.tag_frequency.items():
-                    # あるディレクトリが複数のdatasetで使用されている場合、一度だけ数える
-                    # もともと繰り返し回数を指定しているので、キャプション内でのタグの出現回数と、それが学習で何度使われるかは一致しない
-                    # なので、ここで複数datasetの回数を合算してもあまり意味はない
                     if ds_dir_name in tag_frequency:
                         continue
                     tag_frequency[ds_dir_name] = ds_freq_for_dir
-
             metadata["ss_datasets"] = json.dumps(datasets_metadata)
             metadata["ss_tag_frequency"] = json.dumps(tag_frequency)
             metadata["ss_dataset_dirs"] = json.dumps(dataset_dirs_info)
@@ -805,19 +788,17 @@ class NetworkTrainer:
             if use_dreambooth_method:
                 for subset in dataset.subsets:
                     info = reg_dataset_dirs_info if subset.is_reg else dataset_dirs_info
-                    info[os.path.basename(subset.image_dir)] = {"n_repeats": subset.num_repeats,
-                                                                "img_count": subset.img_count}
+                    info[os.path.basename(subset.image_dir)] = {"n_repeats": subset.num_repeats,"img_count": subset.img_count}
             else:
                 for subset in dataset.subsets:
                     dataset_dirs_info[os.path.basename(subset.metadata_file)] = {"n_repeats": subset.num_repeats,"img_count": subset.img_count,}
             metadata.update(
-                {
-                    "ss_batch_size_per_device": args.train_batch_size,
-                    "ss_total_batch_size": total_batch_size,
-                    "ss_resolution": args.resolution,
-                    "ss_color_aug": bool(args.color_aug),
-                    "ss_flip_aug": bool(args.flip_aug),
-                    "ss_random_crop": bool(args.random_crop),
+                {"ss_batch_size_per_device": args.train_batch_size,
+                 "ss_total_batch_size": total_batch_size,
+                 "ss_resolution": args.resolution,
+                 "ss_color_aug": bool(args.color_aug),
+                 "ss_flip_aug": bool(args.flip_aug),
+                 "ss_random_crop": bool(args.random_crop),
                     "ss_shuffle_caption": bool(args.shuffle_caption),
                     "ss_enable_bucket": bool(dataset.enable_bucket),
                     "ss_bucket_no_upscale": bool(dataset.bucket_no_upscale),
@@ -891,21 +872,21 @@ class NetworkTrainer:
             metadata["ss_training_finished_at"] = str(time.time())
             metadata["ss_steps"] = str(steps)
             metadata["ss_epoch"] = str(epoch_no)
-
             metadata_to_save = minimum_metadata if args.no_metadata else metadata
             sai_metadata = train_util.get_sai_model_spec(None, args, self.is_sdxl, True, False)
             metadata_to_save.update(sai_metadata)
-
             unwrapped_nw.save_weights(ckpt_file, save_dtype, metadata_to_save)
             if args.huggingface_repo_id is not None:
                 huggingface_util.upload(args, ckpt_file, "/" + ckpt_name, force_sync_upload=force_sync_upload)
 
         if is_main_process :
+            # -------------------------------------------------------------------------------------------------
+            # saving pretrained model
             ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, 0)
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         # ------------------------------------------------------------------------------------------------------
         # sampling right after text pretraining
-        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
@@ -998,8 +979,8 @@ class NetworkTrainer:
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         if args.heatmap_backprop:
                             loss = task_loss + args.attn_loss_ratio * attn_loss
-                    else:
-                        attention_losses = {}
+                    #else:
+                    #    attention_losses = {}
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1012,11 +993,7 @@ class NetworkTrainer:
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
 
-                if accelerator.sync_gradients:
-                    progress_bar.update(1)
-                    global_step += 1
-                if is_main_process :
-                    wandb.log(attention_losses)
+
 
             # -------------------------------------------------------------------------------------------------------------------------------------------------
             # 3) preserving loss
@@ -1064,11 +1041,12 @@ class NetworkTrainer:
                 loss = loss + preservating_loss/20
                 attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
 
-                #optimizer.step()
-                #lr_scheduler.step()
-                #accelerator.backward(preservating_loss)
+                if accelerator.sync_gradients:
+                    progress_bar.update(1)
+                    global_step += 1
                 if is_main_process:
                     wandb.log(attention_losses)
+
                 accelerator.backward(loss)
                 optimizer.step()
                 lr_scheduler.step()
@@ -1117,11 +1095,12 @@ class NetworkTrainer:
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
-                    #logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
+                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
+                    logs.update(attention_losses)
                     accelerator.log(logs, step=global_step)
-                    #if is_main_process:
+                    if is_main_process:
                         #wandb_tracker = accelerator.get_tracker("wandb")
-                        #wandb.log(logs)
+                        wandb.log(logs)
                         #wandb.log(attention_losses)
 
                 if global_step >= args.max_train_steps:
@@ -1194,7 +1173,10 @@ class NetworkTrainer:
             text_encoder_copy.to(weight_dtype).to(accelerator.device)
             # 4) applying to deeplearning network
             temp_network.apply_to(text_encoder_org, unet_org)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy, unet_copy, efficient=True)
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
+                               text_encoder_copy, unet_copy,
+                               efficient=True,
+                               save_folder_name = args.save_folder_name)
             attention_storer_org.reset()
 
 
@@ -1291,6 +1273,7 @@ if __name__ == "__main__":
     parser.add_argument("--te_freeze", action='store_true')
     parser.add_argument("--efficient_layer", type=str)
     parser.add_argument("--unefficient_layer", type=str)
+    parser.add_argument("--save_folder_name", type=str, default=None)
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
