@@ -409,7 +409,7 @@ class NetworkTrainer:
                                                              batch_size=args.train_batch_size,
                                                              shuffle=True,
                                                              num_workers=n_workers,
-                                                             persistent_workers=args.persistent_data_loader_workers, )
+                                                             persistent_workers=args.persistent_data_loader_workers,)
 
 
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
