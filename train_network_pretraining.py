@@ -1099,7 +1099,11 @@ class NetworkTrainer:
                 avr_loss = loss_total / len(loss_list)
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 # detach attention_losses dict
-                attention_losses = {k: v.detach().item() for k, v in attention_losses.items()}
+                for k, v in attention_losses.items() :
+                    if type(v) == torch.Tensor:
+                        attention_losses[k] = v.detach().item()
+                    else :
+                        attention_losses[k] = v
                 progress_bar.set_postfix(**logs)
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
