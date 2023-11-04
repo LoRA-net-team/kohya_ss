@@ -15,7 +15,7 @@ def main(args) :
             folders = os.listdir(generated_image_folder_dir)
             for folder in folders :
                 if folder == 'sample' :
-                    sample_dir = os.path.join(generated_image_folder_dir, 'sample')
+                    sample_dir = os.path.join(generated_image_folder_dir, 'inference_efficient_in_condition')
                     print(f'sample_dir : {sample_dir}')
                     images = os.listdir(sample_dir)
                     for image in images :
