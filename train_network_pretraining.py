@@ -79,6 +79,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
                 key, value = controller.cross_key_value_caching(key, value, layer_name)
+                print(f'key.shape: {key.shape} | value : {value.shape}')
 
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
