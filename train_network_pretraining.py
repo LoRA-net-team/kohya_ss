@@ -977,7 +977,7 @@ class NetworkTrainer:
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
                     attention_losses = {}
-                    attention_losses["loss/task_loss"] = loss
+                    attention_losses["loss/task_loss"]  = loss
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 2) heatmap loss
