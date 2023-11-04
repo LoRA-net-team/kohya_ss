@@ -14,7 +14,7 @@ def main(args) :
             generated_image_folder_dir = os.path.join(args.generated_image_folder, generated_image_folder)
             folders = os.listdir(generated_image_folder_dir)
             for folder in folders :
-                if folder == 'inference_efficient_in_condition' :
+                if folder == args.trg_folder :
                     sample_dir = os.path.join(generated_image_folder_dir, folder)
                     print(f'sample_dir : {sample_dir}')
                     images = os.listdir(sample_dir)
@@ -47,5 +47,6 @@ if __name__ == '__main__' :
     parser.add_argument('--generated_image_folder',
                         default='/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/perfusion_experiment/td_experiment/one_image')
     parser.add_argument('--trg_condition', type=str,)
+    parser.add_argument('--trg_folder', type=str,)
     args = parser.parse_args()
     main(args)
