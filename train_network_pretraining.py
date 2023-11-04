@@ -1036,6 +1036,7 @@ class NetworkTrainer:
                                                                                clip_skip=args.clip_skip, )
                     print(f'class_captions_hidden_states (from lora loaded text encoder) : {class_captions_hidden_states.shape}')
                     with accelerator.autocast():
+                        attention_storer.reset()
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_lora_states, batch, weight_dtype,None, None)
                         cross_key_collection_dict = attention_storer.cross_key_store
                         cross_value_collection_dict = attention_storer.cross_value_store
