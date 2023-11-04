@@ -525,11 +525,17 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 class_caption = batch['class_caption']
-                class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
-                class_captions_hidden_states = train_util.get_hidden_states(args,
-                                                                            class_token_ids.to(accelerator.device),
-                                                                            tokenizers[0], text_encoders_org[0],
-                                                                            weight_dtype)
+                print(f'class_caption : {class_caption}')
+                #class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
+                #class_captions_hidden_states = train_util.get_hidden_states(args,
+                #                                                            class_token_ids.to(accelerator.device),
+                #                                                            tokenizers[0], text_encoders_org[0],
+                #                                                            weight_dtype)
+                class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
+                                                                  batch["captions"], accelerator.device,
+                                                                  args.max_token_length // 75 if args.max_token_length else 1,
+                                                                  clip_skip=args.clip_skip, )
+
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -537,15 +543,21 @@ class NetworkTrainer:
                 #                                                                   tokenizers[0], text_encoders[0],
                 #                                                                   weight_dtype)
                 concept_caption = batch['concept_caption']
-                concept_captions_input_ids = self.get_input_ids(args, concept_caption, tokenizer).unsqueeze(0)
-                concept_captions_lora_hidden_states = train_util.get_hidden_states(args,concept_captions_input_ids.to(accelerator.device),
-                                                                                   tokenizers[0], text_encoders[0],
-                                                                                   weight_dtype)
+                #concept_captions_input_ids = self.get_input_ids(args, concept_caption, tokenizer).unsqueeze(0)
+                #concept_captions_lora_hidden_states = train_util.get_hidden_states(args,concept_captions_input_ids.to(accelerator.device),
+                #                                                                   tokenizers[0], text_encoders[0],
+                #                                                                   weight_dtype)
+                concept_captions_lora_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder,
+                                                                  batch['concept_caption'], accelerator.device,
+                                                                  args.max_token_length // 75 if args.max_token_length else 1,
+                                                                  clip_skip=args.clip_skip, )
+
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # shape = [3,77,768]
                 #preservating_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                 #                                                 class_captions_lora_hidden_states.float(),
                 #                                                 reduction="none")
+                print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_lora_hidden_states.float(),
                                                                 reduction="none")
