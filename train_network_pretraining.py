@@ -1034,7 +1034,7 @@ class NetworkTrainer:
                     class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],accelerator.device,
                                                                                args.max_token_length // 75 if args.max_token_length else 1,
                                                                                clip_skip=args.clip_skip, )
-                    print(f'class_captions_hidden_states (from lora loaded text encoder) : {class_captions_hidden_states.shape}')
+                    print(f'class_captions_hidden_states (from lora loaded text encoder ) : {class_captions_hidden_states.shape}')
                     with accelerator.autocast():
                         attention_storer.reset()
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_lora_states, batch, weight_dtype,None, None)
