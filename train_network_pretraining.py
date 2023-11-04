@@ -138,6 +138,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
         return count
 
     cross_att_count = 0
+    print(f'registering, unet.named_children() : {unet.named_children()}')
     for net in unet.named_children():
         if "down" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
@@ -661,8 +662,8 @@ class NetworkTrainer:
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
-        attention_storer = AttentionStore()
-        register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+        #attention_storer = AttentionStore()
+        #register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
 
 
 
@@ -1044,13 +1045,14 @@ class NetworkTrainer:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
 
                 # -----------------------------------------------------------------------------------------------------------------------------------------------
-                attention_storer.reset()
+                #attention_storer.reset()
 
 
                 for batch in pretraining_dataloader:
                     # ------------------------------------------------------------------------------------------------------------------------------
                     unet_org = accelerator.prepare(unet_org)
                     attention_storer_org = AttentionStore()
+                    print(f'registering attention controller')
                     register_attention_control(unet_org, attention_storer_org,
                                                mask_threshold=args.mask_threshold)
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
@@ -1117,8 +1119,8 @@ class NetworkTrainer:
                     # ------------------------------------------------------------------------------------------------------------------------------------------
                     # sampling every step
                     self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-                    if attention_storer is not None:
-                        attention_storer.step_store = {}
+                    #if attention_storer is not None:
+                    #    attention_storer.step_store = {}
                     # 指定ステップごとにモデルを保存
                     if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
                         accelerator.wait_for_everyone()
@@ -1181,8 +1183,8 @@ class NetworkTrainer:
             # inference every epoch
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
                                text_encoder, unet)
-            if attention_storer is not None:
-                attention_storer.step_store = {}
+            #if attention_storer is not None:
+            #    attention_storer.step_store = {}
             # ------------------------------------------------------------------------------------------------------
             # learned network state dict
             weights_sd = network.state_dict()
