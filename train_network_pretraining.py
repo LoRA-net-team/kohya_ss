@@ -1116,13 +1116,14 @@ class NetworkTrainer:
             # learned network state dict
             weights_sd = network.state_dict()
             layer_names = weights_sd.keys()
-            efficient_layers = args.efficient_layer.split(",")
+            #efficient_layers = args.efficient_layer.split(",")
+            unefficient_layers = args.unefficient_layer.split(",")
             for layer_name in layer_names:
                 score = 0
-                for efficient_layer in efficient_layers:
-                    if efficient_layer in layer_name:
+                for unefficient_layer in unefficient_layers:
+                    if unefficient_layer in layer_name:
                         score += 1
-                if score == 0:
+                if score > 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
                 # because alpha is np, should be on cpu
                 weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
@@ -1146,7 +1147,7 @@ class NetworkTrainer:
                 unet_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
                 unet_lora.to(weight_dtype).to(accelerator.device)
 
-            # 3) to accelerator.device
+            # 3) to accelerator.devicef
             vae_copy.to(weight_dtype).to(accelerator.device)
             unet_copy.to(weight_dtype).to(accelerator.device)
             text_encoder_copy.to(weight_dtype).to(accelerator.device)
@@ -1248,6 +1249,7 @@ if __name__ == "__main__":
     parser.add_argument('--unet_net_key_names', default='proj_in,ff_net', type=str)
     parser.add_argument("--te_freeze", action='store_true')
     parser.add_argument("--efficient_layer", type=str)
+    parser.add_argument("--unefficient_layer", type=str)
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
