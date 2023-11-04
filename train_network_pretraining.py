@@ -1056,6 +1056,7 @@ class NetworkTrainer:
                     lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
 
                     p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
+                    print(f'p_loss : {p_loss}')
                     preservating_loss += p_loss.mean()
                 attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
                 if is_main_process:
@@ -1140,14 +1141,14 @@ class NetworkTrainer:
             # learned network state dict
             weights_sd = network.state_dict()
             layer_names = weights_sd.keys()
-            #efficient_layers = args.efficient_layer.split(",")
-            unefficient_layers = args.unefficient_layer.split(",")
+            efficient_layers = args.efficient_layer.split(",")
+            #unefficient_layers = args.unefficient_layer.split(",")
             for layer_name in layer_names:
                 score = 0
-                for unefficient_layer in unefficient_layers:
-                    if unefficient_layer in layer_name:
+                for efficient_layer in efficient_layers:
+                    if efficient_layer in layer_name:
                         score += 1
-                if score > 0:
+                if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
                 # because alpha is np, should be on cpu
                 weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
