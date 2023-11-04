@@ -64,7 +64,8 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-
+            if is_cross_attention:
+                key, value = controller.cross_key_value_caching(key, value, layer_name)
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
@@ -78,7 +79,6 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
-                key, value = controller.cross_key_value_caching(key, value, layer_name)
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -1047,11 +1047,16 @@ class NetworkTrainer:
                     for layer_name in layer_names:
 
                         org_key_list = cross_key_collection_dict_org[layer_name]
+                        print(f'org_key_list: {len(org_key_list)}')
+                        lora_key_list = cross_key_collection_dict[layer_name]
+
+
                         org_value_list = cross_value_collection_dict_org[layer_name]
+                        lora_value_list = cross_value_collection_dict[layer_name]
                         org_cond = torch.cat(org_key_list + org_value_list, dim=0)
 
-                        lora_key_list   = cross_key_collection_dict[layer_name]
-                        lora_value_list = cross_value_collection_dict[layer_name]
+
+
                         lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
 
 
