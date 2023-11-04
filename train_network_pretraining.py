@@ -1207,6 +1207,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
+        """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
