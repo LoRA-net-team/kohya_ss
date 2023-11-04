@@ -1047,28 +1047,26 @@ class NetworkTrainer:
                 # -----------------------------------------------------------------------------------------------------------------------------------------------
                 attention_storer.reset()
                 for batch in pretraining_dataloader:
+                    # ------------------------------------------------------------------------------------------------------------------------------
+                    unet_org = accelerator.prepare(unet_org)
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                                 batch["class_caption"],
                                                                                 accelerator.device,
                                                                                 args.max_token_length // 75 if args.max_token_length else 1,
                                                                                 clip_skip=args.clip_skip, )
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_hidden_states,
+                        noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps, class_captions_hidden_states,
                                                     batch, weight_dtype, None, None)
-
                         cross_key_collection_dict = attention_storer.cross_key_store
                         cross_value_collection_dict = attention_storer.cross_value_store
                         attention_storer.reset()
-
-
-                    class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,
-                                                                                batch["class_caption"],
+                    # ------------------------------------------------------------------------------------------------------------------------------
+                    class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],
                                                                                 accelerator.device,
                                                                                 args.max_token_length // 75 if args.max_token_length else 1,
                                                                                 clip_skip=args.clip_skip, )
-                    unet_org = accelerator.prepare(unet_org)
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                     class_captions_lora_states,
                                                     batch, weight_dtype,
                                                     None, None)
