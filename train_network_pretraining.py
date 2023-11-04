@@ -1076,20 +1076,26 @@ class NetworkTrainer:
                         cross_key_collection_dict_org = attention_storer_org.cross_key_store
                         cross_value_collection_dict_org = attention_storer_org.cross_value_store
                         attention_storer_org.reset()
-                    #print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
-                    #pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
-                    #                                                concept_captions_lora_hidden_states.float(),
-                    #                                                reduction="none")
-                    # pretraining_losses["loss/preservating_loss"] = preservating_loss.mean().item()
+                    layer_names = cross_key_collection_dict.keys()
+                    preservating_loss = 0
+                    for layer_name in layer_names:
+                        lora_key_list = cross_key_collection_dict[layer_name]
+                        lora_value_list = cross_value_collection_dict[layer_name]
+                        lora_cond = torch.cat(lora_key_list, lora_value_list, dim=0)
+                        org_key_list = cross_key_collection_dict_org[layer_name]
+                        org_value_list = cross_value_collection_dict_org[layer_name]
+                        org_cond = torch.cat(org_key_list, org_value_list, dim=0)
+                        preservating_loss += torch.nn.functional.mse_loss(lora_cond.float(),
+                                                                        org_cond.float(),
+                                                                        reduction="none")
+                    attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
                     # pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
-                    #if is_main_process:
+                    if is_main_process:
                         # accelerator.log(pretraining_losses)
-                    #    wandb.log(pretraining_losses)
-                    # te_loss = preservating_loss.mean() + pretraining_loss.mean()
-                    #te_loss = pretraining_loss.mean()
-                    #accelerator.backward(te_loss)
-                    #optimizer.step()
-                    #lr_scheduler.step()
+                        wandb.log(attention_losses)
+                    accelerator.backward(preservating_loss)
+                    optimizer.step()
+                    lr_scheduler.step()
 
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
