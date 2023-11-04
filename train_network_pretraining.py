@@ -977,7 +977,7 @@ class NetworkTrainer:
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
                     attention_losses = {}
-                    attention_losses["loss/task_loss"]  = loss
+                    attention_losses["loss/task_loss"] = loss
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 2) heatmap loss
@@ -1111,7 +1111,8 @@ class NetworkTrainer:
                     accelerator.log(logs, step=global_step)
                     if is_main_process:
                         #wandb_tracker = accelerator.get_tracker("wandb")
-                        wandb.log(logs)
+                        #wandb.log(logs)
+                        wandb.log(attention_losses)
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
@@ -1139,6 +1140,7 @@ class NetworkTrainer:
             # inference every epoch
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
                                text_encoder, unet)
+            attention_storer.reset()
             #if attention_storer is not None:
             #    attention_storer.step_store = {}
             # ------------------------------------------------------------------------------------------------------
@@ -1182,6 +1184,7 @@ class NetworkTrainer:
             # 4) applying to deeplearning network
             temp_network.apply_to(text_encoder_org, unet_org)
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy, unet_copy, efficient=True)
+            attention_storer_org.reset()
 
 
         # ------------------------------------------------------------------------------------------------------
