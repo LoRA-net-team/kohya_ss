@@ -1044,6 +1044,11 @@ class NetworkTrainer:
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
+
+
+
+
+
                 # -----------------------------------------------------------------------------------------------------------------------------------------------
                 attention_storer.reset()
                 for batch in pretraining_dataloader:
@@ -1057,9 +1062,9 @@ class NetworkTrainer:
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps, class_captions_hidden_states,
                                                     batch, weight_dtype, None, None)
-                        cross_key_collection_dict = attention_storer.cross_key_store
-                        cross_value_collection_dict = attention_storer.cross_value_store
-                        attention_storer.reset()
+                        cross_key_collection_dict_org = attention_storer_org.cross_key_store
+                        cross_value_collection_dict_org = attention_storer_org.cross_value_store
+                        attention_storer_org.reset()
                     # ------------------------------------------------------------------------------------------------------------------------------
                     class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],
                                                                                 accelerator.device,
@@ -1070,10 +1075,12 @@ class NetworkTrainer:
                                                     class_captions_lora_states,
                                                     batch, weight_dtype,
                                                     None, None)
-                        cross_key_collection_dict_org = attention_storer_org.cross_key_store
-                        cross_value_collection_dict_org = attention_storer_org.cross_value_store
+                        cross_key_collection_dict = attention_storer.cross_key_store
+                        cross_value_collection_dict = attention_storer.cross_value_store
                         attention_storer_org.reset()
-                    layer_names = cross_key_collection_dict.keys()
+                    layer_names = cross_key_collection_dict_org.keys()
+                    print(f'stored layer name of crossattn k,v : {layer_names}')
+
                     preservating_loss = 0
                     for layer_name in layer_names:
                         lora_key_list = cross_key_collection_dict[layer_name]
