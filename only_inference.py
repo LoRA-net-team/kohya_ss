@@ -316,7 +316,7 @@ class NetworkTrainer:
                     #unefficient_layers = args.unefficient_layer.split(",")
                     #save_folder_name = 'unefficient_' + '_'.join(efficient_layers)
                     #save_folder_name = 'efficient_' +'_'.join(efficient_layers )
-                    save_folder_name = 'efficient_in_condition'
+                    save_folder_name = args.save_folder_name
                     for layer_name in layer_names:
                         score = 0
                         for efficient_layer in efficient_layers:
@@ -427,6 +427,7 @@ if __name__ == "__main__":
     parser.add_argument("--te_freeze", action='store_true')
     parser.add_argument("--efficient_layer", type=str)
     parser.add_argument("--unefficient_layer", type=str)
+    parser.add_argument("--save_folder_name", type=str)
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
