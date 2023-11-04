@@ -561,7 +561,6 @@ class NetworkTrainer:
                 #preservating_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                 #                                                 class_captions_lora_hidden_states.float(),
                 #                                                 reduction="none")
-                print(f'class_captions_hidden_states : {class_captions_hidden_states.shape}')
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_lora_hidden_states.float(),
                                                                 reduction="none")
@@ -1081,13 +1080,17 @@ class NetworkTrainer:
                     for layer_name in layer_names:
                         lora_key_list = cross_key_collection_dict[layer_name]
                         lora_value_list = cross_value_collection_dict[layer_name]
-                        lora_cond = torch.cat(lora_key_list, lora_value_list, dim=0)
+                        lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
+
                         org_key_list = cross_key_collection_dict_org[layer_name]
                         org_value_list = cross_value_collection_dict_org[layer_name]
-                        org_cond = torch.cat(org_key_list, org_value_list, dim=0)
-                        preservating_loss += torch.nn.functional.mse_loss(lora_cond.float(),
-                                                                        org_cond.float(),
-                                                                        reduction="none")
+                        org_cond = torch.cat(org_key_list + org_value_list, dim=0)
+
+                        p_loss = torch.nn.functional.mse_loss(lora_cond.float(),
+                                                                          org_cond.float(),
+                                                                          reduction="none")
+                        print(f"p_loss: {p_loss.shape}")
+                        preservating_loss += p_loss.mean()
                     attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
                     # pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                     if is_main_process:
