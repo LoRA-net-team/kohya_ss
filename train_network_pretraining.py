@@ -79,9 +79,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
-                #controller.cross_query_key_value_caching(query,key,value, layer_name)
                 key, value = controller.cross_key_value_caching(key, value, layer_name)
-
 
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
@@ -935,6 +933,7 @@ class NetworkTrainer:
             network.on_epoch_start(text_encoder, unet)
             for step, batch in enumerate(train_dataloader):
                 print(f'step : {step}')
+                
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -965,6 +964,7 @@ class NetworkTrainer:
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
                                                                                                        noise_scheduler,
                                                                                                        latents)
+                    """
                     # Predict the noise residual
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
@@ -1034,7 +1034,7 @@ class NetworkTrainer:
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
-
+                    """
                 # -----------------------------------------
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
@@ -1042,18 +1042,16 @@ class NetworkTrainer:
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
 
-
-
-
-
                 # -----------------------------------------------------------------------------------------------------------------------------------------------
                 attention_storer.reset()
+
 
                 for batch in pretraining_dataloader:
                     # ------------------------------------------------------------------------------------------------------------------------------
                     unet_org = accelerator.prepare(unet_org)
                     attention_storer_org = AttentionStore()
-                    register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
+                    register_attention_control(unet_org, attention_storer_org,
+                                               mask_threshold=args.mask_threshold)
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                                 batch["class_caption"],
                                                                                 accelerator.device,
