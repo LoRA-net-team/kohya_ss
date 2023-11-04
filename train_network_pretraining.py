@@ -664,11 +664,11 @@ class NetworkTrainer:
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
-        #attention_storer = AttentionStore()
-        #register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+        attention_storer = AttentionStore()
+        register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
 
 
-
+        """ 
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
         text_encoder_org = accelerator.unwrap_model(text_encoder_org)
@@ -968,7 +968,7 @@ class NetworkTrainer:
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
                                                                                                        noise_scheduler,
                                                                                                        latents)
-                    """
+                    
                     # Predict the noise residual
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
@@ -1038,7 +1038,7 @@ class NetworkTrainer:
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
-                    """
+                    
                 # -----------------------------------------
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
@@ -1072,7 +1072,7 @@ class NetworkTrainer:
                         layer_names = cross_key_collection_dict_org.keys()
                         print(f'stored layer name of crossattn k,v : {layer_names}')
                         attention_storer_org.reset()
-                    """
+                    
                     # ------------------------------------------------------------------------------------------------------------------------------
                     class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],
                                                                                 accelerator.device,
@@ -1112,7 +1112,7 @@ class NetworkTrainer:
                     accelerator.backward(preservating_loss)
                     optimizer.step()
                     lr_scheduler.step()
-                    """
+                    
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
@@ -1252,7 +1252,8 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
-
+    """
+        
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
