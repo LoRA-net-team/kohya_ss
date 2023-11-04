@@ -1021,8 +1021,7 @@ class NetworkTrainer:
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                                 batch["class_caption"],accelerator.device,
                                                                                 args.max_token_length // 75 if args.max_token_length else 1,
-                                                                                clip_skip=args.clip_skip, )
-                    print(f'class_captions_hidden_states (from original text encoder) : {class_captions_hidden_states.shape}')
+                                                                                clip_skip=args.clip_skip,)
 
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
@@ -1037,29 +1036,27 @@ class NetworkTrainer:
                                                                                clip_skip=args.clip_skip, )
                     print(f'class_captions_hidden_states (from lora loaded text encoder) : {class_captions_hidden_states.shape}')
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
-                                                    class_captions_lora_states,batch, weight_dtype,None, None)
-                        cross_key_collection_dict   = attention_storer.cross_key_store
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_lora_states, batch, weight_dtype,None, None)
+                        cross_key_collection_dict = attention_storer.cross_key_store
                         cross_value_collection_dict = attention_storer.cross_value_store
                         attention_storer.reset()
 
                     preservating_loss = 0
                     for layer_name in layer_names:
-
                         org_key_list = cross_key_collection_dict_org[layer_name]
                         org_value_list = cross_value_collection_dict_org[layer_name]
                         org_cond = torch.cat(org_key_list + org_value_list, dim=0)
 
                         lora_key_list = cross_key_collection_dict[layer_name]
                         lora_value_list = cross_value_collection_dict[layer_name]
+                        print(f'lora_key_list : {len(lora_key_list)} : {lora_key_list[0].shape}')
+                        print(f'lora_value_list : {len(lora_value_list)} : {lora_value_list[0].shape}')
                         lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
-
                         p_loss = torch.nn.functional.mse_loss(lora_cond.float(),
                                                               org_cond.float(),
                                                               reduction="none")
-                        print(f"p_loss: {p_loss.shape}")
-                        #preservating_loss += p_loss.mean()
-                    #attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
+                        preservating_loss += p_loss.mean()
+                    attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
 
 
 
