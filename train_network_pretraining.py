@@ -516,7 +516,7 @@ class NetworkTrainer:
             unwrapped_nw.save_weights(ckpt_file, save_dtype,metadata=None)
 
         print("\n step 13. image inference before training anything")
-        self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
+        #self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
 
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
