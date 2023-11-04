@@ -77,9 +77,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                                              query,key.transpose(-1, -2),beta=0,alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
-            print(f'register attention control function (all)')
             if is_cross_attention:
-                print(f'register attention control function(cross)')
                 key, value = controller.cross_key_value_caching(key, value, layer_name)
 
                 if trg_indexs_list is not None and mask is not None:
@@ -138,9 +136,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
         return count
 
     cross_att_count = 0
-    print(f'registering, unet.named_children() : {unet.named_children()}')
     for net in unet.named_children():
-        print(f'net : {net[0]}')
         if "down" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
         elif "up" in net[0]:
@@ -922,8 +918,6 @@ class NetworkTrainer:
             metadata["ss_epoch"] = str(epoch + 1)
             network.on_epoch_start(text_encoder, unet)
             for step, batch in enumerate(train_dataloader):
-                print(f'step : {step}')
-
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -931,32 +925,23 @@ class NetworkTrainer:
                         if "latents" in batch and batch["latents"] is not None:
                             latents = batch["latents"].to(accelerator.device)
                         else:
-                            # latentに変換
                             latents = vae.encode(batch["images"].to(dtype=vae_dtype)).latent_dist.sample()
-                            # NaNが含まれていれば警告を表示し0に置き換える
                             if torch.any(torch.isnan(latents)):
                                 accelerator.print("NaN found in latents, replacing with zeros")
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
                     with torch.set_grad_enabled(train_text_encoder):
-                        # Get the text embedding for conditioning
                         if args.weighted_captions:
-                            text_encoder_conds = get_weighted_text_embeddings(tokenizer, text_encoder,
-                                                                              batch["captions"], accelerator.device,
+                            text_encoder_conds = get_weighted_text_embeddings(tokenizer, text_encoder, batch["captions"], accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders,
                                                                     weight_dtype)
-                    # Sample noise, sample a random timestep for each image, and add noise to the latents,
-                    # with noise offset and/or multires noise if specified
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
                                                                                                        noise_scheduler,
                                                                                                        latents)
-                    
-                    # Predict the noise residual
-                    """
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                     text_encoder_conds,
@@ -969,7 +954,6 @@ class NetworkTrainer:
                             attention_storer.step_store = {}
 
                     if args.v_parameterization:
-                        # v-parameterization training
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
@@ -979,9 +963,6 @@ class NetworkTrainer:
                         mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in
                                      mask_imgs]
                         mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
-                        # print("mask_imgs size: ", mask_imgs[0].size()) # debug
-                        # multiply mask to noise_pred and target
-                        # element-wise multiplication
                         noise_pred = noise_pred * mask_imgs
                         target = target * mask_imgs
                     batch_num = noise_pred.shape[0]
@@ -989,6 +970,7 @@ class NetworkTrainer:
                     loss = loss.mean([1, 2, 3])
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
                     loss = loss * loss_weights
+
                     if args.min_snr_gamma:
                         loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.min_snr_gamma)
                     if args.scale_v_pred_loss_like_noise_pred:
@@ -997,11 +979,12 @@ class NetworkTrainer:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
                     task_loss = loss
-                    attn_loss = 0
                     attention_losses = {}
                     attention_losses["loss/task_loss"] = loss
 
-                    # ------------------------------------------------------------------------------------
+                    # -------------------------------------------------------------------------------------------------------------------------------------------------
+                    # 2) heatmap loss
+                    attn_loss = 0
                     if args.heatmap_loss:
                         layer_names = atten_collection.keys()
                         assert len(
@@ -1025,50 +1008,37 @@ class NetworkTrainer:
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
-                    """
-                # -----------------------------------------
+
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
-
-                # -----------------------------------------------------------------------------------------------------------------------------------------------
-                #attention_storer.reset()
+                # -------------------------------------------------------------------------------------------------------------------------------------------------
+                # 3) preserving loss
                 for batch in pretraining_dataloader:
-                    # ------------------------------------------------------------------------------------------------------------------------------
                     unet_org = accelerator.prepare(unet_org)
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
-                                                                                batch["class_caption"],
-                                                                                accelerator.device,
+                                                                                batch["class_caption"],accelerator.device,
                                                                                 args.max_token_length // 75 if args.max_token_length else 1,
                                                                                 clip_skip=args.clip_skip, )
-                    print(f'class_captions_hidden_states size: {class_captions_hidden_states.shape}')
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
-                                                    class_captions_hidden_states,
-                                                    batch, weight_dtype, None, None)
+                                                    class_captions_hidden_states,batch, weight_dtype, None, None)
                         cross_key_collection_dict_org = attention_storer_org.cross_key_store
                         cross_value_collection_dict_org = attention_storer_org.cross_value_store
                         layer_names = cross_key_collection_dict_org.keys()
-                        print(f'stored layer name of crossattn k,v : {layer_names}')
                         attention_storer_org.reset()
-                    """
-                    # ------------------------------------------------------------------------------------------------------------------------------
-                    class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],
-                                                                                accelerator.device,
-                                                                                args.max_token_length // 75 if args.max_token_length else 1,
-                                                                                clip_skip=args.clip_skip, )
+
+                    class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],accelerator.device,
+                                                                               args.max_token_length // 75 if args.max_token_length else 1,
+                                                                               clip_skip=args.clip_skip, )
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
-                                                    class_captions_lora_states,
-                                                    batch, weight_dtype,
-                                                    None, None)
+                                                    class_captions_lora_states,batch, weight_dtype,None, None)
                         cross_key_collection_dict = attention_storer.cross_key_store
                         cross_value_collection_dict = attention_storer.cross_value_store
-                        attention_storer.reset()                    
-                    
-
+                        attention_storer.reset()
                     preservating_loss = 0
                     for layer_name in layer_names:
                         lora_key_list = cross_key_collection_dict[layer_name]
@@ -1085,6 +1055,10 @@ class NetworkTrainer:
                         print(f"p_loss: {p_loss.shape}")
                         preservating_loss += p_loss.mean()
                     attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
+
+
+
+
                     """
                     # pretraining_losses["loss/pretraining_loss"] = pretraining_loss.mean().item()
                     if is_main_process:

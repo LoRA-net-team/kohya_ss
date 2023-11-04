@@ -80,8 +80,6 @@ class AttentionStore :
         else :
             self.cross_key_store[layer_name].append(key_value)
             self.cross_value_store[layer_name].append(value_value)
-
-        print(f'layername : {layer_name} | cross_value_store : {self.cross_value_store.keys()}')
         return key_value, value_value
 
     def reset(self):
