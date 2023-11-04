@@ -313,16 +313,15 @@ class NetworkTrainer:
                     weights_sd = load_file(network_file)
                     layer_names = weights_sd.keys()
                     efficient_layers = args.efficient_layer.split(",")
-                    print(f'efficient_layers : {efficient_layers}')
                     #unefficient_layers = args.unefficient_layer.split(",")
                     #save_folder_name = 'unefficient_' + '_'.join(efficient_layers)
                     #save_folder_name = 'efficient_' +'_'.join(efficient_layers )
                     save_folder_name = 'efficient_in_condition'
                     for layer_name in layer_names:
-                        print(f'layer_name : {layer_name}')
                         score = 0
                         for efficient_layer in efficient_layers:
                             if efficient_layer in layer_name:
+                                print(f'efficient_layer in layer_name: {efficient_layer}')
                                 score += 1
                         if score == 0:
                             weights_sd[layer_name] = weights_sd[layer_name] * 0
