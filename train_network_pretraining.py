@@ -914,7 +914,9 @@ class NetworkTrainer:
             current_epoch.value = epoch + 1
             metadata["ss_epoch"] = str(epoch + 1)
             network.on_epoch_start(text_encoder, unet)
-            for step, batch in enumerate(train_dataloader):
+            step = 0
+            for batch, text_batch in zip(train_dataloader, pretraining_dataloader):
+            #for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -998,13 +1000,11 @@ class NetworkTrainer:
                             loss = task_loss + args.attn_loss_ratio * attn_loss
                     else:
                         attention_losses = {}
-                    accelerator.backward(loss)
+
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-                    optimizer.step()
-                    lr_scheduler.step()
-                    optimizer.zero_grad(set_to_none=True)
+
 
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
@@ -1020,11 +1020,11 @@ class NetworkTrainer:
 
             # -------------------------------------------------------------------------------------------------------------------------------------------------
             # 3) preserving loss
-            print(f' From Preserving loss')
-            loss_dict = {}
-            for batch in pretraining_dataloader:
+            ##print(f' From Preserving loss')
+            #loss_dict = {}
+            #for batch in pretraining_dataloader:
                 unet_org = accelerator.prepare(unet_org)
-                class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,batch["class_caption"],accelerator.device,
+                class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,text_batch["class_caption"],accelerator.device,
                                                                             args.max_token_length // 75 if args.max_token_length else 1,
                                                                             clip_skip=args.clip_skip,)
 
@@ -1036,9 +1036,12 @@ class NetworkTrainer:
                     layer_names = cross_key_collection_dict_org.keys()
                     attention_storer_org.reset()
 
-                class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],accelerator.device,
-                                                                           args.max_token_length // 75 if args.max_token_length else 1,
-                                                                           clip_skip=args.clip_skip, )
+                class_captions_lora_states = get_weighted_text_embeddings(tokenizer,
+                                                                          text_encoder,
+                                                                          text_batch["class_caption"],
+                                                                          accelerator.device,
+                                                                          args.max_token_length // 75 if args.max_token_length else 1,
+                                                                          clip_skip=args.clip_skip, )
                 with accelerator.autocast():
                     attention_storer.reset()
                     noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_lora_states, batch, weight_dtype,None, None)
@@ -1047,9 +1050,7 @@ class NetworkTrainer:
                     attention_storer.reset()
 
                 preservating_loss = 0
-
                 for layer_name in layer_names:
-
                     org_key_list = cross_key_collection_dict_org[layer_name]
                     org_value_list = cross_value_collection_dict_org[layer_name]
                     org_cond = torch.cat(org_key_list + org_value_list, dim=0)
@@ -1060,12 +1061,18 @@ class NetworkTrainer:
 
                     p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
                     preservating_loss += p_loss.mean()
-                loss_dict["loss/text_preservating_loss"] = preservating_loss.mean()
+                loss = loss + preservating_loss/20
+                attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
+
+                #optimizer.step()
+                #lr_scheduler.step()
+                #accelerator.backward(preservating_loss)
                 if is_main_process:
-                    wandb.log(loss_dict)
+                    wandb.log(attention_losses)
+                accelerator.backward(loss)
                 optimizer.step()
                 lr_scheduler.step()
-                accelerator.backward(preservating_loss)
+                optimizer.zero_grad(set_to_none=True)
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 # ------------------------------------------------------------------------------------------------------------------------------------------
