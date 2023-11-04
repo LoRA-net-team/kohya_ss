@@ -79,8 +79,6 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
                 key, value = controller.cross_key_value_caching(key, value, layer_name)
-                print(f'key.shape: {key.shape} | value : {value.shape}')
-
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -1017,12 +1015,15 @@ class NetworkTrainer:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
                 # -------------------------------------------------------------------------------------------------------------------------------------------------
                 # 3) preserving loss
+                print(f' From Preserving loss')
                 for batch in pretraining_dataloader:
                     unet_org = accelerator.prepare(unet_org)
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                                 batch["class_caption"],accelerator.device,
                                                                                 args.max_token_length // 75 if args.max_token_length else 1,
                                                                                 clip_skip=args.clip_skip, )
+                    print(f'class_captions_hidden_states (from original text encoder) : {class_captions_hidden_states.shape}')
+
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
                                                     class_captions_hidden_states,batch, weight_dtype, None, None)
@@ -1034,21 +1035,26 @@ class NetworkTrainer:
                     class_captions_lora_states = get_weighted_text_embeddings(tokenizer, text_encoder,batch["class_caption"],accelerator.device,
                                                                                args.max_token_length // 75 if args.max_token_length else 1,
                                                                                clip_skip=args.clip_skip, )
+                    print(f'class_captions_hidden_states (from lora loaded text encoder) : {class_captions_hidden_states.shape}')
                     with accelerator.autocast():
                         noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                     class_captions_lora_states,batch, weight_dtype,None, None)
-                        cross_key_collection_dict = attention_storer.cross_key_store
+                        cross_key_collection_dict   = attention_storer.cross_key_store
                         cross_value_collection_dict = attention_storer.cross_value_store
                         attention_storer.reset()
+
                     preservating_loss = 0
                     for layer_name in layer_names:
-                        lora_key_list = cross_key_collection_dict[layer_name]
-                        lora_value_list = cross_value_collection_dict[layer_name]
-                        lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
 
                         org_key_list = cross_key_collection_dict_org[layer_name]
                         org_value_list = cross_value_collection_dict_org[layer_name]
                         org_cond = torch.cat(org_key_list + org_value_list, dim=0)
+
+                        lora_key_list   = cross_key_collection_dict[layer_name]
+                        lora_value_list = cross_value_collection_dict[layer_name]
+                        lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
+
+
 
                         p_loss = torch.nn.functional.mse_loss(lora_cond.float(),
                                                                           org_cond.float(),
