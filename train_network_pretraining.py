@@ -323,8 +323,10 @@ class NetworkTrainer:
 
         _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
+
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+
         train_util.replace_unet_modules(unet_org, args.mem_eff_attn, args.xformers, args.sdpa)
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
@@ -444,7 +446,6 @@ class NetworkTrainer:
                 torch.cuda.empty_cache()
             gc.collect()
             accelerator.wait_for_everyone()
-        # 必要ならテキストエンコーダーの出力をキャッシュする: Text Encoderはcpuまたはgpuへ移される
         self.cache_text_encoder_outputs_if_needed(args, accelerator, unet, vae, tokenizers, text_encoders, train_dataset_group, weight_dtype)
         net_kwargs = {}
         if args.network_args is not None:
@@ -453,11 +454,9 @@ class NetworkTrainer:
                 net_kwargs[key] = value
         net_key_names = args.net_key_names
         net_kwargs['key_layers'] = net_key_names.split(",")
-        # if a new network is added in future, add if ~ then blocks for each network (;'∀')
         if args.dim_from_weights:
             network, _ = network_module.create_network_from_weights(1, args.network_weights, vae, text_encoder, unet, **net_kwargs)
         else:
-            # LyCORIS will work with this...
             network = network_module.create_network(1.0, args.network_dim, args.network_alpha, vae, text_encoder, unet,
                                                     neuron_dropout=args.network_dropout, **net_kwargs,)
         if network is None:
@@ -490,22 +489,21 @@ class NetworkTrainer:
             assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / full_bf16を使う場合はmixed_precision='bf16'を指定してください。"
             accelerator.print("enable full bf16 training.")
             network.to(weight_dtype)
-        unet.requires_grad_(False)
-        unet.to(dtype=weight_dtype)
+
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
         print("\n step 11-1. module to accelerate")
         if len(text_encoders) > 1:
-            t_enc1, t_enc2, t_org_enc1, t_org_enc2, network, optimizer, pretraining_dataloader, lr_scheduler, unet_org = accelerator.prepare(text_encoders[0], text_encoders[1],
-                                                                                                                                   text_encoders_org[0],text_encoders_org[1],
-                                                                                                                                   network,optimizer,pretraining_dataloader,
-                                                                                                                                   lr_scheduler, unet_org)
+            t_enc1, t_enc2, t_org_enc1, t_org_enc2, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(text_encoders[0], text_encoders[1],
+                                                                                                                                             text_encoders_org[0],text_encoders_org[1],
+                                                                                                                                             network,optimizer,pretraining_dataloader,
+                                                                                                                                             lr_scheduler)
             text_encoder = text_encoders = [t_enc1, t_enc2]
             text_encoder_org = text_encoders_org = [t_org_enc1,t_org_enc2]
             del t_enc1, t_enc2, t_org_enc1,t_org_enc2
         else:
-            text_encoder, text_encoder_org, network, optimizer, pretraining_dataloader, lr_scheduler, unet_org = accelerator.prepare(text_encoder, text_encoder_org,
-                                                                                                                           network, optimizer, pretraining_dataloader, lr_scheduler, unet_org)
+            text_encoder, text_encoder_org, network, optimizer, pretraining_dataloader, lr_scheduler = accelerator.prepare(text_encoder, text_encoder_org,
+                                                                                                                           network, optimizer, pretraining_dataloader, lr_scheduler)
             text_encoders = [text_encoder]
             text_encoders_org = [text_encoder_org]
 
@@ -530,11 +528,6 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 class_caption = batch['class_caption']
-                #class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
-                #class_captions_hidden_states = train_util.get_hidden_states(args,
-                #                                                            class_token_ids.to(accelerator.device),
-                #                                                            tokenizers[0], text_encoders_org[0],
-                #                                                            weight_dtype)
                 class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                   batch["class_caption"], accelerator.device,
                                                                   args.max_token_length // 75 if args.max_token_length else 1,
@@ -542,15 +535,7 @@ class NetworkTrainer:
 
                 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-                # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                #class_captions_lora_hidden_states = train_util.get_hidden_states(args,class_token_ids.to(accelerator.device),
-                #                                                                   tokenizers[0], text_encoders[0],
-                #                                                                   weight_dtype)
                 concept_caption = batch['concept_caption']
-                #concept_captions_input_ids = self.get_input_ids(args, concept_caption, tokenizer).unsqueeze(0)
-                #concept_captions_lora_hidden_states = train_util.get_hidden_states(args,concept_captions_input_ids.to(accelerator.device),
-                #                                                                   tokenizers[0], text_encoders[0],
-                #                                                                   weight_dtype)
                 concept_captions_lora_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder,
                                                                   batch['concept_caption'], accelerator.device,
                                                                   args.max_token_length // 75 if args.max_token_length else 1,
@@ -558,9 +543,6 @@ class NetworkTrainer:
 
                 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 # shape = [3,77,768]
-                #preservating_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
-                #                                                 class_captions_lora_hidden_states.float(),
-                #                                                 reduction="none")
                 pretraining_loss = torch.nn.functional.mse_loss(class_captions_hidden_states.float(),
                                                                 concept_captions_lora_hidden_states.float(),
                                                                 reduction="none")
@@ -612,37 +594,39 @@ class NetworkTrainer:
         train_dataset_group.set_max_train_steps(args.max_train_steps)
         unet.requires_grad_(False)
         unet.to(dtype=weight_dtype)
+        unet_org.requires_grad_(False)
+        unet_org.to(dtype=weight_dtype)
         for t_enc in text_encoders:
             t_enc.requires_grad_(False)
 
         print("\n step 11-2. module to accelerate")
         if len(text_encoders) > 1:
-            unet, t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                unet, text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
+            unet, unet_org,t_enc1, t_enc2, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, unet_org,text_encoders[0], text_encoders[1], network, optimizer, train_dataloader, lr_scheduler)
             text_encoder = text_encoders = [t_enc1, t_enc2]
             del t_enc1, t_enc2
         else:
-            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
+            unet, unet_org, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                unet, unet_org, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
             text_encoders = [text_encoder]
         text_encoders = train_util.transform_models_if_DDP(text_encoders)
         unet, network = train_util.transform_models_if_DDP([unet, network])
+        unet_org = train_util.transform_models_if_DDP(unet_org)
 
         if args.gradient_checkpointing:
             # according to TI example in Diffusers, train is required
             unet.train()
             for t_enc in text_encoders:
                 t_enc.train()
-                # set top parameter requires_grad = True for gradient checkpointing works
                 if train_text_encoder:
                     t_enc.text_model.embeddings.requires_grad_(True)
-            # set top parameter requires_grad = True for gradient checkpointing works
             if not train_text_encoder:  # train U-Net only
                 unet.parameters().__next__().requires_grad_(True)
         else:
             unet.eval()
             for t_enc in text_encoders:
                 t_enc.eval()
+        unet_org.eval()
         del t_enc
         network.prepare_grad_etc(text_encoder, unet)
 
@@ -664,9 +648,12 @@ class NetworkTrainer:
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
+        print(f' Test ')
         attention_storer = AttentionStore()
         register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
-
+        print(f' ORG ')
+        attention_storer_org = AttentionStore()
+        register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
 
         """ 
         # -----------------------------------------------------------------------------------------------------------------
@@ -1253,7 +1240,7 @@ class NetworkTrainer:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
     """
-        
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     train_util.add_sd_models_arguments(parser)
