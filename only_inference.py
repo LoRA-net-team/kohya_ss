@@ -321,7 +321,6 @@ class NetworkTrainer:
                         score = 0
                         for efficient_layer in efficient_layers:
                             if efficient_layer in layer_name:
-                                print(f'efficient_layer in layer_name: {efficient_layer}')
                                 score += 1
                         if score == 0:
                             weights_sd[layer_name] = weights_sd[layer_name] * 0
