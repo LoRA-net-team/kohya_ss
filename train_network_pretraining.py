@@ -1049,25 +1049,15 @@ class NetworkTrainer:
                         org_key_list = cross_key_collection_dict_org[layer_name]
                         org_value_list = cross_value_collection_dict_org[layer_name]
                         org_cond = torch.cat(org_key_list + org_value_list, dim=0)
-                        print(f'org_value_list : {org_value_list[0].shape}')
-                        print(f'org_key_list: {len(org_key_list)} : {org_key_list[0].shape}')
-                        print(f'org_cond: {org_cond.shape}')
+
                         lora_key_list = cross_key_collection_dict[layer_name]
-
-
                         lora_value_list = cross_value_collection_dict[layer_name]
-                        #
+                        lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
 
-
-
-                        #lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
-
-
-
-                        #p_loss = torch.nn.functional.mse_loss(lora_cond.float(),
-                        #                                                  org_cond.float(),
-                        #                                                  reduction="none")
-                        #print(f"p_loss: {p_loss.shape}")
+                        p_loss = torch.nn.functional.mse_loss(lora_cond.float(),
+                                                              org_cond.float(),
+                                                              reduction="none")
+                        print(f"p_loss: {p_loss.shape}")
                         #preservating_loss += p_loss.mean()
                     #attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
 
