@@ -1056,9 +1056,8 @@ class NetworkTrainer:
                     lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
 
                     p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
-                    print(f'p_loss : {p_loss}')
                     preservating_loss += p_loss.mean()
-                attention_losses["loss/text_preservating_loss"] = preservating_loss.mean().item()
+                attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
                 if is_main_process:
                     wandb.log(attention_losses)
                 optimizer.step()
