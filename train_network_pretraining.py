@@ -664,8 +664,7 @@ class NetworkTrainer:
 
         attention_storer = AttentionStore()
         register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
-        attention_storer_org = AttentionStore()
-        register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
+
 
 
         # -----------------------------------------------------------------------------------------------------------------
@@ -1053,6 +1052,8 @@ class NetworkTrainer:
                 for batch in pretraining_dataloader:
                     # ------------------------------------------------------------------------------------------------------------------------------
                     unet_org = accelerator.prepare(unet_org)
+                    attention_storer_org = AttentionStore()
+                    register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                                 batch["class_caption"],
                                                                                 accelerator.device,
