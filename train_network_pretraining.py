@@ -1015,10 +1015,13 @@ class NetworkTrainer:
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
+                if is_main_process :
+                    wandb.log(attention_losses)
 
             # -------------------------------------------------------------------------------------------------------------------------------------------------
             # 3) preserving loss
             print(f' From Preserving loss')
+            loss_dict = {}
             for batch in pretraining_dataloader:
                 unet_org = accelerator.prepare(unet_org)
                 class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,batch["class_caption"],accelerator.device,
@@ -1057,9 +1060,9 @@ class NetworkTrainer:
 
                     p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
                     preservating_loss += p_loss.mean()
-                attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
+                loss_dict["loss/text_preservating_loss"] = preservating_loss.mean()
                 if is_main_process:
-                    wandb.log(attention_losses)
+                    wandb.log(loss_dict)
                 optimizer.step()
                 lr_scheduler.step()
                 accelerator.backward(preservating_loss)
@@ -1109,10 +1112,11 @@ class NetworkTrainer:
                 if args.logging_dir is not None:
                     #logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
                     accelerator.log(logs, step=global_step)
-                    if is_main_process:
+                    #if is_main_process:
                         #wandb_tracker = accelerator.get_tracker("wandb")
                         #wandb.log(logs)
-                        wandb.log(attention_losses)
+                        #wandb.log(attention_losses)
+
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
