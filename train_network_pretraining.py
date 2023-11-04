@@ -81,7 +81,8 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_probs.to(value.dtype)
 
             if is_cross_attention:
-                controller.cross_query_key_value_caching(query,key,value, layer_name)
+                #controller.cross_query_key_value_caching(query,key,value, layer_name)
+                key, value = controller.cross_key_value_caching(key, value, layer_name)
 
 
                 if trg_indexs_list is not None and mask is not None:
@@ -416,8 +417,6 @@ class NetworkTrainer:
                                                              num_workers=n_workers,
                                                              persistent_workers=args.persistent_data_loader_workers,)
 
-        print(f'len img dataloader : {len(train_dataloader)}')
-        print(f'len sentence dataloader : {len(pretraining_dataloader)}')
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-1. prepare network")
         sys.path.append(os.path.dirname(__file__))
@@ -531,7 +530,6 @@ class NetworkTrainer:
         for epoch in range(pretraining_epochs):
             for batch in pretraining_dataloader:
                 class_caption = batch['class_caption']
-                print(f'class_caption : {class_caption}')
                 #class_token_ids = self.get_input_ids(args, class_caption, tokenizer).unsqueeze(0)
                 #class_captions_hidden_states = train_util.get_hidden_states(args,
                 #                                                            class_token_ids.to(accelerator.device),
@@ -1048,6 +1046,7 @@ class NetworkTrainer:
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
                 # -----------------------------------------------------------------------------------------------------------------------------------------------
+                attention_storer.reset()
                 for batch in pretraining_dataloader:
                     class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,
                                                                                 batch["class_caption"],
