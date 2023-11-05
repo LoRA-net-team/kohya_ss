@@ -1029,8 +1029,6 @@ class NetworkTrainer:
                 preservating_loss = 0
                 for layer_name in layer_names:
                     if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers) :
-                        print(f'preservating loss on  {layer_name}')
-
                         org_key_list = cross_key_collection_dict_org[layer_name]
                         org_value_list = cross_value_collection_dict_org[layer_name]
                         org_cond = torch.cat(org_key_list + org_value_list, dim=0)
