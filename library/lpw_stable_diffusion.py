@@ -16,7 +16,7 @@ from diffusers import SchedulerMixin, StableDiffusionPipeline
 from diffusers.models import AutoencoderKL, UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput, StableDiffusionSafetyChecker
 from diffusers.utils import logging
-
+from torch.nn.functional import normalize
 
 try:
     from diffusers.utils import PIL_INTERPOLATION
@@ -326,9 +326,22 @@ def get_unweighted_text_embeddings_reg(
             enc_out = pipe.text_encoder(text_input, output_hidden_states=True, return_dict=True)
             text_embeddings = enc_out["hidden_states"][-clip_skip]
             text_embeddings = pipe.text_encoder.text_model.final_layer_norm(text_embeddings)
+    print(f' (before) text_embeddings : {text_embeddings}')
+    cls_token_index = 49406
+    pad_token_index = 49407
+    batch, senlen = text_input.shape
+    for batch_idx in range(batch) :
+        input_tokens = text_input[batch_idx]
+        text_embedding = text_embeddings[batch_idx]
+        #test_tensors = torch.tensor([1, 2, 3, 4, 5])
+        result = torch.where(input_tokens >= cls_token_index, False, True) * 1
+        sen_len = int(torch.sum(result).item())
+        effective_text_embedding = text_embedding[1:sen_len+1, :]
+        text_embedding[1:sen_len + 1, :] = normalize(effective_text_embedding, p=2, dim=1)
+        text_embeddings[batch_idx] = text_embedding
     print(f' ***** in get_unweighted_text_embeddings_reg function')
     print(f' text_input : {text_input}')
-    print(f' text_embeddings : {text_embeddings}')
+    print(f' (after) text_embeddings : {text_embeddings}')
     return text_embeddings
 
 def get_weighted_text_embeddings(

@@ -1,9 +1,9 @@
 import torch
+from torch.nn.functional import normalize
 
-dict1 = {'a':1, 'b':2}
-dict2 = {'c':3, 'd':4}
-dict3 = dict1.update(dict2)
-print(dict3)
-a = [torch.randn((1,2,3))]
-b = torch.randn((1,2,3))
-print(torch.cat(a))
+
+
+effective_text_embedding = torch.tensor([[-1.2,2.1,3.0],
+                                          [3.0,4.0,5.0]])
+a = normalize(effective_text_embedding, p=2,dim=1)
+print(a)
