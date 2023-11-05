@@ -1,11 +1,9 @@
 import torch
-a = torch.randn((1,2,3))
-b = torch.randn((1,2,3))
-list_torches_k = [a,b]
-d = torch.stack(list_torches_k)
-c = torch.mean(torch.stack(list_torches_k), dim=0)
 
-print(a)
-print(b)
-print(d)
-print(c)
+dict1 = {'a':1, 'b':2}
+dict2 = {'c':3, 'd':4}
+dict3 = dict1.update(dict2)
+print(dict3)
+a = [torch.randn((1,2,3))]
+b = torch.randn((1,2,3))
+print(torch.cat(a))

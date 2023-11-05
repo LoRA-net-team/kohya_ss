@@ -4148,7 +4148,8 @@ def sample_images_common(pipe_class,
     unet,
     prompt_replacement=None,
     controlnet=None,
-    attention_storer=None, efficient=False,
+    attention_storer=None,
+                         efficient=False,
                          save_folder_name = None):
 
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:

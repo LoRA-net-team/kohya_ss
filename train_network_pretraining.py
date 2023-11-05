@@ -243,9 +243,11 @@ class NetworkTrainer:
         return noise_pred
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                      attention_storer=None,
                       efficient=False,
                       save_folder_name=None):
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                                 attention_storer=attention_storer,
                                  efficient=efficient,
                                  save_folder_name=save_folder_name)
 
@@ -518,7 +520,7 @@ class NetworkTrainer:
             unwrapped_nw.save_weights(ckpt_file, save_dtype,metadata=None)
 
         print("\n step 13. image inference before training anything")
-        self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
+        self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet,attention_storer=attention_storer,)
 
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
@@ -886,7 +888,7 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         # ------------------------------------------------------------------------------------------------------
         # sampling right after text pretraining
-        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet)
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=attention_storer)
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
@@ -1130,7 +1132,7 @@ class NetworkTrainer:
             # ----------------------------------------------------------------------------------------------------------
             # inference every epoch
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
-                               text_encoder, unet)
+                               text_encoder, unet,attention_storer=attention_storer)
             attention_storer.reset()
             #if attention_storer is not None:
             #    attention_storer.step_store = {}
@@ -1177,7 +1179,8 @@ class NetworkTrainer:
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
                                text_encoder_copy, unet_copy,
                                efficient=True,
-                               save_folder_name = args.save_folder_name)
+                               save_folder_name = args.save_folder_name,
+                               attention_storer=attention_storer_org,)
             attention_storer_org.reset()
 
 
