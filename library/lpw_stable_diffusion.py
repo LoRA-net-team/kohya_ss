@@ -301,18 +301,12 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
                     if text_input_chunk[j, 1] == pad:  # BOSだけであとはPAD
                         text_input_chunk[j, 1] = eos
                         class_text_input_chunk[j, 1] = eos
-
-            print(f'text_input_chunk : {text_input_chunk}')
-            print(f'class_text_input_chunk : {class_text_input_chunk}')
-
             if clip_skip is None or clip_skip == 1:
-                print(f'making text embedding here ... ')
                 text_embedding = pipe.text_encoder(text_input_chunk)[0]
             else:
                 enc_out = pipe.text_encoder(text_input_chunk, output_hidden_states=True, return_dict=True)
                 text_embedding = enc_out["hidden_states"][-clip_skip]
                 text_embedding = pipe.text_encoder.text_model.final_layer_norm(text_embedding)
-
             if no_boseos_middle:
                 if i == 0:
                     # discard the ending token
@@ -324,12 +318,9 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
                     # discard both starting and ending tokens
                     text_embedding = text_embedding[:, 1:-1]
             text_embeddings.append(text_embedding)
-
         text_embeddings = torch.concat(text_embeddings, axis=1)
 
     else:
-
-
         if clip_skip is None or clip_skip == 1:
             print(f'text_input : {text_input}')
             print(f'caption_text_input : {class_text_input}')
@@ -377,7 +368,6 @@ def get_weighted_text_embeddings(
                 uncond_prompt = [uncond_prompt]
             uncond_tokens = [token[1:-1] for token in pipe.tokenizer(uncond_prompt, max_length=max_length, truncation=True).input_ids]
             uncond_weights = [[1.0] * len(token) for token in uncond_tokens]
-    print(f'prompt tokens : {prompt_tokens}')
     # round up the longest length of tokens to a multiple of (model_max_length - 2)
     max_length = max([len(token) for token in prompt_tokens])
     if uncond_prompt is not None:
@@ -471,6 +461,8 @@ def get_weighted_text_embeddings_reg(
     max_length = (pipe.tokenizer.model_max_length - 2) * max_embeddings_multiples + 2
     if isinstance(prompt, str):
         prompt = [prompt]
+        class_prompt = [class_prompt]
+
     if not skip_parsing:
         prompt_tokens, prompt_weights = get_prompts_with_weights(pipe, prompt, max_length - 2)
         class_prompt_tokens, class_prompt_weights = get_prompts_with_weights(pipe, class_prompt, max_length - 2)
