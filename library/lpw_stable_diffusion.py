@@ -322,13 +322,9 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
 
     else:
         if clip_skip is None or clip_skip == 1:
-            print(f'text_input : {text_input}')
-            print(f'caption_text_input : {class_text_input}')
             text_embeddings = pipe.text_encoder(text_input)[0]
             sub_text_encoder.to(pipe.device)
             class_text_embeddings = sub_text_encoder(class_text_input)[0]
-            print(f' text_embeddings : {text_embeddings.shape}')
-            print(f' class_text_embeddings : {class_text_embeddings}')
         else:
             enc_out = pipe.text_encoder(text_input, output_hidden_states=True, return_dict=True)
             text_embeddings = enc_out["hidden_states"][-clip_skip]
@@ -338,6 +334,8 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
     normalized_text_embeddings = normalize(text_embeddings, p=2, dim=2)
     trg_size = torch.norm(class_text_embeddings, dim=2).unsqueeze(-1)
     trg_size = trg_size.expand(normalized_text_embeddings.shape)
+    print(f'trg_size : {trg_size}')
+    print(f'after smoothing')
     text_embeddings = normalized_text_embeddings * trg_size
 
 
