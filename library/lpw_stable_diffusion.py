@@ -337,7 +337,9 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
     #print(f'trg_size : {trg_size}')
     #print(f'after smoothing')
     #text_embeddings = normalized_text_embeddings * trg_size
-    text_embeddings = class_text_embeddings
+    trg_size = torch.ones(text_embeddings.shape)
+    trg_size[:, 1, :] = 0.8
+    text_embeddings = text_embeddings * trg_size#class_text_embeddings
 
 
     return text_embeddings
@@ -469,7 +471,7 @@ def get_weighted_text_embeddings_reg(
 
     if not skip_parsing:
         prompt_tokens, prompt_weights = get_prompts_with_weights(pipe, prompt, max_length - 2)
-        print(f'prompt_tokens : {prompt_tokens}')
+        #print(f'prompt_tokens : {prompt_tokens}')
         class_prompt_tokens, class_prompt_weights = get_prompts_with_weights(pipe, class_prompt, max_length - 2)
         if uncond_prompt is not None:
             if isinstance(uncond_prompt, str):
