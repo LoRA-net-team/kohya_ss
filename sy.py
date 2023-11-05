@@ -312,6 +312,8 @@ class NetworkTrainer:
         _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         attention_storer = AttentionStore()
         register_attention_control(unet_org, attention_storer, mask_threshold=args.mask_threshold)
+
+
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
         sys.path.append(os.path.dirname(__file__))
         accelerator.print("import network module:", args.network_module)
@@ -375,6 +377,10 @@ class NetworkTrainer:
                 text_encoder_copy.to(weight_dtype).to(accelerator.device)
                 # 4) applying to deeplearning network
                 temp_network.apply_to(text_encoder_org, unet_org)
+
+                attention_storer = AttentionStore()
+                register_attention_control(unet_copy, attention_storer, mask_threshold=args.mask_threshold)
+
                 self.sample_images_reg(accelerator, args, epoch_info, 0, accelerator.device, vae_copy, tokenizer,
                                        text_encoder_copy, unet_copy,
                                        text_encoder,efficient=True, save_folder_name = save_folder_name,)
