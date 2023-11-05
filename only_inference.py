@@ -308,8 +308,10 @@ class NetworkTrainer:
                 network_name, ext = os.path.splitext(network_dir)
                 if 'epoch' in network_name :
                     epoch_info = int(network_name.split('-')[-1])
-                else :
+                elif 'last' in network_name :
                     epoch_info = 1000
+                else :
+                    epoch_info = -1
                     # learned network state dict
                 from safetensors.torch import load_file, safe_open
                 weights_sd = load_file(network_file)
