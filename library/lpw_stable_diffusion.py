@@ -271,7 +271,7 @@ def get_unweighted_text_embeddings(
 def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
                                        sub_text_encoder,
                                        text_input: torch.Tensor,
-                                       caption_text_input,
+                                       class_text_input,
                                        chunk_length: int,
                                        clip_skip: int,
                                        eos: int,
@@ -287,30 +287,25 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
         for i in range(max_embeddings_multiples):
             # extract the i-th chunk
             text_input_chunk = text_input[:, i * (chunk_length - 2): (i + 1) * (chunk_length - 2) + 2].clone()
-            caption_text_input_chunk = caption_text_input[:, i * (chunk_length - 2): (i + 1) * (chunk_length - 2) + 2].clone()
-            # cover the head and the tail by the starting and the ending tokens
+            class_text_input_chunk = text_input[:, i * (chunk_length - 2): (i + 1) * (chunk_length - 2) + 2].clone()
             text_input_chunk[:, 0] = text_input[0, 0]
-            caption_text_input_chunk[:, 0] = caption_text_input[0, 0]
+            class_text_input_chunk[:, 0] = class_text_input[0, 0]
             if pad == eos:  # v1
                 text_input_chunk[:, -1] = text_input[0, -1]
-                caption_text_input_chunk[:, -1] = caption_text_input[0, -1]
+                class_text_input_chunk[:, -1] = class_text_input[0, -1]
             else:  # v2
                 for j in range(len(text_input_chunk)):
                     if text_input_chunk[j, -1] != eos and text_input_chunk[j, -1] != pad:  # 最後に普通の文字がある
                         text_input_chunk[j, -1] = eos
-                        caption_text_input_chunk[j, -1] = eos
+                        class_text_input_chunk[j, -1] = eos
                     if text_input_chunk[j, 1] == pad:  # BOSだけであとはPAD
                         text_input_chunk[j, 1] = eos
-                        caption_text_input_chunk[j, 1] = eos
-
+                        class_text_input_chunk[j, 1] = eos
 
             print(f'text_input_chunk : {text_input_chunk}')
-            print(f'caption_text_input_chunk : {caption_text_input_chunk}')
-
-
+            print(f'class_text_input_chunk : {class_text_input_chunk}')
 
             if clip_skip is None or clip_skip == 1:
-
                 print(f'making text embedding here ... ')
                 text_embedding = pipe.text_encoder(text_input_chunk)[0]
             else:
@@ -336,18 +331,19 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
 
 
         if clip_skip is None or clip_skip == 1:
-
             print(f'text_input : {text_input}')
-            print(f'caption_text_input : {caption_text_input}')
+            print(f'caption_text_input : {class_text_input}')
             text_embeddings = pipe.text_encoder(text_input)[0]
-            sub_text_embeddings = sub_text_encoder(caption_text_input)[0]
+            sub_text_encoder.to(pipe.device)
+            class_text_embeddings = sub_text_encoder(class_text_input)[0]
             print(f' text_embeddings : {text_embeddings}')
-            print(f' sub_text_embeddings : {sub_text_embeddings}')
+            print(f' class_text_embeddings : {class_text_embeddings}')
         else:
             enc_out = pipe.text_encoder(text_input, output_hidden_states=True, return_dict=True)
             text_embeddings = enc_out["hidden_states"][-clip_skip]
             text_embeddings = pipe.text_encoder.text_model.final_layer_norm(text_embeddings)
-
+    # --------------------------------------------------------------------------------------
+    # text embedding smoothing
 
     return text_embeddings
 
@@ -486,6 +482,8 @@ def get_weighted_text_embeddings_reg(
     else:
         prompt_tokens = [token[1:-1] for token in pipe.tokenizer(prompt, max_length=max_length, truncation=True).input_ids]
         prompt_weights = [[1.0] * len(token) for token in prompt_tokens]
+        class_prompt_tokens = [token[1:-1] for token in pipe.tokenizer(class_prompt, max_length=max_length, truncation=True).input_ids]
+        class_prompt_weights = [[1.0] * len(token) for token in class_prompt_tokens]
         if uncond_prompt is not None:
             if isinstance(uncond_prompt, str):
                 uncond_prompt = [uncond_prompt]
@@ -503,15 +501,15 @@ def get_weighted_text_embeddings_reg(
     bos = pipe.tokenizer.bos_token_id
     eos = pipe.tokenizer.eos_token_id
     pad = pipe.tokenizer.pad_token_id
+
+    # ------------------------------------------------------------------------------------------------------------------------------------------------
     prompt_tokens, prompt_weights = pad_tokens_and_weights(prompt_tokens,prompt_weights,max_length,bos,
                                                            eos,no_boseos_middle=no_boseos_middle,chunk_length=pipe.tokenizer.model_max_length,)
     prompt_tokens = torch.tensor(prompt_tokens, dtype=torch.long, device=pipe.device)
-
-
-    caption_prompt_tokens, caption_prompt_weights = pad_tokens_and_weights(caption_prompt_tokens, caption_prompt_weights, max_length, bos,
-                                                                           eos, no_boseos_middle=no_boseos_middle,
-                                                                           chunk_length=pipe.tokenizer.model_max_length, )
-    caption_prompt_tokens = torch.tensor(caption_prompt_tokens, dtype=torch.long, device=pipe.device)
+    # ------------------------------------------------------------------------------------------------------------------------------------------------
+    class_prompt_tokens, caption_prompt_weights = pad_tokens_and_weights(class_prompt_tokens, class_prompt_weights, max_length, bos,
+                                                                           eos, no_boseos_middle=no_boseos_middle, chunk_length=pipe.tokenizer.model_max_length, )
+    class_prompt_tokens = torch.tensor(class_prompt_tokens, dtype=torch.long, device=pipe.device)
 
     if uncond_prompt is not None:
         uncond_tokens, uncond_weights = pad_tokens_and_weights(uncond_tokens,uncond_weights,max_length,bos,
@@ -522,7 +520,7 @@ def get_weighted_text_embeddings_reg(
     # ------------------------------------------------------------------------------------------------------------------------------------------------
     # get the embeddings
     text_embeddings = get_unweighted_text_embeddings_reg(pipe,sub_text_encoder,
-                                                         prompt_tokens,caption_prompt_tokens,
+                                                         prompt_tokens,class_prompt_tokens,
                                                          pipe.tokenizer.model_max_length,
                                                          clip_skip,eos,
                                                          pad,no_boseos_middle=no_boseos_middle,)
