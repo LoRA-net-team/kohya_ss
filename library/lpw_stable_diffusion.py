@@ -326,7 +326,7 @@ def get_unweighted_text_embeddings_reg(
             enc_out = pipe.text_encoder(text_input, output_hidden_states=True, return_dict=True)
             text_embeddings = enc_out["hidden_states"][-clip_skip]
             text_embeddings = pipe.text_encoder.text_model.final_layer_norm(text_embeddings)
-    print(f' in get_unweighted_text_embeddings_reg function')
+    print(f' ***** in get_unweighted_text_embeddings_reg function')
     print(f' text_input : {text_input}')
     print(f' text_embeddings : {text_embeddings}')
     return text_embeddings
@@ -467,7 +467,6 @@ def get_weighted_text_embeddings_reg(
                 uncond_prompt = [uncond_prompt]
             uncond_tokens = [token[1:-1] for token in pipe.tokenizer(uncond_prompt, max_length=max_length, truncation=True).input_ids]
             uncond_weights = [[1.0] * len(token) for token in uncond_tokens]
-    print(f'prompt tokens : {prompt_tokens}')
     # round up the longest length of tokens to a multiple of (model_max_length - 2)
     max_length = max([len(token) for token in prompt_tokens])
     if uncond_prompt is not None:
@@ -1073,7 +1072,6 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
             do_classifier_free_guidance,
             negative_prompt,
             max_embeddings_multiples,)
-        print(f'text_embeddings : {text_embeddings}')
         dtype = text_embeddings.dtype
         # 4. Preprocess image and mask
         if isinstance(image, PIL.Image.Image):

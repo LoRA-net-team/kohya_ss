@@ -244,8 +244,8 @@ class NetworkTrainer:
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=False,
                       save_folder_name = None):
-        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=efficient,
-                                 save_folder_name = save_folder_name)
+        #train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=efficient,
+        #                         save_folder_name = save_folder_name)
         train_util.sample_images_reg(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
                                  efficient=efficient,
                                  save_folder_name=save_folder_name)
@@ -307,7 +307,7 @@ class NetworkTrainer:
         for network_dir in network_dirs :
             if 'safetensors' in network_dir :
                 network_file = os.path.join(pretrained_network_dir, network_dir)
-                print(f"load network from {network_file}")
+                #print(f"load network from {network_file}")
                 network_name, ext = os.path.splitext(network_dir)
                 if 'epoch' in network_name :
                     epoch_info = int(network_name.split('-')[-1])
@@ -332,8 +332,8 @@ class NetworkTrainer:
                     if score == 0:
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
                     # because alpha is np, should be on cpu
-                    else :
-                        print(f'layer to use : {layer_name}')
+                    #else :
+                    #    print(f'layer to use : {layer_name}')
                     weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
                 # ------------------------------------------------------------------------------------------------------
                 # 2) make empty network
