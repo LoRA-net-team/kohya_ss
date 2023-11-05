@@ -4136,21 +4136,20 @@ def sample_images(*args, **kwargs):
     return sample_images_common(StableDiffusionLongPromptWeightingPipeline, *args, **kwargs)
 
 
-def sample_images_common(pipe_class,
-    accelerator,
-    args: argparse.Namespace,
-    epoch,
-    steps,
-    device,
-    vae,
-    tokenizer,
-    text_encoder,
-    unet,
-    prompt_replacement=None,
-    controlnet=None,
-    attention_storer=None,
-                         efficient=False,
-                         save_folder_name = None):
+def sample_images_common(pipe_class,accelerator,
+                         args: argparse.Namespace,
+                        epoch,
+                        steps,
+                        device,
+                        vae,
+                        tokenizer,
+                        text_encoder,
+                        unet,
+                        prompt_replacement=None,
+                        controlnet=None,
+                        attention_storer=None,
+                        efficient=False,
+                        save_folder_name = None):
 
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
@@ -4310,6 +4309,7 @@ def sample_images_common(pipe_class,
                                    guidance_scale=scale,negative_prompt=negative_prompt,controlnet=controlnet,controlnet_image=controlnet_image,)
             image = pipeline.latents_to_image(latents)[0]
             if attention_storer :
+                print(f'reset attention_storer')
                 attention_storer.reset()
             ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
             num_suffix = f"e{epoch:06d}" if epoch is not None else f"{steps:06d}"

@@ -969,8 +969,7 @@ class NetworkTrainer:
                     attn_loss = 0
                     if args.heatmap_loss:
                         layer_names = atten_collection.keys()
-                        assert len(
-                            layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
+                        assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
                         heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
@@ -981,8 +980,6 @@ class NetworkTrainer:
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         if args.heatmap_backprop:
                             loss = task_loss + args.attn_loss_ratio * attn_loss
-                    #else:
-                    #    attention_losses = {}
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1008,6 +1005,7 @@ class NetworkTrainer:
                                                                             clip_skip=args.clip_skip,)
 
                 with accelerator.autocast():
+                    attention_storer_org.reset()
                     noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
                                                 class_captions_hidden_states,batch, weight_dtype, None, None)
                     cross_key_collection_dict_org = attention_storer_org.cross_key_store
@@ -1031,6 +1029,7 @@ class NetworkTrainer:
                 preservating_loss = 0
                 for layer_name in layer_names:
                     if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers) :
+
                         org_key_list = cross_key_collection_dict_org[layer_name]
                         org_value_list = cross_value_collection_dict_org[layer_name]
                         org_cond = torch.cat(org_key_list + org_value_list, dim=0)
