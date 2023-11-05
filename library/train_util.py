@@ -4134,7 +4134,8 @@ SCHEDLER_SCHEDULE = "scaled_linear"
 
 def sample_images(*args, **kwargs):
     return sample_images_common(StableDiffusionLongPromptWeightingPipeline, *args, **kwargs)
-def sample_imagessample_images_reg(*args, **kwargs):
+
+def sample_images_reg(*args, **kwargs):
     return sample_images_common_reg(StableDiffusionLongPromptWeightingPipeline, *args, **kwargs)
 
 def sample_images_common_reg(pipe_class,accelerator,
