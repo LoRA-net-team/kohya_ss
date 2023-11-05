@@ -327,7 +327,7 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
             text_embeddings = pipe.text_encoder(text_input)[0]
             sub_text_encoder.to(pipe.device)
             class_text_embeddings = sub_text_encoder(class_text_input)[0]
-            print(f' text_embeddings : {text_embeddings}')
+            print(f' text_embeddings : {text_embeddings.shape}')
             print(f' class_text_embeddings : {class_text_embeddings}')
         else:
             enc_out = pipe.text_encoder(text_input, output_hidden_states=True, return_dict=True)
