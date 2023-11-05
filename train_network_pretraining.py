@@ -1184,6 +1184,7 @@ class NetworkTrainer:
                                attention_storer=attention_storer_org,)
             attention_storer.reset()
             attention_storer_org.reset()
+            del vae_copy, text_encoder_copy, unet_copy, temp_network
 
 
         # ------------------------------------------------------------------------------------------------------
