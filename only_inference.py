@@ -246,6 +246,9 @@ class NetworkTrainer:
                       save_folder_name = None):
         train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=efficient,
                                  save_folder_name = save_folder_name)
+        train_util.sample_images_reg(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                                 efficient=efficient,
+                                 save_folder_name=save_folder_name)
 
     def get_input_ids(self, args, caption, tokenizer):
         tokenizer_max_length = args.max_token_length + 2
