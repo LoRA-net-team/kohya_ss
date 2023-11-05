@@ -62,6 +62,12 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
+                uncon, con = context.chunk(2)
+
+                trg_size = torch.ones(con.shape)
+                trg_size[:, 1, :] = 0
+                con = con * trg_size  # class_text_embeddings
+                context = torch.cat([uncon, con])
             query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
@@ -299,9 +305,12 @@ class NetworkTrainer:
         print(" (5.1) model not with lora")
         _, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+
         print(" (5.2) model with lora")
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
         _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
+        attention_storer = AttentionStore()
+        register_attention_control(unet_org, attention_storer, mask_threshold=args.mask_threshold)
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
         sys.path.append(os.path.dirname(__file__))
         accelerator.print("import network module:", args.network_module)

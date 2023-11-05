@@ -295,7 +295,6 @@ class NetworkTrainer:
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
         _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
-
         # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
         print("\n step 7-1. prepare network")
         sys.path.append(os.path.dirname(__file__))

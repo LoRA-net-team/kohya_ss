@@ -526,11 +526,6 @@ def get_weighted_text_embeddings_reg(
                                                          clip_skip,eos,
                                                          pad,no_boseos_middle=no_boseos_middle,)
 
-
-
-
-
-
     prompt_weights = torch.tensor(prompt_weights, dtype=text_embeddings.dtype, device=pipe.device)
     if uncond_prompt is not None:
         uncond_embeddings = get_unweighted_text_embeddings(
