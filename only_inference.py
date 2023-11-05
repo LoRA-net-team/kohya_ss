@@ -325,6 +325,8 @@ class NetworkTrainer:
                         if score == 0:
                             weights_sd[layer_name] = weights_sd[layer_name] * 0
                         # because alpha is np, should be on cpu
+                        else :
+                            print(f'layer to use : {layer_name}')
                         weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
                     # ------------------------------------------------------------------------------------------------------
                     # 2) make empty network
