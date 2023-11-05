@@ -514,7 +514,7 @@ def get_weighted_text_embeddings_reg(
     prompt_tokens = torch.tensor(prompt_tokens, dtype=torch.long, device=pipe.device)
 
 
-    caption_prompt_tokens, caption_prompt_weights = pad_tokens_and_weights(caption_prompt_tokens, prompt_weights, max_length, bos,
+    caption_prompt_tokens, caption_prompt_weights = pad_tokens_and_weights(caption_prompt_tokens, caption_prompt_weights, max_length, bos,
                                                                            eos, no_boseos_middle=no_boseos_middle,
                                                                            chunk_length=pipe.tokenizer.model_max_length, )
     caption_prompt_tokens = torch.tensor(caption_prompt_tokens, dtype=torch.long, device=pipe.device)

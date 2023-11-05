@@ -1,4 +1,4 @@
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_process_port 22364 only_inference.py \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_2_3_config --main_process_port 22364 sy.py \
                   --logging_dir ./result/logs --process_title parksooyeon \
                   --max_token_length 225 \
                   --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
