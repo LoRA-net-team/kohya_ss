@@ -473,7 +473,7 @@ def get_weighted_text_embeddings_reg(
         prompt = [prompt]
     if not skip_parsing:
         prompt_tokens, prompt_weights = get_prompts_with_weights(pipe, prompt, max_length - 2)
-        caption_prompt_tokens, caption_prompt_weights = get_prompts_with_weights(pipe, class_prompt, max_length - 2)
+        class_prompt_tokens, class_prompt_weights = get_prompts_with_weights(pipe, class_prompt, max_length - 2)
         if uncond_prompt is not None:
             if isinstance(uncond_prompt, str):
                 uncond_prompt = [uncond_prompt]
@@ -507,7 +507,8 @@ def get_weighted_text_embeddings_reg(
                                                            eos,no_boseos_middle=no_boseos_middle,chunk_length=pipe.tokenizer.model_max_length,)
     prompt_tokens = torch.tensor(prompt_tokens, dtype=torch.long, device=pipe.device)
     # ------------------------------------------------------------------------------------------------------------------------------------------------
-    class_prompt_tokens, caption_prompt_weights = pad_tokens_and_weights(class_prompt_tokens, class_prompt_weights, max_length, bos,
+    class_prompt_tokens, caption_prompt_weights = pad_tokens_and_weights(class_prompt_tokens,
+                                                                         class_prompt_weights, max_length, bos,
                                                                            eos, no_boseos_middle=no_boseos_middle, chunk_length=pipe.tokenizer.model_max_length, )
     class_prompt_tokens = torch.tensor(class_prompt_tokens, dtype=torch.long, device=pipe.device)
 
