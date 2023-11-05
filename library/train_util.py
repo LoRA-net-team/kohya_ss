@@ -4139,19 +4139,12 @@ def sample_images_reg(*args, **kwargs):
     return sample_images_common_reg(StableDiffusionLongPromptWeightingPipeline, *args, **kwargs)
 
 def sample_images_common_reg(pipe_class,accelerator,
-                         args: argparse.Namespace,
-                        epoch,
-                        steps,
-                        device,
-                        vae,
-                        tokenizer,
-                        text_encoder,
-                        unet,
-                        prompt_replacement=None,
-                        controlnet=None,
-                        attention_storer=None,
-                        efficient=False,
-                        save_folder_name = None):
+                             args: argparse.Namespace,
+                             epoch,steps,device,
+                             vae,tokenizer,text_encoder,unet,
+                             sub_text_encoder,
+                             prompt_replacement=None,controlnet=None,attention_storer=None,
+                             efficient=False, save_folder_name = None):
 
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
@@ -4301,7 +4294,8 @@ def sample_images_common_reg(pipe_class,accelerator,
             width = max(64, width - width % 8)  # round to divisible by 8
             with accelerator.autocast():
                 latents = pipeline.regsample(prompt=prompt,height=height,width=width,num_inference_steps=sample_steps,
-                                             guidance_scale=scale,negative_prompt=negative_prompt,controlnet=controlnet,controlnet_image=controlnet_image,)
+                                             guidance_scale=scale,negative_prompt=negative_prompt,controlnet=controlnet,controlnet_image=controlnet_image,
+                                             sub_text_encoder=sub_text_encoder)
             image = pipeline.latents_to_image(latents)[0]
             if attention_storer :
                 print(f'reset attention_storer')
