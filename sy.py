@@ -61,6 +61,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
             is_cross_attention = False
             if context is not None:
+                print('remake context')
                 is_cross_attention = True
                 uncon, con = context.chunk(2)
 
