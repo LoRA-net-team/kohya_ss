@@ -311,52 +311,52 @@ class NetworkTrainer:
                 else :
                     epoch_info = 1000
                     # learned network state dict
-                    from safetensors.torch import load_file, safe_open
-                    weights_sd = load_file(network_file)
-                    layer_names = weights_sd.keys()
-                    efficient_layers = args.efficient_layer.split(",")
-                    #unefficient_layers = args.unefficient_layer.split(",")
-                    #save_folder_name = 'unefficient_' + '_'.join(efficient_layers)
-                    #save_folder_name = 'efficient_' +'_'.join(efficient_layers )
-                    save_folder_name = args.save_folder_name
-                    for layer_name in layer_names:
-                        score = 0
-                        for efficient_layer in efficient_layers:
-                            if efficient_layer in layer_name:
-                                score += 1
-                        if score == 0:
-                            weights_sd[layer_name] = weights_sd[layer_name] * 0
-                        # because alpha is np, should be on cpu
-                        else :
-                            print(f'layer to use : {layer_name}')
-                        weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
-                    # ------------------------------------------------------------------------------------------------------
-                    # 2) make empty network
-                    vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
-                    temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,block_wise=None,
-                                                                                          vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
-                                                                                          weights_sd=weights_sd,for_inference=False,)
-                    text_encoder_loras = temp_network.text_encoder_loras
-                    for text_encoder_lora in text_encoder_loras :
-                        lora_name = text_encoder_lora.lora_name
-                        text_encoder_lora.lora_down.weight.data = weights_sd[f'{lora_name}.lora_down.weight']
-                        text_encoder_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
-                        text_encoder_lora.to(weight_dtype).to(accelerator.device)
-                    unet_loras = temp_network.unet_loras
-                    for unet_lora in unet_loras :
-                        lora_name = unet_lora.lora_name
-                        unet_lora.lora_down.weight.data = weights_sd[f'{lora_name}.lora_down.weight']
-                        unet_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
-                        unet_lora.to(weight_dtype).to(accelerator.device)
+                from safetensors.torch import load_file, safe_open
+                weights_sd = load_file(network_file)
+                layer_names = weights_sd.keys()
+                efficient_layers = args.efficient_layer.split(",")
+                #unefficient_layers = args.unefficient_layer.split(",")
+                #save_folder_name = 'unefficient_' + '_'.join(efficient_layers)
+                #save_folder_name = 'efficient_' +'_'.join(efficient_layers )
+                save_folder_name = args.save_folder_name
+                for layer_name in layer_names:
+                    score = 0
+                    for efficient_layer in efficient_layers:
+                        if efficient_layer in layer_name:
+                            score += 1
+                    if score == 0:
+                        weights_sd[layer_name] = weights_sd[layer_name] * 0
+                    # because alpha is np, should be on cpu
+                    else :
+                        print(f'layer to use : {layer_name}')
+                    weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
+                # ------------------------------------------------------------------------------------------------------
+                # 2) make empty network
+                vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
+                temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,block_wise=None,
+                                                                                      vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
+                                                                                      weights_sd=weights_sd,for_inference=False,)
+                text_encoder_loras = temp_network.text_encoder_loras
+                for text_encoder_lora in text_encoder_loras :
+                    lora_name = text_encoder_lora.lora_name
+                    text_encoder_lora.lora_down.weight.data = weights_sd[f'{lora_name}.lora_down.weight']
+                    text_encoder_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
+                    text_encoder_lora.to(weight_dtype).to(accelerator.device)
+                unet_loras = temp_network.unet_loras
+                for unet_lora in unet_loras :
+                    lora_name = unet_lora.lora_name
+                    unet_lora.lora_down.weight.data = weights_sd[f'{lora_name}.lora_down.weight']
+                    unet_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
+                    unet_lora.to(weight_dtype).to(accelerator.device)
 
-                    # 3) to accelerator.devicef
-                    vae_copy.to(weight_dtype).to(accelerator.device)
-                    unet_copy.to(weight_dtype).to(accelerator.device)
-                    text_encoder_copy.to(weight_dtype).to(accelerator.device)
-                    # 4) applying to deeplearning network
-                    temp_network.apply_to(text_encoder_org, unet_org)
-                    self.sample_images(accelerator, args, epoch_info, 0, accelerator.device, vae_copy, tokenizer,
-                                       text_encoder_copy, unet_copy, efficient=True, save_folder_name = save_folder_name)
+                # 3) to accelerator.devicef
+                vae_copy.to(weight_dtype).to(accelerator.device)
+                unet_copy.to(weight_dtype).to(accelerator.device)
+                text_encoder_copy.to(weight_dtype).to(accelerator.device)
+                # 4) applying to deeplearning network
+                temp_network.apply_to(text_encoder_org, unet_org)
+                self.sample_images(accelerator, args, epoch_info, 0, accelerator.device, vae_copy, tokenizer,
+                                   text_encoder_copy, unet_copy, efficient=True, save_folder_name = save_folder_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

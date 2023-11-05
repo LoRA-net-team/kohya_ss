@@ -1,11 +1,11 @@
 CUDA_VISIBLE_DEVICES=2 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
       --network_module networks.lora \
-      --network_weights './result/perfusion_experiment/teddy_bear/te_pretrain_20_unet/last.safetensors' \
-      --outdir './result/perfusion_experiment/teddy_bear/te_pretrain_20_unet/inference/epoch_16/' \
-      --from_file '/data7/sooyeon/LyCORIS/test/td_inference.txt' \
+      --network_weights './result/perfusion_experiment/teddy_bear/te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat/last.safetensors' \
+      --outdir './result/perfusion_experiment/teddy_bear/te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat/inference_test/last_epoch' \
+      --from_file '/data7/sooyeon/LyCORIS/test/td_inference_temp.txt' \
       --efficient_layer 'text,unet' \
-      --trg_token td --class_token 'teddy bear'
+      --trg_token 'sitting'
 
 CUDA_VISIBLE_DEVICES=3 python gen_crossattnmap.py \
       --ckpt /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
