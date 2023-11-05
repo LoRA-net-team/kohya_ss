@@ -337,7 +337,7 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
     #print(f'trg_size : {trg_size}')
     #print(f'after smoothing')
     #text_embeddings = normalized_text_embeddings * trg_size
-    trg_size = torch.ones(text_embeddings.shape)
+    trg_size = torch.ones(text_embeddings.shape).to(text_embeddings.device)
     trg_size[:, 1, :] = 0.8
     text_embeddings = text_embeddings * trg_size#class_text_embeddings
 
