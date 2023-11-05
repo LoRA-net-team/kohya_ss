@@ -305,7 +305,7 @@ class NetworkTrainer:
         pretrained_network_dir = args.output_dir
         network_dirs = os.listdir(pretrained_network_dir)
         for network_dir in network_dirs :
-            if 'safetensors' in network_dir :
+            if 'safetensors' in network_dir and 'last' in network_dir :
                 network_file = os.path.join(pretrained_network_dir, network_dir)
                 #print(f"load network from {network_file}")
                 network_name, ext = os.path.splitext(network_dir)
