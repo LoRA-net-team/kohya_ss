@@ -661,10 +661,10 @@ class BaseDataset(torch.utils.data.Dataset):
         if tokenizer is None:
             tokenizer = self.tokenizers[0]
 
-        #input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length, return_tensors="pt").input_ids
-        input_ids = tokenizer(caption, padding=False, truncation=True, max_length=self.tokenizer_max_length,
-                              return_tensors="pt").input_ids
-        print(f'input_ids : {input_ids}')
+        input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length, return_tensors="pt").input_ids
+        #input_ids = tokenizer(caption, padding=False, truncation=True, max_length=self.tokenizer_max_length,
+        #                      return_tensors="pt").input_ids
+        print(f'original input_ids : {input_ids}')
 
         if self.tokenizer_max_length > tokenizer.model_max_length:
             input_ids = input_ids.squeeze(0)
