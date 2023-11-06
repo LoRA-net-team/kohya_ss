@@ -470,6 +470,7 @@ def get_weighted_text_embeddings_reg(
 
     if not skip_parsing:
         prompt_tokens, prompt_weights = get_prompts_with_weights(pipe, prompt, max_length - 2)
+        _, prompt_net_len = prompt_tokens.shape
         print(f'prompt_tokens : {prompt_tokens}')
         class_prompt_tokens, class_prompt_weights = get_prompts_with_weights(pipe, class_prompt, max_length - 2)
         if uncond_prompt is not None:
@@ -502,7 +503,9 @@ def get_weighted_text_embeddings_reg(
     print(f'bos : {bos} | eos : {eos} | pad : {pad}')
 
     # ------------------------------------------------------------------------------------------------------------------------------------------------
-    prompt_tokens, prompt_weights = pad_tokens_and_weights(prompt_tokens,prompt_weights,max_length,bos,
+    prompt_tokens, prompt_weights = pad_tokens_and_weights(prompt_tokens,
+                                                           prompt_weights,
+                                                           max_length,bos,
                                                            eos,no_boseos_middle=no_boseos_middle,chunk_length=pipe.tokenizer.model_max_length,)
     prompt_tokens = torch.tensor(prompt_tokens, dtype=torch.long, device=pipe.device)
     # ------------------------------------------------------------------------------------------------------------------------------------------------
@@ -526,21 +529,20 @@ def get_weighted_text_embeddings_reg(
                                                          pad,no_boseos_middle=no_boseos_middle,)
 
     prompt_weights = torch.tensor(prompt_weights, dtype=text_embeddings.dtype, device=pipe.device)
+
+
+
+
     if uncond_prompt is not None:
-        uncond_embeddings = get_unweighted_text_embeddings(
-            pipe,
-            uncond_tokens,
-            pipe.tokenizer.model_max_length,
-            clip_skip,
-            eos,
-            pad,
-            no_boseos_middle=no_boseos_middle,
-        )
+        uncond_embeddings = get_unweighted_text_embeddings(pipe,uncond_tokens,pipe.tokenizer.model_max_length,
+                                                           clip_skip,eos,pad,no_boseos_middle=no_boseos_middle,)
         uncond_weights = torch.tensor(uncond_weights, dtype=uncond_embeddings.dtype, device=pipe.device)
 
+    print(f'prompt_weights : {prompt_weights}')
     # assign weights to the prompts and normalize in the sense of mean
     # TODO: should we normalize by chunk or in a whole (current implementation)?
     if (not skip_parsing) and (not skip_weighting):
+        print(f'parsing and weighting the sentence ... ')
         previous_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
         text_embeddings *= prompt_weights.unsqueeze(-1)
         current_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
@@ -553,6 +555,7 @@ def get_weighted_text_embeddings_reg(
 
     if uncond_prompt is not None:
         return text_embeddings, uncond_embeddings
+
     return text_embeddings, None
 
 
