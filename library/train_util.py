@@ -661,7 +661,9 @@ class BaseDataset(torch.utils.data.Dataset):
         if tokenizer is None:
             tokenizer = self.tokenizers[0]
 
-        input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length, return_tensors="pt").input_ids
+        #input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length, return_tensors="pt").input_ids
+        input_ids = tokenizer(caption, padding=False, truncation=True, max_length=self.tokenizer_max_length,
+                              return_tensors="pt").input_ids
 
         if self.tokenizer_max_length > tokenizer.model_max_length:
             input_ids = input_ids.squeeze(0)
@@ -1154,6 +1156,8 @@ class BaseDataset(torch.utils.data.Dataset):
                     else:
                         token_caption = self.get_input_ids(caption,self.tokenizers[0])
                         class_token_caption = self.get_input_ids(class_caption,self.tokenizers[0])
+
+
                     input_ids_list.append(token_caption)
                     class_input_ids_list.append(class_token_caption)
                     def generate_text_embedding(caption, tokenizer):
@@ -1196,20 +1200,14 @@ class BaseDataset(torch.utils.data.Dataset):
         example["loss_weights"] = torch.FloatTensor(loss_weights)
         if len(text_encoder_outputs1_list) == 0:
             if self.token_padding_disabled :
-                print(f'make input ids ......................... ')
-                # -----------------------------------------------------------------------------------------------
-                #example["input_ids"] = self.tokenizer[0](captions,
-                #                                         padding=True,
-                #                                         truncation=True,
-                #                                         return_tensors="pt").input_ids  # token idx
-                #example["class_input_ids"] = self.tokenizer[0](class_captions,
-                #                                               padding=True,
-                #                                               truncation=True,
-                #                                               return_tensors="pt").input_ids
-                caption_ids = self.tokenizer[0](captions, padding=False, truncation=True, return_tensors="pt").input_ids
-                print(f'caption_ids : {caption_ids}')
-                example["input_ids"] = self.tokenizer[0](captions,padding=False,truncation=True,return_tensors="pt").input_ids
-                example["class_input_ids"] = self.tokenizer[0](class_captions,padding=False,truncation=True,return_tensors="pt").input_ids
+                example["input_ids"] = self.tokenizer[0](captions,
+                                                         padding=True,
+                                                         truncation=True,
+                                                         return_tensors="pt").input_ids  # token idx
+                example["class_input_ids"] = self.tokenizer[0](class_captions,
+                                                               padding=True,
+                                                               truncation=True,
+                                                               return_tensors="pt").input_ids
                 if len(self.tokenizers) > 1:
                     example["input_ids2"] = self.tokenizer[1](
                         captions, padding=True, truncation=True, return_tensors="pt").input_ids
