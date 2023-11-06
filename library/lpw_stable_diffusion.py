@@ -1086,7 +1086,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
         do_classifier_free_guidance = guidance_scale > 1.0
 
         # 3. Encode input prompt
-        text_embeddings,prompt_net_len = self._encode_prompt_reg(
+        text_embeddings, prompt_net_len = self._encode_prompt_reg(
             prompt,
             device,
             num_images_per_prompt,
@@ -1123,7 +1123,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
-
+        print(f'start of denoising loop ***************** ')
         # 8. Denoising loop
         for i, t in enumerate(self.progress_bar(timesteps)):
             # expand the latents if we are doing classifier free guidance
@@ -1143,12 +1143,10 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
                 )
                 unet_additional_args["down_block_additional_residuals"] = down_block_res_samples
                 unet_additional_args["mid_block_additional_residual"] = mid_block_res_sample
-                unet_additional_args["trg_indexs_list"] = prompt_net_len
 
             # predict the noise residual
-            noise_pred = self.unet(latent_model_input,
-                                   t,
-                                   encoder_hidden_states=text_embeddings,
+            print(f'self.unet : {self.unet.__class__.__name__}')
+            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
                                    **unet_additional_args).sample
 
             # perform guidance
