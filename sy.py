@@ -358,6 +358,7 @@ class NetworkTrainer:
                 # ------------------------------------------------------------------------------------------------------
                 # 2) make empty network
                 vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
+                train_util.replace_unet_modules(unet_copy, args.mem_eff_attn, args.xformers, args.sdpa)
                 temp_network, weights_sd = network_module.create_network_from_weights(multiplier=1, file=None,block_wise=None,
                                                                                       vae=vae_copy, text_encoder=text_encoder_copy, unet=unet_copy,
                                                                                       weights_sd=weights_sd,for_inference=False,)
