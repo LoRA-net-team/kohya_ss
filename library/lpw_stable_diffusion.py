@@ -499,6 +499,7 @@ def get_weighted_text_embeddings_reg(
     bos = pipe.tokenizer.bos_token_id
     eos = pipe.tokenizer.eos_token_id
     pad = pipe.tokenizer.pad_token_id
+    print(f'bos : {bos} | eos : {eos} | pad : {pad}')
 
     # ------------------------------------------------------------------------------------------------------------------------------------------------
     prompt_tokens, prompt_weights = pad_tokens_and_weights(prompt_tokens,prompt_weights,max_length,bos,
