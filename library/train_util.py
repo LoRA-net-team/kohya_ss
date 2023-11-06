@@ -1196,6 +1196,7 @@ class BaseDataset(torch.utils.data.Dataset):
         example["loss_weights"] = torch.FloatTensor(loss_weights)
         if len(text_encoder_outputs1_list) == 0:
             if self.token_padding_disabled :
+                print(f'make input ids ......................... ')
                 # -----------------------------------------------------------------------------------------------
                 #example["input_ids"] = self.tokenizer[0](captions,
                 #                                         padding=True,
@@ -1205,9 +1206,10 @@ class BaseDataset(torch.utils.data.Dataset):
                 #                                               padding=True,
                 #                                               truncation=True,
                 #                                               return_tensors="pt").input_ids
-                example["input_ids"] = self.tokenizer[0](captions,padding=False,truncation=True,return_tensors="pt").input_ids  # token idx
+                caption_ids = self.tokenizer[0](captions, padding=False, truncation=True, return_tensors="pt").input_ids
+                print(f'caption_ids : {caption_ids}')
+                example["input_ids"] = self.tokenizer[0](captions,padding=False,truncation=True,return_tensors="pt").input_ids
                 example["class_input_ids"] = self.tokenizer[0](class_captions,padding=False,truncation=True,return_tensors="pt").input_ids
-
                 if len(self.tokenizers) > 1:
                     example["input_ids2"] = self.tokenizer[1](
                         captions, padding=True, truncation=True, return_tensors="pt").input_ids
