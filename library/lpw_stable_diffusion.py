@@ -549,10 +549,8 @@ def get_weighted_text_embeddings_reg(
         text_embeddings *= (previous_mean / current_mean).unsqueeze(-1).unsqueeze(-1)
 
         prompt_weights = prompt_weights.squeeze(-1)
-        prompt_weights[:, prompt_net_len + 1] = 0.0
+        prompt_weights[:, prompt_net_len + 1:] = 0.0
         prompt_weights = prompt_weights.unsqueeze(-1)
-        print(f' prompt net len : {prompt_net_len}')
-        print(f' prompt_weights : {prompt_weights}')
         text_embeddings *= prompt_weights.unsqueeze(-1)
 
 
