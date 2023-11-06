@@ -62,15 +62,15 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
-                print(f'trg_indexs_list : {trg_indexs_list}')
+                #print(f'trg_indexs_list : {trg_indexs_list}')
                 uncon, con = context.chunk(2)
-                # caption net length = trg_indexs_list
-
-
-
-                trg_size = torch.ones(con.shape)
-                trg_size[:, 0, :] = 1.0
-                con = con * trg_size.to(con.device)  # class_text_embeddings
+                if 'down_blocks_2' in layer_name or 'mid' in layer_name or 'up_blocks_1' in layer_name :
+                    # caption net length = trg_indexs_list
+                    trg_size = torch.ones(con.shape)
+                    trg_size[:, 0, :] = 1.0
+                    trg_size[:, 1, :] = 0.25
+                    trg_size[:, trg_indexs_list+1:, :] = 0.25
+                    con = con * trg_size.to(con.device)  # class_text_embeddings
                 context = torch.cat([uncon, con])
             query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states
