@@ -1,23 +1,19 @@
 # copy from https://github.com/huggingface/diffusers/blob/main/examples/community/lpw_stable_diffusion.py
 # and modify to support SD2.x
-
 import inspect
 import re
 from typing import Callable, List, Optional, Union
-
 import numpy as np
 import PIL.Image
 import torch
 from packaging import version
 from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
-
 import diffusers
 from diffusers import SchedulerMixin, StableDiffusionPipeline
 from diffusers.models import AutoencoderKL, UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput, StableDiffusionSafetyChecker
 from diffusers.utils import logging
 from torch.nn.functional import normalize
-
 try:
     from diffusers.utils import PIL_INTERPOLATION
 except ImportError:
@@ -1023,7 +1019,9 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
                 unet_additional_args["mid_block_additional_residual"] = mid_block_res_sample
 
             # predict the noise residual
-            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings, **unet_additional_args).sample
+            print(f'self.unet : {self.unet.__class__.__name__}')
+            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings,
+                                   **unet_additional_args).sample
 
             # perform guidance
             if do_classifier_free_guidance:
