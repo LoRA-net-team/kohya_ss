@@ -560,6 +560,7 @@ def get_weighted_text_embeddings_reg(
             uncond_embeddings *= (previous_mean / current_mean).unsqueeze(-1).unsqueeze(-1)
 
     if uncond_prompt is not None:
+        print(f' after smoothing, text_embeddings : {text_embeddings}')
         return text_embeddings, uncond_embeddings
 
     return text_embeddings, None
