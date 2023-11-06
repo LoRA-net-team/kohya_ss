@@ -470,7 +470,7 @@ def get_weighted_text_embeddings_reg(
 
     if not skip_parsing:
         prompt_tokens, prompt_weights = get_prompts_with_weights(pipe, prompt, max_length - 2)
-        _, prompt_net_len = prompt_tokens.shape
+        prompt_net_len = len(prompt_tokens[0])
         print(f'prompt_tokens : {prompt_tokens}')
         class_prompt_tokens, class_prompt_weights = get_prompts_with_weights(pipe, class_prompt, max_length - 2)
         if uncond_prompt is not None:
