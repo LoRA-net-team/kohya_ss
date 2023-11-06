@@ -4,8 +4,8 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_4_5_config --main_pro
     --max_token_length 225 \
     --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
     --wandb_init_name td_pretraining \
-    --wandb_run_name te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat \
-    --output_dir ./result/perfusion_experiment/teddy_bear/te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat \
+    --wandb_run_name te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat_textemedding_trimming \
+    --output_dir ./result/perfusion_experiment/teddy_bear/te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat_textemedding_trimming \
     --train_data_dir /data7/sooyeon/MyData/perfusion_dataset/teddy_one \
     --mask_dir /data7/sooyeon/MyData/perfusion_dataset/teddy_one_mask \
     --class_token 'teddy bear' --class_caption 'teddy bear' --trg_concept td \
