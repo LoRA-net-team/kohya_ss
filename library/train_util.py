@@ -2890,7 +2890,6 @@ def add_training_arguments(parser: argparse.ArgumentParser, support_dreambooth: 
             "--prior_loss_weight", type=float, default=1.0, help="loss weight for regularization images / 正則化画像のlossの重み"
         )
 
-
 def verify_training_args(args: argparse.Namespace):
     if args.v_parameterization and not args.v2:
         print("v_parameterization should be with v2 not v1 or sdxl / v1やsdxlでv_parameterizationを使用することは想定されていません")
@@ -2917,6 +2916,7 @@ def verify_training_args(args: argparse.Namespace):
         print(
             f"zero_terminal_snr is enabled, but v_parameterization is not enabled. training will be unexpected"
             + " / zero_terminal_snrが有効ですが、v_parameterizationが有効ではありません。学習結果は想定外になる可能性があります")
+
 def add_dataset_arguments(parser: argparse.ArgumentParser, support_dreambooth: bool, support_caption: bool, support_caption_dropout: bool):
     # dataset common
     parser.add_argument("--train_data_dir", type=str, default=None, help="directory for train images / 学習画像データのディレクトリ")
@@ -2989,7 +2989,6 @@ def add_dataset_arguments(parser: argparse.ArgumentParser, support_dreambooth: b
             "--dataset_repeats", type=int, default=1, help="repeat dataset when training with captions / キャプションでの学習時にデータセットを繰り返す回数"
         )
 
-
 def add_sd_saving_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--save_model_as",
@@ -3003,7 +3002,6 @@ def add_sd_saving_arguments(parser: argparse.ArgumentParser):
         action="store_true",
         help="use safetensors format to save (if save_model_as is not specified) / checkpoint、モデルをsafetensors形式で保存する（save_model_as未指定時）",
     )
-
 
 def read_config_from_file(args: argparse.Namespace, parser: argparse.ArgumentParser):
     if not args.config_file:
@@ -3071,7 +3069,6 @@ def read_config_from_file(args: argparse.Namespace, parser: argparse.ArgumentPar
     print(args.config_file)
 
     return args
-
 
 # endregion
 # region utils

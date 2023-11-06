@@ -50,6 +50,7 @@ def match_layer_name(layer_name:str, regex_list_str:str) -> bool:
         if re.match(regex, layer_name):
             return True
     return False
+
 def register_attention_control(unet : nn.Module, controller:AttentionStore, mask_threshold:float=1) :
     """
     Register cross attention layers to controller.
