@@ -66,10 +66,11 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                 uncon, con = context.chunk(2)
                 if 'down_blocks_2' in layer_name or 'mid' in layer_name or 'up_blocks_1' in layer_name :
                     # caption net length = trg_indexs_list
+                    print(f'{layer_name} shrinking trigge word and padding token strength')
                     trg_size = torch.ones(con.shape)
                     trg_size[:, 0, :] = 1.0
-                    trg_size[:, 1, :] = 0.25
-                    trg_size[:, trg_indexs_list+1:, :] = 0.25
+                    trg_size[:, 1, :] = 0.1
+                    trg_size[:, trg_indexs_list+1:, :] = 0.1
                     con = con * trg_size.to(con.device)  # class_text_embeddings
                 context = torch.cat([uncon, con])
             query = self.to_q(hidden_states)
