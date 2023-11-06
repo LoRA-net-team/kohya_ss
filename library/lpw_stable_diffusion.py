@@ -341,8 +341,6 @@ def get_unweighted_text_embeddings_reg(pipe: StableDiffusionPipeline,
     #trg_size[:, 1, :] = 0
     #print(f'trg_size : {trg_size}')
     #text_embeddings = text_embeddings * trg_size#class_text_embeddings
-
-
     return text_embeddings
 
 def get_weighted_text_embeddings(

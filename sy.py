@@ -64,9 +64,9 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                 print('remake context')
                 is_cross_attention = True
                 uncon, con = context.chunk(2)
-
+                print(f'con text embedding shape (1,77,768) : {con.shape}')
                 trg_size = torch.ones(con.shape)
-                trg_size[:, 1, :] = 0
+                trg_size[:, :, :] = 0
                 con = con * trg_size.to(con.device)  # class_text_embeddings
                 context = torch.cat([uncon, con])
             query = self.to_q(hidden_states)
@@ -383,7 +383,8 @@ class NetworkTrainer:
 
                 self.sample_images_reg(accelerator, args, epoch_info, 0, accelerator.device, vae_copy, tokenizer,
                                        text_encoder_copy, unet_copy,
-                                       text_encoder,efficient=True, save_folder_name = save_folder_name,)
+                                       text_encoder,
+                                       efficient=True, save_folder_name = save_folder_name,)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
