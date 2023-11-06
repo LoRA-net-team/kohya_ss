@@ -61,12 +61,10 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
             is_cross_attention = False
             if context is not None:
-                print('remake context')
                 is_cross_attention = True
                 uncon, con = context.chunk(2)
-                print(f'con text embedding shape (1,77,768) : {con.shape}')
                 trg_size = torch.ones(con.shape)
-                trg_size[:, :, :] = 0
+                trg_size[:, 0, :] = 0
                 con = con * trg_size.to(con.device)  # class_text_embeddings
                 context = torch.cat([uncon, con])
             query = self.to_q(hidden_states)
