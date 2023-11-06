@@ -471,7 +471,7 @@ def get_weighted_text_embeddings_reg(
     if not skip_parsing:
         prompt_tokens, prompt_weights = get_prompts_with_weights(pipe, prompt, max_length - 2)
         prompt_net_len = len(prompt_tokens[0])
-        print(f'prompt_tokens : {prompt_tokens}')
+        #print(f'prompt_tokens : {prompt_tokens}')
         class_prompt_tokens, class_prompt_weights = get_prompts_with_weights(pipe, class_prompt, max_length - 2)
         if uncond_prompt is not None:
             if isinstance(uncond_prompt, str):
@@ -541,17 +541,17 @@ def get_weighted_text_embeddings_reg(
     # assign weights to the prompts and normalize in the sense of mean
     # TODO: should we normalize by chunk or in a whole (current implementation)?
     if (not skip_parsing) and (not skip_weighting):
-        print(f' prompt weight (pad) smoothing  ... ')
+        #print(f' prompt weight (pad) smoothing  ... ')
         previous_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
         text_embeddings *= prompt_weights.unsqueeze(-1)
         current_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
 
         text_embeddings *= (previous_mean / current_mean).unsqueeze(-1).unsqueeze(-1)
 
-        prompt_weights = prompt_weights.squeeze(-1)
-        prompt_weights[:, 1] = 0.25
-        prompt_weights[:, prompt_net_len + 1:] = 0.25
-        text_embeddings *= prompt_weights.unsqueeze(-1)
+        #prompt_weights = prompt_weights.squeeze(-1)
+        #prompt_weights[:, 1] = 0.25
+        #prompt_weights[:, prompt_net_len + 1:] = 0.25
+        #text_embeddings *= prompt_weights.unsqueeze(-1)
 
 
         if uncond_prompt is not None:
@@ -562,9 +562,9 @@ def get_weighted_text_embeddings_reg(
 
     if uncond_prompt is not None:
         print(f' after smoothing, text_embeddings : {text_embeddings}')
-        return text_embeddings, uncond_embeddings
+        return text_embeddings, uncond_embeddings, prompt_net_len
 
-    return text_embeddings, None
+    return text_embeddings, None, prompt_net_len
 
 
 def preprocess_image(image):
@@ -798,7 +798,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
                 f" {prompt} has batch size {batch_size}. Please make sure that passed `negative_prompt` matches"
                 " the batch size of `prompt`.")
 
-        text_embeddings, uncond_embeddings = get_weighted_text_embeddings_reg(
+        text_embeddings, uncond_embeddings, prompt_net_len = get_weighted_text_embeddings_reg(
             pipe=self,
             prompt=prompt,
             uncond_prompt=negative_prompt if do_classifier_free_guidance else None,
@@ -815,7 +815,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
             uncond_embeddings = uncond_embeddings.view(bs_embed * num_images_per_prompt, seq_len, -1)
             text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
 
-        return text_embeddings
+        return text_embeddings, prompt_net_len
 
     def check_inputs(self, prompt, height, width, strength, callback_steps):
         if not isinstance(prompt, str) and not isinstance(prompt, list):
@@ -1089,7 +1089,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
         do_classifier_free_guidance = guidance_scale > 1.0
 
         # 3. Encode input prompt
-        text_embeddings = self._encode_prompt_reg(
+        text_embeddings,prompt_net_len = self._encode_prompt_reg(
             prompt,
             device,
             num_images_per_prompt,
@@ -1097,6 +1097,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
             negative_prompt,
             max_embeddings_multiples,sub_text_encoder)
         dtype = text_embeddings.dtype
+
         # 4. Preprocess image and mask
         if isinstance(image, PIL.Image.Image):
             image = preprocess_image(image)
@@ -1145,9 +1146,13 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
                 )
                 unet_additional_args["down_block_additional_residuals"] = down_block_res_samples
                 unet_additional_args["mid_block_additional_residual"] = mid_block_res_sample
+                unet_additional_args["trg_indexs_list"] = prompt_net_len
 
             # predict the noise residual
-            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings, **unet_additional_args).sample
+            noise_pred = self.unet(latent_model_input,
+                                   t,
+                                   encoder_hidden_states=text_embeddings,
+                                   **unet_additional_args).sample
 
             # perform guidance
             if do_classifier_free_guidance:
