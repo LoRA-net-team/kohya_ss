@@ -64,7 +64,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                 is_cross_attention = True
                 uncon, con = context.chunk(2)
                 trg_size = torch.ones(con.shape)
-                trg_size[:, 0, :] = 1.2
+                trg_size[:, 0, :] = 1.0
                 con = con * trg_size.to(con.device)  # class_text_embeddings
                 context = torch.cat([uncon, con])
             query = self.to_q(hidden_states)

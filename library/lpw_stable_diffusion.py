@@ -500,7 +500,6 @@ def get_weighted_text_embeddings_reg(
     bos = pipe.tokenizer.bos_token_id
     eos = pipe.tokenizer.eos_token_id
     pad = pipe.tokenizer.pad_token_id
-    print(f'bos : {bos} | eos : {eos} | pad : {pad}')
 
     # ------------------------------------------------------------------------------------------------------------------------------------------------
     prompt_tokens, prompt_weights = pad_tokens_and_weights(prompt_tokens,
@@ -538,12 +537,14 @@ def get_weighted_text_embeddings_reg(
                                                            clip_skip,eos,pad,no_boseos_middle=no_boseos_middle,)
         uncond_weights = torch.tensor(uncond_weights, dtype=uncond_embeddings.dtype, device=pipe.device)
 
-    print(f'prompt_weights : {prompt_weights}')
+
     # assign weights to the prompts and normalize in the sense of mean
     # TODO: should we normalize by chunk or in a whole (current implementation)?
     if (not skip_parsing) and (not skip_weighting):
-        print(f'parsing and weighting the sentence ... ')
+        print(f' prompt weight (pad) smoothing  ... ')
         previous_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
+        # padding smoothing prompt weights
+        prompt_weights[:, prompt_net_len+1] = 0.8
         text_embeddings *= prompt_weights.unsqueeze(-1)
         current_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
         text_embeddings *= (previous_mean / current_mean).unsqueeze(-1).unsqueeze(-1)
