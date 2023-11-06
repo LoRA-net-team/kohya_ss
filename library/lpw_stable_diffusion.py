@@ -543,12 +543,11 @@ def get_weighted_text_embeddings_reg(
     if (not skip_parsing) and (not skip_weighting):
         print(f' prompt weight (pad) smoothing  ... ')
         previous_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
-        # padding smoothing prompt weights
-        #prompt_weights[:, prompt_net_len+1] = 0.0
         text_embeddings *= prompt_weights.unsqueeze(-1)
-
         current_mean = text_embeddings.float().mean(axis=[-2, -1]).to(text_embeddings.dtype)
+
         text_embeddings *= (previous_mean / current_mean).unsqueeze(-1).unsqueeze(-1)
+
         prompt_weights = prompt_weights.squeeze(-1)
         prompt_weights[:, prompt_net_len + 1] = 0.0
         text_embeddings *= prompt_weights.unsqueeze(-1)
