@@ -1492,8 +1492,6 @@ class UNet2DConditionModel(nn.Module):
         trg_indexs_list=None,
         mask_imgs=None) -> Union[Dict, Tuple]:
 
-        print(' When Call Unet, Here !!! ')
-
 
         default_overall_up_factor = 2**self.num_upsamplers
         forward_upsample_size = False
