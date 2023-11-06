@@ -997,7 +997,7 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
 
         # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
-
+        print(f'start of denoising loop ***************** ')
         # 8. Denoising loop
         for i, t in enumerate(self.progress_bar(timesteps)):
             # expand the latents if we are doing classifier free guidance
