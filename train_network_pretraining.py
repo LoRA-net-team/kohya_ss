@@ -931,13 +931,16 @@ class NetworkTrainer:
                         else:
                             text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders,
                                                                     weight_dtype)
-
+                            text_dim = text_encoder_conds.shape[-1]
 
                             caption_attention_mask = batch['caption_attention_mask']
+                            caption_attention_mask = torch.cat(caption_attention_mask, dim=0).unsqueeze(-1)
+                            caption_attention_mask = torch.repeat_interleave(caption_attention_mask, text_dim, dim=-1)
+
+                            text_encoder_conds = text_encoder_conds * caption_attention_mask
                             # [1,768]
                             print(f'text_encoder_conds : {text_encoder_conds.shape}')
-                            print(f'caption_attention_mask.shape: {caption_attention_mask}')
-
+                            
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
                                                                                                        noise_scheduler,
                                                                                                        latents)
