@@ -1050,12 +1050,13 @@ def load_models_from_stable_diffusion_checkpoint(v2, ckpt_path, device="cpu", dt
         # CLIPTextModel
         text_model = CLIPTextModel._from_config(cfg)
         # CLIPTextModel.load_state_dict
-        print(f'********************converted_text_encoder_checkpoint')
-        layer_name = converted_text_encoder_checkpoint.keys()
-        position_ids = converted_text_encoder_checkpoint['text_model.embeddings.position_ids']
-        print(position_ids)
-        import time
-        time.sleep(10)
+        #print(f'********************converted_text_encoder_checkpoint')
+        #layer_name = converted_text_encoder_checkpoint.keys()
+        #position_ids = converted_text_encoder_checkpoint['text_model.embeddings.position_ids']
+        #print(position_ids)
+        #import time
+        #time.sleep(10)
+        converted_text_encoder_checkpoint.pop('text_model.embeddings.position_ids')
         info = text_model.load_state_dict(converted_text_encoder_checkpoint)
     print("loading text encoder:", info)
 
