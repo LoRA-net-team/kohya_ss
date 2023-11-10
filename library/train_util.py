@@ -664,7 +664,6 @@ class BaseDataset(torch.utils.data.Dataset):
         input_ids = tokenizer(caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length, return_tensors="pt").input_ids
         #input_ids = tokenizer(caption, padding=False, truncation=True, max_length=self.tokenizer_max_length,
         #                      return_tensors="pt").input_ids
-        print(f'original input_ids : {input_ids}')
 
         if self.tokenizer_max_length > tokenizer.model_max_length:
             input_ids = input_ids.squeeze(0)
@@ -2371,7 +2370,10 @@ def get_git_revision_hash() -> str:
 
 
 
-def replace_unet_modules(unet: UNet2DConditionModel, mem_eff_attn, xformers, sdpa):
+def replace_unet_modules(unet: UNet2DConditionModel,
+                         mem_eff_attn,
+                         xformers,
+                         sdpa):
     if mem_eff_attn:
         print("Enable memory efficient attention for U-Net")
         unet.set_use_memory_efficient_attention(False, True)

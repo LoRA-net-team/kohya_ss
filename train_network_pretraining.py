@@ -156,8 +156,9 @@ class NetworkTrainer:
         self.vae_scale_factor = 0.18215
         self.is_sdxl = False
 
-    # TODO 他のスクリプトと共通化する
-    def generate_step_logs(self, args: argparse.Namespace, current_loss, avr_loss, lr_scheduler,
+    def generate_step_logs(self,
+                           args: argparse.Namespace,
+                           current_loss, avr_loss, lr_scheduler,
                            keys_scaled=None, mean_norm=None, maximum_norm=None, **kwargs):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
         # ------------------------------------------------------------------------------------------------------------------------------
@@ -235,7 +236,6 @@ class NetworkTrainer:
 
     def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
         input_ids = batch["input_ids"].to(accelerator.device)
-        print(f'in training, input_ids : {input_ids}')
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,tokenizers[0], text_encoders[0],weight_dtype )
         return encoder_hidden_states
 
@@ -282,6 +282,7 @@ class NetworkTrainer:
             input_ids = torch.stack(iids_list)  # 3,77
         return input_ids
 
+
     def train(self, args):
 
         print("\n step 1. start session")
@@ -323,14 +324,17 @@ class NetworkTrainer:
         tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
         weight_dtype, save_dtype = train_util.prepare_dtype(args)
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
-
+        print(" (5.1) original model (without lora)")
         _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
-
+        print(" (5.2) model with lora")
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-
-        train_util.replace_unet_modules(unet_org, args.mem_eff_attn, args.xformers, args.sdpa)
+        print(" (5.3) unet with xformers (for memory efficiency)")
+        train_util.replace_unet_modules(unet_org,
+                                        args.mem_eff_attn,
+                                        args.xformers,
+                                        args.sdpa)
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
         if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
             vae.set_use_memory_efficient_attention_xformers(args.xformers)
