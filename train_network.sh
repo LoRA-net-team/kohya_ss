@@ -1,10 +1,10 @@
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config --main_process_port 24564 train_network_pretraining.py \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_2_3_config --main_process_port 22364 train_network_pretraining.py \
     --logging_dir ../result/logs --process_title parksooyeon \
     --seed 42 --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
     --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
     --wandb_init_name iom_pretraining --max_token_length 225 \
-    --wandb_run_name iom_pretrain_sen_10_unet_infer_inlayers_without_attn_loss \
-    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_unet_infer_inlayers_without_attn_loss \
+    --wandb_run_name iom_pretrain_sen_10_unet_infer_inlayers_without_attn_loss_high_preservating \
+    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_unet_infer_inlayers_without_attn_loss_preservating \
     --train_data_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1 \
     --mask_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1_mask \
     --class_token 'cat' --class_caption 'cat' --trg_concept iom --class_caption_dir /data7/sooyeon/MyData/perfusion_dataset/cat/cat_sentences.txt \
