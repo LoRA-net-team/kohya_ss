@@ -526,7 +526,7 @@ class NetworkTrainer:
             unwrapped_nw.save_weights(ckpt_file, save_dtype,metadata=None)
 
         print("\n step 13. image inference before training anything")
-        #self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
+        self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
 
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
@@ -894,7 +894,7 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         # ------------------------------------------------------------------------------------------------------
         # sampling right after text pretraining
-        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=attention_storer)
+        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=attention_storer)
         attention_storer.reset()
 
         print("\n step 13. training loop")
@@ -998,9 +998,6 @@ class NetworkTrainer:
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
-
-
-
             # -------------------------------------------------------------------------------------------------------------------------------------------------
             # 3) preserving loss
             ##print(f' From Preserving loss')
