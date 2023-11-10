@@ -4421,7 +4421,7 @@ def sample_images_common(pipe_class,accelerator,
     # clip_sample=Trueにする
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
         scheduler.config.clip_sample = True
-
+    print(f'args.clip_skip : {args.clip_skip}')
     pipeline = pipe_class(text_encoder=text_encoder,vae=vae,unet=unet,tokenizer=tokenizer,scheduler=scheduler,
                           safety_checker=None,feature_extractor=None,requires_safety_checker=False,
                           clip_skip=args.clip_skip,)
