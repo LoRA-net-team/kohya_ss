@@ -1041,8 +1041,7 @@ def load_models_from_stable_diffusion_checkpoint(v2, ckpt_path, device="cpu", dt
         # text_model = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14").to(device)
         # logging.set_verbosity_warning()
         # print(f"config: {text_model.config}")
-        cfg = CLIPTextConfig(
-            vocab_size=49408,
+        cfg = CLIPTextConfig(vocab_size=49408,
             hidden_size=768,
             intermediate_size=3072,
             num_hidden_layers=12,
@@ -1059,9 +1058,10 @@ def load_models_from_stable_diffusion_checkpoint(v2, ckpt_path, device="cpu", dt
             eos_token_id=2,
             model_type="clip_text_model",
             projection_dim=768,
-            torch_dtype="float32",
-        )
+            torch_dtype="float32",)
+
         text_model = CLIPTextModel._from_config(cfg)
+        print(f'text_model : {text_model.__class__.__name__}')
         info = text_model.load_state_dict(converted_text_encoder_checkpoint)
     print("loading text encoder:", info)
 

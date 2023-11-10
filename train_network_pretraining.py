@@ -326,6 +326,8 @@ class NetworkTrainer:
         vae_dtype = torch.float32 if args.no_half_vae else weight_dtype
         print(" (5.1) original model (without lora)")
         _, text_encoder_org, vae_org, unet_org = self.load_target_model(args, weight_dtype, accelerator)
+
+
         text_encoders_org = text_encoder_org if isinstance(text_encoder_org, list) else [text_encoder_org]
         print(" (5.2) model with lora")
         model_version, text_encoder, vae, unet = self.load_target_model(args, weight_dtype, accelerator)
