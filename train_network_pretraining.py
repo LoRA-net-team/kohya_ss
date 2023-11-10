@@ -939,8 +939,8 @@ class NetworkTrainer:
 
                             text_encoder_conds = text_encoder_conds * caption_attention_mask
                             # [1,768]
-                            print(f'text_encoder_conds : {text_encoder_conds.shape}')
-                            
+                            print(f'text_encoder_conds : {text_encoder_conds}')
+
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
                                                                                                        noise_scheduler,
                                                                                                        latents)
