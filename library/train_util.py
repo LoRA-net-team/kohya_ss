@@ -4418,13 +4418,16 @@ def sample_images_common(pipe_class,accelerator,
                               beta_end=SCHEDULER_LINEAR_END,
                               beta_schedule=SCHEDLER_SCHEDULE,
                               clip_sample = False,
+                              steps_offset=1,
                               **sched_init_args,)
     # clip_sample=Trueにする
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
         scheduler.config.clip_sample = True
     print(f'args.clip_skip : {args.clip_skip}')
     pipeline = pipe_class(text_encoder=text_encoder,vae=vae,unet=unet,tokenizer=tokenizer,scheduler=scheduler,
-                          safety_checker=None,feature_extractor=None,requires_safety_checker=False,
+                          safety_checker=None,
+                          feature_extractor=None,
+                          requires_safety_checker=False,
                           clip_skip=args.clip_skip,)
     pipeline.to(device)
     save_dir = args.output_dir + "/sample"
