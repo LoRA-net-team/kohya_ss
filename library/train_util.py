@@ -4417,6 +4417,7 @@ def sample_images_common(pipe_class,accelerator,
                               beta_start=SCHEDULER_LINEAR_START,
                               beta_end=SCHEDULER_LINEAR_END,
                               beta_schedule=SCHEDLER_SCHEDULE,
+                              clip_sample = False,
                               **sched_init_args,)
     # clip_sample=Trueにする
     if hasattr(scheduler.config, "clip_sample") and scheduler.config.clip_sample is False:
