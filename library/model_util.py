@@ -1051,7 +1051,11 @@ def load_models_from_stable_diffusion_checkpoint(v2, ckpt_path, device="cpu", dt
         text_model = CLIPTextModel._from_config(cfg)
         # CLIPTextModel.load_state_dict
         print(f'********************converted_text_encoder_checkpoint')
-        print(converted_text_encoder_checkpoint)
+        layer_name = converted_text_encoder_checkpoint.keys()
+        import time
+        for l in layer_name:
+            print(l)
+            time.sleep(1)
         info = text_model.load_state_dict(converted_text_encoder_checkpoint)
     print("loading text encoder:", info)
 
