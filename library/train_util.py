@@ -663,9 +663,9 @@ class BaseDataset(torch.utils.data.Dataset):
 
         tokenizer_output = tokenizer(caption, padding="max_length", truncation=True, max_length=self.tokenizer_max_length,
                               return_tensors="pt")
-        print(f'tokenizer_output: {tokenizer_output}')
-        
-        input_ids =tokenizer_output.input_ids
+
+        input_ids = tokenizer_output.input_ids
+        attention_mask = tokenizer_output.attention_mask
 
         if self.tokenizer_max_length > tokenizer.model_max_length:
             input_ids = input_ids.squeeze(0)
@@ -689,7 +689,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         ids_chunk[1] = tokenizer.eos_token_id
                     iids_list.append(ids_chunk)
             input_ids = torch.stack(iids_list)  # 3,77
-        return input_ids
+        return input_ids, attention_mask
 
     def register_image(self, info: ImageInfo, subset: BaseSubset):
         self.image_data[info.image_key] = info
@@ -1158,15 +1158,10 @@ class BaseDataset(torch.utils.data.Dataset):
 
 
                     else:
-                        token_caption = self.get_input_ids(caption,
+                        token_caption, caption_attention_mask = self.get_input_ids(caption,
                                                            self.tokenizers[0])
-                        class_token_caption = self.get_input_ids(class_caption,
+                        class_token_caption, class_caption_attention_mask = self.get_input_ids(class_caption,
                                                                  self.tokenizers[0])
-
-                    print(f'captions : {captions} " token_caption: {token_caption}')
-                    print(f'token_output : {token_output}')
-                    print(f'class_caption : {class_caption} | class_token_caption: {class_token_caption}')
-
 
 
 
@@ -1210,10 +1205,8 @@ class BaseDataset(torch.utils.data.Dataset):
         example["absolute_paths"] = absolute_paths
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
-
-
-
-
+        example["caption_attention_mask"] = caption_attention_mask
+        example["class_caption_attention_mask"] = class_caption_attention_mask
 
 
 
