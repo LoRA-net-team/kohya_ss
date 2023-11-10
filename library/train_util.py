@@ -4428,8 +4428,8 @@ def sample_images_common(pipe_class,accelerator,
     pipeline = pipe_class(text_encoder=text_encoder,vae=vae,unet=unet,tokenizer=tokenizer,scheduler=scheduler,
                           safety_checker=None,
                           feature_extractor=None,
-                          requires_safety_checker=False,
-                          clip_skip=args.clip_skip,)
+                          requires_safety_checker=False,)
+                          #clip_skip=args.clip_skip,)
     pipeline.to(device)
     save_dir = args.output_dir + "/sample"
     if efficient :
