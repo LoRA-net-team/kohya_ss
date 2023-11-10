@@ -1,4 +1,4 @@
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_2_3_config --main_process_port 22364 train_network_pretraining.py \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_0_1_config --main_process_port 20164 train_network_pretraining.py \
     --logging_dir ../result/logs --process_title parksooyeon \
     --seed 42 --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
     --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
@@ -12,7 +12,7 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_2_3_config
     --optimizer_type AdamW --lr_scheduler cosine_with_restarts --lr_warmup_steps 144 \
     --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 --pretraining_epochs 10 --unet_net_key_names 'unet' \
     --save_every_n_epochs 1 --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/iom_inference.txt \
-    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 \
+    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 0 \
     --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer'
 
 
