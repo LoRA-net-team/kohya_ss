@@ -516,12 +516,10 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
         tokenizer: CLIPTokenizer,
         unet: UNet2DConditionModel,
         scheduler: SchedulerMixin,
-        # clip_skip: int,
         safety_checker: StableDiffusionSafetyChecker,
         feature_extractor: CLIPFeatureExtractor,
         requires_safety_checker: bool = True,
-        clip_skip: int = 1,
-    ):
+        clip_skip: int = 1,):
         super().__init__(
             vae=vae,
             text_encoder=text_encoder,
@@ -530,32 +528,11 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
             scheduler=scheduler,
             safety_checker=safety_checker,
             feature_extractor=feature_extractor,
-            requires_safety_checker=requires_safety_checker,
-        )
-        self.clip_skip = clip_skip
-        self.__init__additional__()
+            requires_safety_checker=requires_safety_checker,)
 
-    # else:
-    #     def __init__(
-    #         self,
-    #         vae: AutoencoderKL,
-    #         text_encoder: CLIPTextModel,
-    #         tokenizer: CLIPTokenizer,
-    #         unet: UNet2DConditionModel,
-    #         scheduler: SchedulerMixin,
-    #         safety_checker: StableDiffusionSafetyChecker,
-    #         feature_extractor: CLIPFeatureExtractor,
-    #     ):
-    #         super().__init__(
-    #             vae=vae,
-    #             text_encoder=text_encoder,
-    #             tokenizer=tokenizer,
-    #             unet=unet,
-    #             scheduler=scheduler,
-    #             safety_checker=safety_checker,
-    #             feature_extractor=feature_extractor,
-    #         )
-    #         self.__init__additional__()
+        #self.clip_skip = clip_skip
+        self.clip_skip = 1
+        self.__init__additional__()
 
     def __init__additional__(self):
         if not hasattr(self, "vae_scale_factor"):
