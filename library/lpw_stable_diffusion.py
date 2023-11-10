@@ -479,36 +479,7 @@ def prepare_controlnet_image(
 
 
 class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
-    r"""
-    Pipeline for text-to-image generation using Stable Diffusion without tokens length limit, and support parsing
-    weighting in prompt.
-
-    This model inherits from [`DiffusionPipeline`]. Check the superclass documentation for the generic methods the
-    library implements for all the pipelines (such as downloading or saving, running on a particular device, etc.)
-
-    Args:
-        vae ([`AutoencoderKL`]):
-            Variational Auto-Encoder (VAE) Model to encode and decode images to and from latent representations.
-        text_encoder ([`CLIPTextModel`]):
-            Frozen text-encoder. Stable Diffusion uses the text portion of
-            [CLIP](https://huggingface.co/docs/transformers/model_doc/clip#transformers.CLIPTextModel), specifically
-            the [clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14) variant.
-        tokenizer (`CLIPTokenizer`):
-            Tokenizer of class
-            [CLIPTokenizer](https://huggingface.co/docs/transformers/v4.21.0/en/model_doc/clip#transformers.CLIPTokenizer).
-        unet ([`UNet2DConditionModel`]): Conditional U-Net architecture to denoise the encoded image latents.
-        scheduler ([`SchedulerMixin`]):
-            A scheduler to be used in combination with `unet` to denoise the encoded image latents. Can be one of
-            [`DDIMScheduler`], [`LMSDiscreteScheduler`], or [`PNDMScheduler`].
-        safety_checker ([`StableDiffusionSafetyChecker`]):
-            Classification module that estimates whether generated images could be considered offensive or harmful.
-            Please, refer to the [model card](https://huggingface.co/CompVis/stable-diffusion-v1-4) for details.
-        feature_extractor ([`CLIPFeatureExtractor`]):
-            Model that extracts features from generated images to be used as inputs for the `safety_checker`.
-    """
-
     # if version.parse(version.parse(diffusers.__version__).base_version) >= version.parse("0.9.0"):
-
     def __init__(
         self,
         vae: AutoencoderKL,
@@ -520,11 +491,11 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
         feature_extractor: CLIPFeatureExtractor,
         requires_safety_checker: bool = True,
         clip_skip: int = 1,):
-        super().__init__(vae=vae,text_encoder=text_encoder,tokenizer=tokenizer,unet=unet,scheduler=scheduler,
-                         safety_checker=safety_checker,feature_extractor=feature_extractor,requires_safety_checker=requires_safety_checker,)
+        super().__init__(vae=vae,text_encoder=text_encoder,tokenizer=tokenizer,unet=unet,scheduler=scheduler, safety_checker=safety_checker,feature_extractor=feature_extractor,requires_safety_checker=requires_safety_checker,)
         #self.clip_skip = clip_skip
-        self.clip_skip = 1
+
         self.__init__additional__()
+        #self.clip_skip = 1
 
     def __init__additional__(self):
         if not hasattr(self, "vae_scale_factor"):
@@ -593,7 +564,8 @@ class StableDiffusionLongPromptWeightingPipeline(StableDiffusionPipeline):
             prompt=prompt,
             uncond_prompt=negative_prompt if do_classifier_free_guidance else None,
             max_embeddings_multiples=max_embeddings_multiples,
-            clip_skip=self.clip_skip,
+            clip_skip=None,
+            #clip_skip=self.clip_skip,
         )
         bs_embed, seq_len, _ = text_embeddings.shape
         text_embeddings = text_embeddings.repeat(1, num_images_per_prompt, 1)
