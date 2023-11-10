@@ -571,6 +571,7 @@ class NetworkTrainer:
         except TypeError:
             accelerator.print("Deprecated: use prepare_optimizer_params(text_encoder_lr, unet_lr, learning_rate) instead of prepare_optimizer_params(text_encoder_lr, unet_lr)")
             trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr)
+        print(f'after add unet, len of trainable parmas : {len(trainable_params)}')
         if args.te_freeze :
             trainable_params = [trainable_params[-1]]
         optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
@@ -1047,7 +1048,8 @@ class NetworkTrainer:
                         p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
                         preservating_loss += p_loss.mean()
 
-                loss = loss + preservating_loss/20
+                #loss = loss + preservating_loss/20
+                loss = loss + preservating_loss
                 attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
 
                 if accelerator.sync_gradients:
@@ -1141,14 +1143,13 @@ class NetworkTrainer:
                                text_encoder, unet,attention_storer=attention_storer)
             attention_storer.reset()
             attention_storer_org.reset()
-            #if attention_storer is not None:
-            #    attention_storer.step_store = {}
-            # ------------------------------------------------------------------------------------------------------
+
+
+            # ------------------------------------------------------------------------------------------------------------------------
             # learned network state dict
             weights_sd = network.state_dict()
             layer_names = weights_sd.keys()
             efficient_layers = args.efficient_layer.split(",")
-            #unefficient_layers = args.unefficient_layer.split(",")
             for layer_name in layer_names:
                 score = 0
                 for efficient_layer in efficient_layers:
@@ -1156,10 +1157,10 @@ class NetworkTrainer:
                         score += 1
                 if score == 0:
                     weights_sd[layer_name] = weights_sd[layer_name] * 0
+                else :
+                    weights_sd[layer_name] = weights_sd[layer_name] * 1
                 # because alpha is np, should be on cpu
                 weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
-
-            # ------------------------------------------------------------------------------------------------------
             # 2) make empty network
             unet_org = accelerator.unwrap_model(unet_org)
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)

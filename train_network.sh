@@ -1,10 +1,10 @@
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config --main_process_port 26764 train_network_pretraining.py \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config --main_process_port 24564 train_network_pretraining.py \
     --logging_dir ../result/logs --process_title parksooyeon \
     --seed 42 --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
     --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
     --wandb_init_name iom_pretraining --max_token_length 225 \
-    --wandb_run_name iom_pretrain_sen_10_unet_infer_inlayers \
-    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_unet_heatmap_backprop_infer_inlayers \
+    --wandb_run_name iom_pretrain_sen_10_unet_infer_inlayers_without_attn_loss \
+    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_unet_infer_inlayers_without_attn_loss \
     --train_data_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1 \
     --mask_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1_mask \
     --class_token 'cat' --class_caption 'cat' --trg_concept iom --class_caption_dir /data7/sooyeon/MyData/perfusion_dataset/cat/cat_sentences.txt \
@@ -12,17 +12,17 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config
     --optimizer_type AdamW --lr_scheduler cosine_with_restarts --lr_warmup_steps 144 \
     --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 --pretraining_epochs 10 --unet_net_key_names 'unet' \
     --save_every_n_epochs 1 --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/iom_inference.txt \
-    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 --heatmap_backprop \
+    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 \
     --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer'
 
 
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config --main_process_port 26764 train_network_pretraining.py \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_6_7_config --main_process_port 26764 train_network_pretraining.py \
     --logging_dir ../result/logs --process_title parksooyeon \
     --seed 42 --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
     --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5 \
     --wandb_init_name iom_pretraining \
-    --wandb_run_name iom_pretrain_sen_10_unet_infer_inlayers \
-    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_inlayers_heatmap_backprop_infer_inlayers \
+    --wandb_run_name iom_pretrain_sen_10_inlayers_heatmap_backprop_infer_inlayers_without_attn_loss \
+    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_inlayers_heatmap_backprop_infer_inlayers_without_attn_loss \
     --train_data_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1 \
     --mask_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1_mask \
     --class_token 'cat' --class_caption 'cat' --trg_concept iom --class_caption_dir /data7/sooyeon/MyData/perfusion_dataset/cat/cat_sentences.txt \
@@ -30,7 +30,7 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config
     --optimizer_type AdamW --lr_scheduler cosine_with_restarts --lr_warmup_steps 144 \
     --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 --pretraining_epochs 10 --unet_net_key_names 'down_blocks_2,mid,up_blocks_1' \
     --save_every_n_epochs 1 --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/iom_inference.txt \
-    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 --heatmap_backprop \
+    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 \
     --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer'
 
 

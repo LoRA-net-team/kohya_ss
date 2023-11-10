@@ -1,3 +1,3 @@
-python split_image_epoch.py --generated_image_folder '/data7/sooyeon/LyCORIS/lyco_v2/kohya_ss/result/perfusion_experiment/teddy_bear' \
-                            --trg_condition te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat \
-                            --trg_folder 'inference_inference_inference_without_down_blocks_0'
+python split_image_epoch.py --generated_image_folder '/data7/sooyeon/LyCORIS/lyco_v2/result/perfusion_experiment/cat' \
+                            --trg_condition iom_pretrain_sen_10_unet_heatmap_backprop_infer_inlayers \
+                            --trg_folder 'inference_inlayer'
