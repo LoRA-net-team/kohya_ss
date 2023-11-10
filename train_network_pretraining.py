@@ -932,7 +932,9 @@ class NetworkTrainer:
                             text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders,
                                                                     weight_dtype)
 
+
                             caption_attention_mask = batch['caption_attention_mask']
+                            # [1,768]
                             print(f'text_encoder_conds : {text_encoder_conds.shape}')
                             print(f'caption_attention_mask.shape: {caption_attention_mask}')
 

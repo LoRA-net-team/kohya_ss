@@ -1,12 +1,7 @@
 import os, torch
 from torch.nn.functional import normalize
 
-text_embeddings = torch.randn((1,77,768))
-previous_mean = text_embeddings.float().mean(axis=[-2, -1])
-#print(previous_mean)
-previous_mean = text_embeddings.float().mean()
-#print(previous_mean)
+text_encoder_conds = torch.randn((2,77,768))
 
-prompt_weights = torch.ones((1,77,1))
-prompt_weights = prompt_weights.squeeze(-1)
-print(prompt_weights.shape)
+caption_attention_mask = torch.randn((1,77))
+caption_attention_mask = caption_attention_mask.unsqueeze(-1)

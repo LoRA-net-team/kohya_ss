@@ -1029,7 +1029,7 @@ class BaseDataset(torch.utils.data.Dataset):
         trg_concepts = []
         trg_indexs_list = []
         mask_dirs = []
-
+        caption_attention_masks = []
         for image_key in bucket[image_index : image_index + bucket_batch_size ]:
             image_info = self.image_data[image_key]
             absolute_path = image_info.absolute_path
@@ -1163,8 +1163,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         class_token_caption, class_caption_attention_mask = self.get_input_ids(class_caption,
                                                                  self.tokenizers[0])
 
-
-
+                        caption_attention_masks.append(caption_attention_mask)
                     input_ids_list.append(token_caption)
                     class_input_ids_list.append(class_token_caption)
                     def generate_text_embedding(caption, tokenizer):
@@ -1198,6 +1197,7 @@ class BaseDataset(torch.utils.data.Dataset):
                         else:
                             token_caption2 = self.get_input_ids(caption, self.tokenizers[1])
                         input_ids2_list.append(token_caption2)
+
         example = {}
         example["mask_dirs"] = mask_dirs
         example["trg_indexs_list"] = trg_indexs_list
@@ -1205,8 +1205,8 @@ class BaseDataset(torch.utils.data.Dataset):
         example["absolute_paths"] = absolute_paths
         example["mask_imgs"] = mask_imgs
         example["loss_weights"] = torch.FloatTensor(loss_weights)
-        example["caption_attention_mask"] = caption_attention_mask
-        example["class_caption_attention_mask"] = class_caption_attention_mask
+        example["caption_attention_mask"] = caption_attention_masks
+#        example["class_caption_attention_mask"] = class_caption_attention_mask
 
 
 
