@@ -959,8 +959,7 @@ class NetworkTrainer:
                             attention_storer.attn_score_dict = {}
 
                         class_noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
-                                                          class_encoder_hidden_states,
-                                                          batch, weight_dtype,batch["trg_indexs_list"],batch['mask_imgs'])
+                                                          class_encoder_hidden_states,batch, weight_dtype)
                         if attention_storer is not None:
                             class_attn_score_dict = attention_storer.attn_score_dict
                             attention_storer.attn_score_dict = {}
