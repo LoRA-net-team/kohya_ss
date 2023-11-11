@@ -789,19 +789,26 @@ class BasicTransformerBlock(nn.Module):
         self.attn1.set_use_sdpa(sdpa)
         self.attn2.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, context=None,
-                timestep=None, trg_indexs_list=None,
+    def forward(self,
+                hidden_states, context=None,
+                timestep=None,
+                trg_indexs_list=None,
                 mask=None) :
+
         # 1. Self-Attention
         norm_hidden_states = self.norm1(hidden_states)
-
         hidden_states = self.attn1(norm_hidden_states,
-                                   trg_indexs_list=trg_indexs_list, mask=mask) + hidden_states
+                                   trg_indexs_list=trg_indexs_list,
+                                   mask=mask,
+                                   timestep=timestep) + hidden_states
 
         # 2. Cross-Attention
         norm_hidden_states = self.norm2(hidden_states)
-        hidden_states = self.attn2(norm_hidden_states, context=context,
-                                   trg_indexs_list=trg_indexs_list, mask=mask) + hidden_states
+        hidden_states = self.attn2(norm_hidden_states,
+                                   context=context,
+                                   trg_indexs_list=trg_indexs_list,
+                                   mask=mask,
+                                   timestep=timestep) + hidden_states
 
         # 3. Feed-forward
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
@@ -858,7 +865,8 @@ class Transformer2DModel(nn.Module):
         for transformer in self.transformer_blocks:
             transformer.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, encoder_hidden_states=None, timestep=None, return_dict: bool = True,
+    def forward(self, hidden_states, encoder_hidden_states=None,
+                timestep=None, return_dict: bool = True,
                 trg_indexs_list=None,
                 mask=None):
         # 1. Input
@@ -879,8 +887,8 @@ class Transformer2DModel(nn.Module):
 
         # 2. Blocks
         for block in self.transformer_blocks:
-            print(f'in trnsformer2Dmodel, block : {block.__class__.__name__}')
-            hidden_states = block(hidden_states, context=encoder_hidden_states, timestep=timestep,
+            hidden_states = block(hidden_states, context=encoder_hidden_states,
+                                  timestep=timestep,
                                   trg_indexs_list=trg_indexs_list, mask=mask)
 
         # 3. Output
@@ -970,11 +978,10 @@ class CrossAttnDownBlock2D(nn.Module):
             else:
                 hidden_states = resnet(hidden_states,
                                        temb)
-                print(f'in crossattndownblock2d, temb : {temb.shape}')
-                print(f'attn : {attn.__class__.__name__}')
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,
                                      trg_indexs_list=trg_indexs_list,
-                                     mask=mask, ).sample
+                                     mask=mask,
+                                     timestep=temb).sample
 
             output_states += (hidden_states,)
 
@@ -1062,7 +1069,8 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                 if attn is not None:
                     hidden_states = attn(hidden_states, encoder_hidden_states,
                                          trg_indexs_list=trg_indexs_list,
-                                         mask=mask,).sample
+                                         mask=mask,
+                                         timestep=temb).sample
                 hidden_states = resnet(hidden_states, temb)
 
         return hidden_states
@@ -1266,7 +1274,8 @@ class CrossAttnUpBlock2D(nn.Module):
                 hidden_states = resnet(hidden_states, temb)
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,
                                      trg_indexs_list=trg_indexs_list,
-                                     mask=mask,).sample
+                                     mask=mask,
+                                     timestep=temb).sample
 
         if self.upsamplers is not None:
             for upsampler in self.upsamplers:
@@ -1533,11 +1542,9 @@ class UNet2DConditionModel(nn.Module):
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
                                                        trg_indexs_list=trg_indexs_list,
-                                                       mask=mask_imgs)
-                print(f'downsample_block (with crossattntion) : {downsample_block.__class__.__name__}')
+                                                       mask=mask_imgs,)
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
-                print(f'downsample_block (without crossattention) : {downsample_block.__class__.__name__}')
             down_block_res_samples += res_samples
 
         # skip connectionにControlNetの出力を追加する
@@ -1549,11 +1556,10 @@ class UNet2DConditionModel(nn.Module):
         #
         # 4. mid
         sample = self.mid_block(sample,
-                                emb,
+                                temb=emb,
                                 encoder_hidden_states=encoder_hidden_states,
                                 trg_indexs_list=trg_indexs_list,
                                 mask=mask_imgs)
-        print(f'self.mid_block : {self.mid_block.__class__.__name__}')
         # ControlNetの出力を追加する
         if mid_block_additional_residual is not None:
             sample += mid_block_additional_residual
@@ -1574,13 +1580,11 @@ class UNet2DConditionModel(nn.Module):
                                         upsample_size=upsample_size,
                                         trg_indexs_list=trg_indexs_list,
                                         mask=mask_imgs)
-                print(f'upsample_block (has cross attention) : {upsample_block.__class__.__name__}')#
             else:
                 sample = upsample_block(hidden_states=sample,
                                         temb=emb,
                                         res_hidden_states_tuple=res_samples,
                                         upsample_size=upsample_size)
-                print(f'upsample_block : {upsample_block.__class__.__name__}')  #
         # 6. post-process
         sample = self.conv_norm_out(sample)
         sample = self.conv_act(sample)

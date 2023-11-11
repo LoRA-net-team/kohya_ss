@@ -57,7 +57,9 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
     """
     def ca_forward(self, layer_name):
 
-        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
+        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None,
+                    timestep=None):
+            print(f'layer_name: {layer_name} | timestep : {timestep}')
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
