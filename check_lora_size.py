@@ -378,13 +378,18 @@ class NetworkTrainer:
                     org_sd = lora_module.org_module.state_dict()
                     org_weight = org_sd["weight"]#.to(torch.float)
 
-
+                    down_weight = lora_module.lora_down.weight.data
+                    up_weight = lora_module.lora_up.weight.data
                     # merge weight
                     if len(org_weight.size()) == 2:
-
-                        up_weight = lora_module.lora_up.weight.data
-                        down_weight = lora_module.lora_down.weight.data
                         lora_weight = (up_weight @ down_weight) * lora_module.scale
+
+                    elif down_weight.size()[2:4] == (1, 1):
+                        lora_weight = (up_weight.squeeze(3).squeeze(2) @ down_weight.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)* lora_module.scale
+                    else:
+                        conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
+                        lora_weight = conved * lora_module.scale
+                    print(f'org_weight : {org_weight} | lora_weight : {lora_weight}')
 
 
 
