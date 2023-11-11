@@ -959,11 +959,8 @@ class NetworkTrainer:
                             attention_storer.attn_score_dict = {}
 
                         class_noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
-                                                    class_encoder_hidden_states,
-                                                    batch, weight_dtype,
-                                                    batch["trg_indexs_list"],
-                                                    # trg_index_list,
-                                                    batch['mask_imgs'])
+                                                          class_encoder_hidden_states,
+                                                          batch, weight_dtype,batch["trg_indexs_list"],batch['mask_imgs'])
                         if attention_storer is not None:
                             class_attn_score_dict = attention_storer.attn_score_dict
                             attention_storer.attn_score_dict = {}
@@ -971,11 +968,9 @@ class NetworkTrainer:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
-
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
-                    # 1) Masked loss ###
+                    # 1) VLB loss + Masked loss
                     losses = {}
-
                     if args.masked_loss:
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
                         mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in
@@ -983,7 +978,8 @@ class NetworkTrainer:
                         mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
                         noise_pred = noise_pred * mask_imgs
                         target = target * mask_imgs
-                    loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                    loss = torch.nn.functional.mse_loss(noise_pred.float(),
+                                                        target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
                     loss = loss * loss_weights
@@ -1041,7 +1037,7 @@ class NetworkTrainer:
                     if is_main_process:
                         wandb.log(losses)
 
-                    accelerator.backward(loss)
+                    accelerator.backward(loss, retain_graph=True)
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
@@ -1108,6 +1104,7 @@ class NetworkTrainer:
                     weights_sd[layer_name] = weights_sd[layer_name] * 1
                 # because alpha is np, should be on cpu
                 weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
+
             # 2) make empty network
             unet_org = accelerator.unwrap_model(unet_org)
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
