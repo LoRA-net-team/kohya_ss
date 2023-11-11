@@ -866,10 +866,12 @@ class Transformer2DModel(nn.Module):
         residual = hidden_states
 
         hidden_states = self.norm(hidden_states)
+
         if not self.use_linear_projection:
             hidden_states = self.proj_in(hidden_states)
             inner_dim = hidden_states.shape[1]
             hidden_states = hidden_states.permute(0, 2, 3, 1).reshape(batch, height * weight, inner_dim)
+
         else:
             inner_dim = hidden_states.shape[1]
             hidden_states = hidden_states.permute(0, 2, 3, 1).reshape(batch, height * weight, inner_dim)
@@ -877,6 +879,7 @@ class Transformer2DModel(nn.Module):
 
         # 2. Blocks
         for block in self.transformer_blocks:
+            print(f'in trnsformer2Dmodel, block : {block.__class__.__name__}')
             hidden_states = block(hidden_states, context=encoder_hidden_states, timestep=timestep,
                                   trg_indexs_list=trg_indexs_list, mask=mask)
 
