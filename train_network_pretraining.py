@@ -1047,7 +1047,7 @@ class NetworkTrainer:
                             org_weight_mean = torch.flatten(org_weight).mean()
                             lora_weight_mean = torch.flatten(lora_weight).mean()
                             weight_diff_loss += torch.abs(org_weight_mean - lora_weight_mean)
-                        loss = loss + weight_diff_loss
+                        loss = loss + args.weight_diff_loss_weight * weight_diff_loss
                         losses["loss/weight_diff_loss_"] = weight_diff_loss
 
 
@@ -1268,6 +1268,9 @@ if __name__ == "__main__":
     parser.add_argument("--class_preserving", action='store_true')
     parser.add_argument("--class_preserving_ratio", type=float, default=1.0)
     parser.add_argument("--weight_diff_loss", action='store_true')
+    parser.add_argument("--weight_diff_loss_weight", type=float, default=1.0)
+
+
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
