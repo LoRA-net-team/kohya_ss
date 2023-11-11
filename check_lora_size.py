@@ -373,6 +373,17 @@ class NetworkTrainer:
                 # 4) applying to deeplearning network
 
                 temp_network.apply_to(text_encoder_org, unet_org)
+                lora_modules = temp_network.text_encoder_loras + temp_network.unet_loras
+                for lora_module in lora_modules :
+                    org_forward = lora_module.org_forward.weight.data
+
+                    # merge weight
+                    if len(org_forward.size()) == 2:
+
+                    up_weight = lora_module.lora_up.weight.data
+                    down_weight = lora_module.lora_down.weight.data
+                    lora_weight = (up_weight @ down_weight) * lora_module.scale
+
 
 
 
