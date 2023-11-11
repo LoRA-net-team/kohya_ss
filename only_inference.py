@@ -340,7 +340,7 @@ class NetworkTrainer:
                         #    weights_sd[layer_name] = weights_sd[layer_name] * 1
                         #else :
                         #    weights_sd[layer_name] = weights_sd[layer_name] * 1
-                        weights_sd[layer_name] = weights_sd[layer_name] * 1
+                        weights_sd[layer_name] = weights_sd[layer_name] * 0
                         #print(f'layer_name : {layer_name} , alpha_value : {alpha_value}')
                     # because alpha is np, should be on cpu
                     #else :

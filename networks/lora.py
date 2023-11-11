@@ -100,7 +100,7 @@ class LoRAModule(torch.nn.Module):
 
         if type(alpha) == torch.Tensor:
             alpha = alpha.detach().float().numpy()  # without casting, bf16 causes error
-        alpha = self.lora_dim if alpha is None or alpha == 0 else alpha
+        alpha = self.lora_dim if alpha is None else alpha
         self.scale = alpha / self.lora_dim
         self.register_buffer("alpha", torch.tensor(alpha))  # 定数として扱える
 
@@ -146,6 +146,7 @@ class LoRAModule(torch.nn.Module):
             scale = self.scale
         lx = self.lora_up(lx)
         lora_value = lx * self.multiplier * scale
+        # 0.0625
         print(f'scale : {scale} | self.scale : {self.scale}')
 
 
