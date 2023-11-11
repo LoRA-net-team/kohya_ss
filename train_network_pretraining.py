@@ -1238,6 +1238,7 @@ if __name__ == "__main__":
     parser.add_argument("--unefficient_layer", type=str)
     parser.add_argument("--save_folder_name", type=str, default=None)
     parser.add_argument("--class_preserving", action='store_true')
+    parser.add_argument("--class_preserving_ratio", type=float, default=1.0)
 
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
