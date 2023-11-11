@@ -362,7 +362,8 @@ class NetworkTrainer:
 
                 temp_network.apply_to(text_encoder_org, unet_org)
                 lora_modules = temp_network.text_encoder_loras + temp_network.unet_loras
-                for lora_module in lora_modules :
+
+                for i, lora_module in enumerate(lora_modules) :
                     lora_name = lora_module.lora_name
                     org_sd = lora_module.org_module.state_dict()
                     org_weight = org_sd["weight"]#.to(torch.float)
@@ -381,8 +382,16 @@ class NetworkTrainer:
 
                     org_weight = torch.flatten(org_weight).to('cpu')
                     lora_weight = torch.flatten(lora_weight).to('cpu')
-                    plt.hist(org_weight, )
-                    plt.savefig(f'{lora_name}.jpg')
+
+                    plt.figure()
+                    plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
+                    plt.hist(lora_weight, bins=100, alpha=0.5, color='blue', label='lora', histtype = 'stepfilled')
+                    plt.title(f'{lora_name}')
+                    plt.legend()
+                    base_dir = 'histogram_file'
+                    os.makedirs(base_dir, exist_ok=True)
+                    save_dir = os.path.join(base_dir, f'histogram_{i+1}.jpg')
+                    plt.savefig(save_dir)
 
 
 
