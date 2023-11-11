@@ -59,7 +59,6 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
 
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None,
                     timestep=None):
-            print(f'layer_name: {layer_name} | timestep : {timestep}')
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
@@ -82,6 +81,9 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
+                controller.save_attn_score(attention_scores, layer_name)
+
+
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -111,17 +113,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
                         masked_heat_map = word_heat_map_ * mask_
                         attn_loss = F.mse_loss(word_heat_map_.mean(), masked_heat_map.mean())
                         controller.store(attn_loss, layer_name)
-
-
-                # check if torch.no_grad() is in effect
-                #elif torch.is_grad_enabled(): # if not, while training, trg_indexs_list should not be None
-                #    if mask is None:
-                #        raise RuntimeError("mask is None but hooked to cross attention layer. Maybe the dataset does not contain mask properly.")
-                #    raise RuntimeError("trg_indexs_list is None but hooked to cross attention layer. Maybe the dataset does not contain trigger token properly.")
-
             hidden_states = torch.bmm(attention_probs, value)
-            #if is_cross_attention :
-            #    print(f'layer {layer_name} hidden_states.shape : {hidden_states.shape}')
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
@@ -240,6 +232,11 @@ class NetworkTrainer:
         input_ids = batch["input_ids"].to(accelerator.device)
         encoder_hidden_states = train_util.get_hidden_states(args, input_ids,tokenizers[0], text_encoders[0],weight_dtype )
         return encoder_hidden_states
+
+    def get_class_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
+        class_input_ids = batch["class_input_ids"].to(accelerator.device)
+        class_encoder_hidden_states = train_util.get_hidden_states(args, class_input_ids,tokenizers[0], text_encoders[0],weight_dtype )
+        return class_encoder_hidden_states
 
     def call_unet(self,args, accelerator, unet, noisy_latents, timesteps, text_conds, batch, weight_dtype,
                   trg_indexs_list, mask_imgs):
@@ -931,14 +928,19 @@ class NetworkTrainer:
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
-                            text_encoder_conds = self.get_text_cond(args, accelerator, batch, tokenizers, text_encoders,
+
+                            text_encoder_conds = self.get_text_cond(args, accelerator,
+                                                                    batch, tokenizers, text_encoders,
+                                                                    weight_dtype)
+                            class_encoder_hidden_states = self.get_class_text_cond(args, accelerator,
+                                                                    batch, tokenizers, text_encoders,
                                                                     weight_dtype)
                             # ------------------------------------------------------------------------------------------------------
-                            text_dim = text_encoder_conds.shape[-1]
-                            caption_attention_mask = batch['caption_attention_mask']
-                            caption_attention_mask = torch.cat(caption_attention_mask, dim=0).unsqueeze(-1)
-                            caption_attention_mask = torch.repeat_interleave(caption_attention_mask, text_dim, dim=-1)
-                            text_encoder_conds = text_encoder_conds * caption_attention_mask
+                            #text_dim = text_encoder_conds.shape[-1]
+                            #caption_attention_mask = batch['caption_attention_mask']
+                            #caption_attention_mask = torch.cat(caption_attention_mask, dim=0).unsqueeze(-1)
+                            #caption_attention_mask = torch.repeat_interleave(caption_attention_mask, text_dim, dim=-1)
+                            #text_encoder_conds = text_encoder_conds * caption_attention_mask
 
 
                     noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
@@ -954,6 +956,19 @@ class NetworkTrainer:
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
                             attention_storer.step_store = {}
+                            attn_score_dict = attention_storer.attn_score_dict
+                            attention_storer.attn_score_dict = {}
+
+                        class_noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
+                                                    class_encoder_hidden_states,
+                                                    batch, weight_dtype,
+                                                    batch["trg_indexs_list"],
+                                                    # trg_index_list,
+                                                    batch['mask_imgs'])
+                        if attention_storer is not None:
+                            class_attn_score_dict = attention_storer.attn_score_dict
+                            attention_storer.attn_score_dict = {}
+
 
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
@@ -1001,6 +1016,18 @@ class NetworkTrainer:
                         if args.heatmap_backprop:
                             loss = task_loss + args.attn_loss_ratio * attn_loss
 
+                    # -------------------------------------------------------------------------------------------------------------------------------------------------
+                    # 3) attentino score diff loss
+                    if args.class_preserving :
+                        layer_names = attn_score_dict.keys()
+                        for layer_name in layer_names:
+                            concept_attn_score = torch.stack(attn_score_dict[layer_name])
+                            class_attn_score = torch.stack(class_attn_score_dict[layer_name])
+                            print(f'concept_attn_score : {concept_attn_score.shape}')
+
+
+
+
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
@@ -1011,55 +1038,8 @@ class NetworkTrainer:
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
-            # -------------------------------------------------------------------------------------------------------------------------------------------------
-            # 3) preserving loss
-            ##print(f' From Preserving loss')
-            #loss_dict = {}
-            #for batch in pretraining_dataloader:
-                unet_org = accelerator.prepare(unet_org)
-                class_captions_hidden_states = get_weighted_text_embeddings(tokenizer, text_encoder_org,text_batch["class_caption"],accelerator.device,
-                                                                            args.max_token_length // 75 if args.max_token_length else 1,
-                                                                            clip_skip=args.clip_skip,)
 
-                with accelerator.autocast():
-                    attention_storer_org.reset()
-                    noise_pred = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
-                                                class_captions_hidden_states,batch, weight_dtype, None, None)
-                    cross_key_collection_dict_org = attention_storer_org.cross_key_store
-                    cross_value_collection_dict_org = attention_storer_org.cross_value_store
-                    layer_names = cross_key_collection_dict_org.keys()
-                    attention_storer_org.reset()
 
-                class_captions_lora_states = get_weighted_text_embeddings(tokenizer,
-                                                                          text_encoder,
-                                                                          text_batch["class_caption"],
-                                                                          accelerator.device,
-                                                                          args.max_token_length // 75 if args.max_token_length else 1,
-                                                                          clip_skip=args.clip_skip, )
-                with accelerator.autocast():
-                    attention_storer.reset()
-                    noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps, class_captions_lora_states, batch, weight_dtype,None, None)
-                    cross_key_collection_dict = attention_storer.cross_key_store
-                    cross_value_collection_dict = attention_storer.cross_value_store
-                    attention_storer.reset()
-
-                preservating_loss = 0
-                for layer_name in layer_names:
-
-                    if not args.attn_loss_layers == 'all' and match_layer_name(layer_name, args.attn_loss_layers) :
-                        org_key_list = cross_key_collection_dict_org[layer_name]
-                        org_value_list = cross_value_collection_dict_org[layer_name]
-                        org_cond = torch.cat(org_key_list + org_value_list, dim=0)
-
-                        lora_key_list = cross_key_collection_dict[layer_name]
-                        lora_value_list = cross_value_collection_dict[layer_name]
-                        lora_cond = torch.cat(lora_key_list + lora_value_list, dim=0)
-
-                        p_loss = torch.nn.functional.mse_loss(lora_cond.float(),org_cond.float(),reduction="none")
-                        preservating_loss += p_loss.mean()
-
-                #loss = loss + preservating_loss/20
-                loss = loss + preservating_loss
                 attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
 
                 if accelerator.sync_gradients:
@@ -1298,6 +1278,8 @@ if __name__ == "__main__":
     parser.add_argument("--efficient_layer", type=str)
     parser.add_argument("--unefficient_layer", type=str)
     parser.add_argument("--save_folder_name", type=str, default=None)
+    parser.add_argument("--class_preserving", action='store_true')
+
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:

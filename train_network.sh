@@ -3,7 +3,7 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_0_1_config
     --seed 42 --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
     --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
     --max_token_length 225 \
-    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_inlayers_heatmap_backprop_infer_inlayers_padding_masking_test \
+    --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_0_inlayers_heatmap_backprop_infer_inlayers_class_preserving_test \
     --train_data_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1 \
     --mask_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1_mask \
     --class_token 'cat' --class_caption 'cat' --trg_concept iom --class_caption_dir /data7/sooyeon/MyData/perfusion_dataset/cat/cat_sentences.txt \
@@ -12,7 +12,27 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_0_1_config
     --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 --pretraining_epochs 0 --unet_net_key_names 'down_blocks_2,mid,up_blocks_1' \
     --save_every_n_epochs 1 --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/iom_inference.txt \
     --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 --heatmap_backprop \
-    --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer'
+    --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer' --class_preserving
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 --wandb_init_name iom_pretraining
 --wandb_run_name iom_pretrain_sen_10_inlayers_heatmap_backprop_infer_inlayers_padding_masking \

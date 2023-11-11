@@ -14,8 +14,18 @@ class AttentionStore :
         self.cross_query_store = {}
         self.cross_key_store = {}
         self.cross_value_store = {}
+        self.attn_score_dict = {}
     def get_empty_store(self):
         return {}
+
+    def save_attn_score(self, attn_score, layer_name):
+        if layer_name not in self.attn_score_dict.keys() :
+            self.attn_score_dict[layer_name] = []
+            self.attn_score_dict[layer_name].append(attn_score)
+        else :
+            self.attn_score_dict[layer_name].append(attn_score)
+        return attn_score
+
 
     def store(self, attn, layer_name):
         if layer_name not in self.step_store.keys() :
@@ -95,3 +105,4 @@ class AttentionStore :
         self.cross_query_store = {}
         self.cross_key_store = {}
         self.cross_value_store = {}
+        self.attn_score_dict = {}
