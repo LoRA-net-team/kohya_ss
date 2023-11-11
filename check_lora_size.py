@@ -319,10 +319,11 @@ class NetworkTrainer:
                     # learned network state dict
                 from safetensors.torch import load_file, safe_open
                 weights_sd = load_file(network_file)
+                """
                 layer_names = weights_sd.keys()
                 efficient_layers = args.efficient_layer.split(",")
                 save_folder_name = args.save_folder_name
-                """
+                
                 for layer_name in layer_names:
                     score = 0
                     for efficient_layer in efficient_layers:
@@ -366,13 +367,16 @@ class NetworkTrainer:
                     unet_lora.lora_up.weight.data = weights_sd[f'{lora_name}.lora_up.weight']
                     unet_lora.to(weight_dtype).to(accelerator.device)
 
+                    # 3) to accelerator.devicef
+                    vae_copy.to(weight_dtype).to(accelerator.device)
+                    unet_copy.to(weight_dtype).to(accelerator.device)
+                    text_encoder_copy.to(weight_dtype).to(accelerator.device)
+                    # 4) applying to deeplearning network
+                    temp_network.apply_to(text_encoder_org, unet_org)
+
+                    lora_modules = temp_network.text_encoder_loras + temp_network.unet_loras
+
                 """
-                # 3) to accelerator.devicef
-                vae_copy.to(weight_dtype).to(accelerator.device)
-                unet_copy.to(weight_dtype).to(accelerator.device)
-                text_encoder_copy.to(weight_dtype).to(accelerator.device)
-                # 4) applying to deeplearning network
-                temp_network.apply_to(text_encoder_org, unet_org)
                 self.sample_images(accelerator, args, epoch_info, 0, accelerator.device, vae_copy, tokenizer,
                                    text_encoder_copy, unet_copy, efficient=True, save_folder_name = save_folder_name)
                 """
