@@ -146,7 +146,7 @@ class LoRAModule(torch.nn.Module):
             scale = self.scale
         lx = self.lora_up(lx)
         lora_value = lx * self.multiplier * scale
-        print(f'lora_value : {lora_value}')
+        print(f'scale : {scale} | self.scale : {self.scale}')
         return org_forwarded + lx * self.multiplier * scale
 
 
