@@ -10,9 +10,9 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_0_1_config
     --class_token 'cat' --class_caption 'cat' --trg_concept iom --class_caption_dir /data7/sooyeon/MyData/perfusion_dataset/cat/cat_sentences.txt \
     --network_module networks.lora --resolution 512,512 --net_key_names text --network_dim 64 --network_alpha 4 --train_batch_size 2 \
     --optimizer_type AdamW --lr_scheduler cosine_with_restarts --lr_warmup_steps 144 \
-    --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 --pretraining_epochs 0 --unet_net_key_names 'down_blocks_2,mid,up_blocks_1' \
+    --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 --pretraining_epochs 10 --unet_net_key_names 'down_blocks_2,mid,up_blocks_1' \
     --save_every_n_epochs 1 --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/iom_inference.txt \
-    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 \
+    --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 10 --heatmap_backprop \
     --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer'
 
 

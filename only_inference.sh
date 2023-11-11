@@ -1,8 +1,8 @@
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_4_5_config --main_process_port 24564 sy.py \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config --main_process_port 24564 only_inference.py \
                   --logging_dir ./result/logs --process_title parksooyeon \
                   --max_token_length 225 \
-                  --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned-emaonly.safetensors \
-                  --output_dir ./result/perfusion_experiment/teddy_bear/te_pretrain_581_sen_10_unet_inlayers_cond_inference_classcaption_preserving_on_inlayer_heatmap_backprop_attn_loss_ratio_10_highrepeat \
-                  --save_folder_name 'inference_te_inblocks_eos_pad_smoothing_only_inlayer_0.2_also_customized_token' \
-                  --network_module networks.lora --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' \
-                  --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/LyCORIS/test/test_td.txt
+                  --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
+                  --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_inlayers_heatmap_backprop_infer_inlayers_padding_masking \
+                  --save_folder_name 'inference_othercaption_without_textlora' \
+                  --network_module networks.lora --efficient_layer 'down_blocks_2,mid,up_blocks_1' \
+                  --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/test_other.txt
