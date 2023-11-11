@@ -375,6 +375,9 @@ class NetworkTrainer:
                     temp_network.apply_to(text_encoder_org, unet_org)
 
                     lora_modules = temp_network.text_encoder_loras + temp_network.unet_loras
+                    for lora_module in lora_modules :
+                        org_forward = lora_module.org_forward
+
 
                 """
                 self.sample_images(accelerator, args, epoch_info, 0, accelerator.device, vae_copy, tokenizer,

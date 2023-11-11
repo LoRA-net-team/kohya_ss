@@ -372,7 +372,9 @@ class NetworkTrainer:
                 unet_copy.to(weight_dtype).to(accelerator.device)
                 text_encoder_copy.to(weight_dtype).to(accelerator.device)
                 # 4) applying to deeplearning network
-                temp_network.apply_to(text_encoder_org, unet_org)
+
+                temp_network.apply_to(text_encoder_org,
+                                      unet_org)
                 self.sample_images(accelerator, args, epoch_info, 0, accelerator.device, vae_copy, tokenizer,
                                    text_encoder_copy, unet_copy, efficient=True, save_folder_name = save_folder_name)
 
