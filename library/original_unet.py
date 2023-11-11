@@ -797,6 +797,7 @@ class BasicTransformerBlock(nn.Module):
 
         # 1. Self-Attention
         norm_hidden_states = self.norm1(hidden_states)
+        print(f'attn1: {self.attn1.__class__.__name__}')
         hidden_states = self.attn1(norm_hidden_states,
                                    trg_indexs_list=trg_indexs_list,
                                    mask=mask,
