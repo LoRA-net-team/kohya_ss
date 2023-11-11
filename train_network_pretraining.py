@@ -1026,7 +1026,7 @@ class NetworkTrainer:
                     # 4) attention score diff loss
                     if args.weight_diff_loss :
                         weight_diff_loss = 0
-                        lora_modules = network.text_encoder_loras + temp_network.unet_loras
+                        lora_modules = network.text_encoder_loras + network.unet_loras
                         for i, lora_module in enumerate(lora_modules):
                             lora_name = lora_module.lora_name
                             org_sd = lora_module.org_module.state_dict()
