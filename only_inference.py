@@ -334,10 +334,13 @@ class NetworkTrainer:
                                 score += 1
                     if score == 0 and 'alpha' not in layer_name:
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
+
                     if 'alpha' in layer_name:
-                        weights_sd[layer_name] = weights_sd[layer_name] * 1.5
-                        alpha_value = weights_sd[layer_name]
-                        print(f'layer_name : {layer_name} , alpha_value : {alpha_value}')
+                        if 'text' in layer_name or 'attn2_to_k' in layer_name or 'attn2_to_v' not in layer_name:
+                            weights_sd[layer_name] = weights_sd[layer_name] * 1
+                        else :
+                            weights_sd[layer_name] = weights_sd[layer_name] * 1.5
+                        #print(f'layer_name : {layer_name} , alpha_value : {alpha_value}')
                     # because alpha is np, should be on cpu
                     #else :
                     #    print(f'layer to use : {layer_name}')
