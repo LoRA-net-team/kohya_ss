@@ -375,10 +375,12 @@ class NetworkTrainer:
                 temp_network.apply_to(text_encoder_org, unet_org)
                 lora_modules = temp_network.text_encoder_loras + temp_network.unet_loras
                 for lora_module in lora_modules :
-                    org_forward = lora_module.org_forward.weight.data
+                    org_sd = lora_module.org_module.state_dict()
+                    org_weight = org_sd["weight"]#.to(torch.float)
+
 
                     # merge weight
-                    if len(org_forward.size()) == 2:
+                    if len(org_weight.size()) == 2:
 
                         up_weight = lora_module.lora_up.weight.data
                         down_weight = lora_module.lora_down.weight.data

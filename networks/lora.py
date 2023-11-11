@@ -119,7 +119,7 @@ class LoRAModule(torch.nn.Module):
     def apply_to(self):
         self.org_forward = self.org_module.forward
         self.org_module.forward = self.forward
-        del self.org_module
+        #del self.org_module
 
     def forward(self, x):
         org_forwarded = self.org_forward(x)
