@@ -1035,6 +1035,11 @@ class NetworkTrainer:
                         global_step += 1
                     if is_main_process:
                         wandb.log(losses)
+                    # -------------------------------------------------------------------------------------------------------------------------------------------------
+                    # 4) text preserving
+
+                    # text_batch
+
 
                     accelerator.backward(loss, retain_graph=True)
                     optimizer.step()
