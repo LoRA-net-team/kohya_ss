@@ -908,7 +908,6 @@ class NetworkTrainer:
             network.on_epoch_start(text_encoder, unet)
             step = 0
             for batch, text_batch in zip(train_dataloader, pretraining_dataloader):
-            #for step, batch in enumerate(train_dataloader):
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -1026,55 +1025,54 @@ class NetworkTrainer:
                             class_preserving_loss += 1/attn_diff.mean()
                         losses["loss/class_preserving_loss"] = class_preserving_loss
                         loss = loss + args.class_preserving_ratio * class_preserving_loss
+
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
 
-                if args.scale_weight_norms:
-                    keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
-                    max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
-                else:
-                    keys_scaled, mean_norm, maximum_norm = None, None, None
-
-                if accelerator.sync_gradients:
-                    progress_bar.update(1)
-                    global_step += 1
-                if is_main_process:
-                    wandb.log(losses)
-                accelerator.backward(loss)
-                optimizer.step()
-                lr_scheduler.step()
-                optimizer.zero_grad(set_to_none=True)
-
-                # showing loss without preservating loss
-                current_loss = loss.detach().item()
-                if epoch == 0:
-                    loss_list.append(current_loss)
-                else:
-                    loss_total -= loss_list[step]
-                    loss_list[step] = current_loss
-                loss_total += current_loss
-                avr_loss = loss_total / len(loss_list)
-                logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
-                # detach attention_losses dict
-                for k, v in losses.items() :
-                    if type(v) == torch.Tensor:
-                        losses[k] = v.detach().item()
-                    else :
-                        losses[k] = v
-
-                progress_bar.set_postfix(**logs)
-                if args.scale_weight_norms:
-                    progress_bar.set_postfix(**{**max_mean_logs, **logs})
-                if args.logging_dir is not None:
-                    logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **losses)
+                    if args.scale_weight_norms:
+                        keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
+                        max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
+                    else:
+                        keys_scaled, mean_norm, maximum_norm = None, None, None
+                    if accelerator.sync_gradients:
+                        progress_bar.update(1)
+                        global_step += 1
                     if is_main_process:
-                        wandb.log(logs)
-                if global_step >= args.max_train_steps:
-                    break
-            if args.logging_dir is not None:
-                logs = {"loss/epoch": loss_total / len(loss_list)}
-                accelerator.log(logs, step=epoch + 1)
+                        wandb.log(losses)
+
+                    accelerator.backward(loss)
+                    optimizer.step()
+                    lr_scheduler.step()
+                    optimizer.zero_grad(set_to_none=True)
+
+                    # showing loss without preservating loss
+                    current_loss = loss.detach().item()
+                    if epoch == 0:
+                        loss_list.append(current_loss)
+                    else:
+                        loss_total -= loss_list[step]
+                        loss_list[step] = current_loss
+                    loss_total += current_loss
+                    avr_loss = loss_total / len(loss_list)
+                    logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
+                    # detach attention_losses dict
+                    for k, v in losses.items() :
+                        if type(v) == torch.Tensor:
+                            losses[k] = v.detach().item()
+                        else :
+                            losses[k] = v
+
+                    progress_bar.set_postfix(**logs)
+                    if args.scale_weight_norms:
+                        progress_bar.set_postfix(**{**max_mean_logs, **logs})
+                    if args.logging_dir is not None:
+                        logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **losses)
+                        if is_main_process:
+                            wandb.log(logs)
+                    if global_step >= args.max_train_steps:
+                        break
+
             accelerator.wait_for_everyone()
             if args.save_every_n_epochs is not None:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
