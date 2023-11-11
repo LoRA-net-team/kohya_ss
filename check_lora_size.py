@@ -380,9 +380,9 @@ class NetworkTrainer:
                     # merge weight
                     if len(org_forward.size()) == 2:
 
-                    up_weight = lora_module.lora_up.weight.data
-                    down_weight = lora_module.lora_down.weight.data
-                    lora_weight = (up_weight @ down_weight) * lora_module.scale
+                        up_weight = lora_module.lora_up.weight.data
+                        down_weight = lora_module.lora_down.weight.data
+                        lora_weight = (up_weight @ down_weight) * lora_module.scale
 
 
 
