@@ -5,24 +5,12 @@ import re
 import math
 import os
 import sys
-import random
-import time
-import json
-from multiprocessing import Value
-from tqdm import tqdm
-import toml
+import matplotlib.pyplot as plt
 import tempfile
-from accelerate.utils import set_seed
-from diffusers import DDPMScheduler
 from library import model_util
 import library.train_util as train_util
-from library.train_util import (DreamBoothDataset,)
 import library.config_util as config_util
-from library.config_util import (ConfigSanitizer,BlueprintGenerator,)
-import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
-from library.custom_train_functions import (apply_snr_weight, get_weighted_text_embeddings,prepare_scheduler_for_custom_training,
-                                            scale_v_prediction_loss_like_noise_prediction,add_v_prediction_like_loss,)
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -375,6 +363,7 @@ class NetworkTrainer:
                 temp_network.apply_to(text_encoder_org, unet_org)
                 lora_modules = temp_network.text_encoder_loras + temp_network.unet_loras
                 for lora_module in lora_modules :
+                    lora_name = lora_module.lora_name
                     org_sd = lora_module.org_module.state_dict()
                     org_weight = org_sd["weight"]#.to(torch.float)
 
@@ -389,7 +378,12 @@ class NetworkTrainer:
                     else:
                         conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
                         lora_weight = conved * lora_module.scale
-                    print(f'org_weight : {org_weight} | lora_weight : {lora_weight}')
+
+                    org_weight = torch.flatten(org_weight)
+                    lora_weight = torch.flatten(lora_weight)
+                    plt.hist(org_weight, )
+                    plt.savefig(f'{lora_name}.jpg')
+
 
 
 
