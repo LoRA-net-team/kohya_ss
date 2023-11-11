@@ -3,6 +3,6 @@ accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config
                   --max_token_length 225 \
                   --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
                   --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_inlayers_heatmap_backprop_infer_inlayers_padding_masking \
-                  --save_folder_name 'inference_othercaption_without_textlora_test' \
+                  --save_folder_name 'inference_othercaption_without_textlora_upgrade_alpha_value_100' \
                   --network_module networks.lora --efficient_layer 'down_blocks_2,mid,up_blocks_1' \
                   --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/test_other.txt
