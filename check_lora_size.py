@@ -379,8 +379,8 @@ class NetworkTrainer:
                         conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
                         lora_weight = conved * lora_module.scale
 
-                    org_weight = torch.flatten(org_weight)
-                    lora_weight = torch.flatten(lora_weight)
+                    org_weight = torch.flatten(org_weight).to('cpu')
+                    lora_weight = torch.flatten(lora_weight).to('cpu')
                     plt.hist(org_weight, )
                     plt.savefig(f'{lora_name}.jpg')
 
