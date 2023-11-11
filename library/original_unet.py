@@ -943,13 +943,14 @@ class CrossAttnDownBlock2D(nn.Module):
         for attn in self.attentions:
             attn.set_use_sdpa(sdpa)
 
-    def forward(self, hidden_states, temb=None, encoder_hidden_states=None,
+    def forward(self,
+                hidden_states, temb=None,
+                encoder_hidden_states=None,
         trg_indexs_list=None,
         mask=None):
         output_states = ()
         for resnet, attn in zip(self.resnets, self.attentions):
             if self.training and self.gradient_checkpointing:
-
                 def create_custom_forward(module, return_dict=None):
                     def custom_forward(*inputs):
                         if return_dict is not None:
@@ -958,16 +959,19 @@ class CrossAttnDownBlock2D(nn.Module):
                         else:
                             return module(*inputs)
                     return custom_forward
-
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(resnet),
-                                                                  hidden_states, temb)
+                                                                  hidden_states,
+                                                                  temb)
                 hidden_states = torch.utils.checkpoint.checkpoint(create_custom_forward(attn, return_dict=False),
                                                                   hidden_states, encoder_hidden_states)[0]
             else:
-                hidden_states = resnet(hidden_states, temb)
+                hidden_states = resnet(hidden_states,
+                                       temb)
+                print(f'in crossattndownblock2d, temb : {temb.shape}')
+                print(f'attn : {attn.__class__.__name__}')
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,
                                      trg_indexs_list=trg_indexs_list,
-                                     mask=mask,                                     ).sample
+                                     mask=mask, ).sample
 
             output_states += (hidden_states,)
 
