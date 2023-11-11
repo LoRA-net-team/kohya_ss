@@ -380,15 +380,19 @@ class NetworkTrainer:
                         conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
                         lora_weight = conved * lora_module.scale
 
+                    total_weight = lora_weight + org_weight
+
                     org_weight = torch.flatten(org_weight).to('cpu')
                     lora_weight = torch.flatten(lora_weight).to('cpu')
+                    total_weight = torch.flatten(total_weight).to('cpu')
 
                     plt.figure()
                     plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
                     plt.hist(lora_weight, bins=100, alpha=0.5, color='blue', label='lora', histtype = 'stepfilled')
+                    plt.hist(total_weight, bins=100, alpha=0.5, color='green', label='total_weight', histtype='stepfilled')
                     plt.title(f'{lora_name}')
                     plt.legend()
-                    base_dir = 'histogram_file'
+                    base_dir = 'histogram_file_total'
                     os.makedirs(base_dir, exist_ok=True)
                     save_dir = os.path.join(base_dir, f'histogram_{i+1}.jpg')
                     plt.savefig(save_dir)
