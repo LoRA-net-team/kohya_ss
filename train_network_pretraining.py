@@ -954,16 +954,15 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
-                            attention_storer.step_store = {}
                             attn_score_dict = attention_storer.attn_score_dict
-                            attention_storer.attn_score_dict = {}
+                            attention_storer.reset()
 
                         class_noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                           class_encoder_hidden_states,batch, weight_dtype,
                                                           trg_indexs_list=None, mask_imgs=None)
                         if attention_storer is not None:
                             class_attn_score_dict = attention_storer.attn_score_dict
-                            attention_storer.attn_score_dict = {}
+                            attention_storer.reset()
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
