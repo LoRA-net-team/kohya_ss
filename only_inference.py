@@ -336,7 +336,7 @@ class NetworkTrainer:
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
 
                     if 'alpha' in layer_name:
-                        if 'text' in layer_name or 'attn2_to_k' in layer_name or 'attn2_to_v' in layer_name:
+                        if 'text' in layer_name or 'attn2_to_k' in layer_name or 'attn2_to_v' in layer_name or 'attn1_to_k' in layer_name or 'attn1_to_v' in layer_name :
                             weights_sd[layer_name] = weights_sd[layer_name] * 0
                         else :
                             weights_sd[layer_name] = weights_sd[layer_name] * 1.5
