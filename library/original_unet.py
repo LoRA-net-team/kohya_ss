@@ -800,16 +800,16 @@ class BasicTransformerBlock(nn.Module):
         print(f'attn1: {self.attn1.__class__.__name__}')
         hidden_states = self.attn1(norm_hidden_states,
                                    trg_indexs_list=trg_indexs_list,
-                                   mask=mask,
-                                   timestep=timestep) + hidden_states
+                                   mask=mask,) + hidden_states
+                                   #timestep=timestep) + hidden_states
 
         # 2. Cross-Attention
         norm_hidden_states = self.norm2(hidden_states)
         hidden_states = self.attn2(norm_hidden_states,
                                    context=context,
                                    trg_indexs_list=trg_indexs_list,
-                                   mask=mask,
-                                   timestep=timestep) + hidden_states
+                                   mask=mask,) + hidden_states
+                                   #timestep=timestep) + hidden_states
 
         # 3. Feed-forward
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
