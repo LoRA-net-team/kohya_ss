@@ -1019,11 +1019,17 @@ class NetworkTrainer:
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 3) attentino score diff loss
                     if args.class_preserving :
+                        class_preserving_loss = 0
                         layer_names = attn_score_dict.keys()
                         for layer_name in layer_names:
                             concept_attn_score = torch.cat(attn_score_dict[layer_name], dim=0)
                             class_attn_score = torch.cat(class_attn_score_dict[layer_name], dim=0)
                             print(f'concept_attn_score : {concept_attn_score.shape}')
+                            attn_diff = torch.abs(concept_attn_score - class_attn_score)
+                            attn_diff = 1 / attn_diff.mean()
+                            print(f'attn_diff : {attn_diff}')
+                            class_preserving_loss += 1/attn_diff.mean()
+
 
 
 
