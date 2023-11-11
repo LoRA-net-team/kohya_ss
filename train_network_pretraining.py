@@ -1021,8 +1021,8 @@ class NetworkTrainer:
                     if args.class_preserving :
                         layer_names = attn_score_dict.keys()
                         for layer_name in layer_names:
-                            concept_attn_score = torch.stack(attn_score_dict[layer_name])
-                            class_attn_score = torch.stack(class_attn_score_dict[layer_name])
+                            concept_attn_score = torch.cat(attn_score_dict[layer_name], dim=0)
+                            class_attn_score = torch.cat(class_attn_score_dict[layer_name], dim=0)
                             print(f'concept_attn_score : {concept_attn_score.shape}')
 
 
