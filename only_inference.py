@@ -242,13 +242,16 @@ class NetworkTrainer:
         noise_pred = unet(noisy_latents, timesteps, text_conds, trg_indexs_list=trg_indexs_list, mask_imgs=mask_imgs, ).sample
         return noise_pred
 
-    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=False,
-                      save_folder_name = None):
-        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, efficient=efficient,
-                                 save_folder_name = save_folder_name)
-        #train_util.sample_images_reg(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
-        #                         efficient=efficient,
-        #                         save_folder_name=save_folder_name)
+
+
+    def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                      attention_storer=None,
+                      efficient=False,
+                      save_folder_name=None):
+        train_util.sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet,
+                                 attention_storer=attention_storer,
+                                 efficient=efficient,
+                                 save_folder_name=save_folder_name)
 
     def get_input_ids(self, args, caption, tokenizer):
         tokenizer_max_length = args.max_token_length + 2
