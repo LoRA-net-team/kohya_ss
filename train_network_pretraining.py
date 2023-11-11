@@ -968,13 +968,15 @@ class NetworkTrainer:
                         if attention_storer is not None:
                             class_attn_score_dict = attention_storer.attn_score_dict
                             attention_storer.attn_score_dict = {}
-
-
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
-                    ### Masked loss ###
+
+                    # -------------------------------------------------------------------------------------------------------------------------------------------------
+                    # 1) Masked loss ###
+                    losses = {}
+
                     if args.masked_loss:
                         mask_imgs = [mask_img.unsqueeze(0).unsqueeze(0) for mask_img in batch['mask_imgs']]
                         mask_imgs = [F.interpolate(mask_img, noise_pred.size()[-2:], mode='bilinear') for mask_img in
@@ -982,12 +984,10 @@ class NetworkTrainer:
                         mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
                         noise_pred = noise_pred * mask_imgs
                         target = target * mask_imgs
-                    batch_num = noise_pred.shape[0]
                     loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
                     loss = loss * loss_weights
-
                     if args.min_snr_gamma:
                         loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.min_snr_gamma)
                     if args.scale_v_pred_loss_like_noise_pred:
@@ -995,9 +995,7 @@ class NetworkTrainer:
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
-                    task_loss = loss
-                    attention_losses = {}
-                    attention_losses["loss/task_loss"] = loss
+                    losses["loss/task_loss"] = loss
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 2) heatmap loss
@@ -1005,16 +1003,15 @@ class NetworkTrainer:
                     if args.heatmap_loss:
                         layer_names = atten_collection.keys()
                         assert len(layer_names) > 0, "Cannot find any layer names in attention_storer. check your model."
-                        heatmap_per_batch = {}
                         for layer_name in layer_names:
                             if args.attn_loss_layers == 'all' or match_layer_name(layer_name, args.attn_loss_layers):
                                 sum_of_attn = sum(atten_collection[layer_name])
                                 attn_loss = attn_loss + sum_of_attn
-                                attention_losses["loss/attention_loss_" + layer_name] = sum_of_attn
-                        attention_losses["loss/attention_loss"] = attn_loss
+                                losses["loss/attention_loss_" + layer_name] = sum_of_attn
+                        losses["loss/attention_loss"] = attn_loss
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         if args.heatmap_backprop:
-                            loss = task_loss + args.attn_loss_ratio * attn_loss
+                            loss = loss + args.attn_loss_ratio * attn_loss
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 3) attentino score diff loss
@@ -1024,20 +1021,14 @@ class NetworkTrainer:
                         for layer_name in layer_names:
                             concept_attn_score = torch.cat(attn_score_dict[layer_name], dim=0)
                             class_attn_score = torch.cat(class_attn_score_dict[layer_name], dim=0)
-                            print(f'concept_attn_score : {concept_attn_score.shape}')
                             attn_diff = torch.abs(concept_attn_score - class_attn_score)
                             attn_diff = 1 / attn_diff.mean()
-                            print(f'attn_diff : {attn_diff}')
                             class_preserving_loss += 1/attn_diff.mean()
-
-
-
-
-
+                        losses["loss/class_preserving_loss"] = class_preserving_loss
+                        loss = loss + args.class_preserving_ratio * class_preserving_loss
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
                         accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-
 
                 if args.scale_weight_norms:
                     keys_scaled, mean_norm, maximum_norm = network.apply_max_norm_regularization(args.scale_weight_norms, accelerator.device)
@@ -1045,42 +1036,16 @@ class NetworkTrainer:
                 else:
                     keys_scaled, mean_norm, maximum_norm = None, None, None
 
-
-                attention_losses["loss/text_preservating_loss"] = preservating_loss.mean()
-
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
                 if is_main_process:
-                    wandb.log(attention_losses)
-
+                    wandb.log(losses)
                 accelerator.backward(loss)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
 
-                # Checks if the accelerator has performed an optimization step behind the scenes
-                # ------------------------------------------------------------------------------------------------------------------------------------------
-                """
-                # sampling every step
-                self.sample_images(accelerator, args, None, global_step, accelerator.device, vae, tokenizer, text_encoder, unet)
-                #if attention_storer is not None:
-                #    attention_storer.step_store = {}
-                # 指定ステップごとにモデルを保存
-                if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
-                        save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
-                        if args.save_state:
-                            train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
-
-                        remove_step_no = train_util.get_remove_step_no(args, global_step)
-                        if remove_step_no is not None:
-                            remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
-                            remove_model(remove_ckpt_name )
-                """
-                # -------------------------------------------------------------------------------------------------------------------------------------------------
                 # showing loss without preservating loss
                 current_loss = loss.detach().item()
                 if epoch == 0:
@@ -1092,41 +1057,32 @@ class NetworkTrainer:
                 avr_loss = loss_total / len(loss_list)
                 logs = {"loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
                 # detach attention_losses dict
-                for k, v in attention_losses.items() :
+                for k, v in losses.items() :
                     if type(v) == torch.Tensor:
-                        attention_losses[k] = v.detach().item()
+                        losses[k] = v.detach().item()
                     else :
-                        attention_losses[k] = v
+                        losses[k] = v
 
                 progress_bar.set_postfix(**logs)
                 if args.scale_weight_norms:
                     progress_bar.set_postfix(**{**max_mean_logs, **logs})
                 if args.logging_dir is not None:
                     logs = self.generate_step_logs(args, current_loss, avr_loss, lr_scheduler, keys_scaled, mean_norm, maximum_norm, **attention_losses)
-                    logs.update(attention_losses)
-                    accelerator.log(logs, step=global_step)
+                    logs.update(losses)
                     if is_main_process:
-                        #wandb_tracker = accelerator.get_tracker("wandb")
                         wandb.log(logs)
-                        #wandb.log(attention_losses)
-
                 if global_step >= args.max_train_steps:
                     break
             if args.logging_dir is not None:
                 logs = {"loss/epoch": loss_total / len(loss_list)}
                 accelerator.log(logs, step=epoch + 1)
             accelerator.wait_for_everyone()
-            # 指定エポックごとにモデルを保存
             if args.save_every_n_epochs is not None:
                 saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
                 if is_main_process and saving:
                     ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-                    # --------------------------------------------------------------------------------------------------
-                    # model saving
                     print('model saving ...')
-                    save_model(ckpt_name,
-                               accelerator.unwrap_model(network),
-                               global_step, epoch + 1)
+                    save_model(ckpt_name,accelerator.unwrap_model(network),global_step, epoch + 1)
                     remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
                     if remove_epoch_no is not None:
                         remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
@@ -1139,8 +1095,6 @@ class NetworkTrainer:
                                text_encoder, unet,attention_storer=attention_storer)
             attention_storer.reset()
             attention_storer_org.reset()
-
-
             # ------------------------------------------------------------------------------------------------------------------------
             # learned network state dict
             weights_sd = network.state_dict()
@@ -1201,7 +1155,6 @@ class NetworkTrainer:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
             print("model saved.")
-
             # saving attn loss
             import csv
             attn_loss_save_dir = os.path.join(args.output_dir, 'record', f'{args.wandb_run_name}_attn_loss.csv')
