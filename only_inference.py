@@ -332,9 +332,10 @@ class NetworkTrainer:
                         if efficient_layer in layer_name:
                             if 'attn2_to_k' not in layer_name and 'attn2_to_v' not in layer_name:
                                 score += 1
-                    if score == 0:
+                    if score == 0 and 'alpha' not in layer_name:
                         weights_sd[layer_name] = weights_sd[layer_name] * 0
                     if 'alpha' in layer_name:
+                        weights_sd[layer_name] = weights_sd[layer_name] * 4
                         alpha_value = weights_sd[layer_name]
                         print(f'layer_name : {layer_name} , alpha_value : {alpha_value}')
                     # because alpha is np, should be on cpu
