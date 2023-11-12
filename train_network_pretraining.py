@@ -82,6 +82,9 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
                 print(f'key : {key.shape} | value : {value.shape}')
+                key_value_states = torch.matmul(key, value.permute(0,2,1))
+                print(f'key_value_states : {key_value_states.shape}')
+
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
