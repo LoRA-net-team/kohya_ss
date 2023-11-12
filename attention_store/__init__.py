@@ -19,7 +19,7 @@ class AttentionStore :
         return {}
 
     def save_key_value_states(self, key_value_states, layer_name):
-        if layer_name not in self.attn_score_dict.keys() :
+        if layer_name not in self.key_value_states_dict.keys() :
             self.key_value_states_dict[layer_name] = []
             self.key_value_states_dict[layer_name].append(key_value_states)
         else :
