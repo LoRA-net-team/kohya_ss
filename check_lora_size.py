@@ -365,7 +365,7 @@ class NetworkTrainer:
 
                 for i, lora_module in enumerate(lora_modules) :
                     lora_name = lora_module.lora_name
-                    if 'attn_to_k' in lora_name or 'attn_to_v' in lora_name :
+                    if 'attn2_to_k' in lora_name or 'attn2_to_v' in lora_name :
                     #if 'text' not in lora_name :
                         org_sd = lora_module.org_module.state_dict()
                         org_weight = org_sd["weight"]#.to(torch.float)
