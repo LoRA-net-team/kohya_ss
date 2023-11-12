@@ -380,7 +380,7 @@ class NetworkTrainer:
                             conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
                             lora_weight = conved * lora_module.scale
                         total_weight = lora_weight + org_weight
-                        print(f'lora_weight : {lora_weight}')
+                        #print(f'lora_weight : {lora_weight}')
 
                         org_weight = torch.flatten(org_weight).to('cpu')
                         lora_weight = torch.flatten(lora_weight).to('cpu')
@@ -395,7 +395,7 @@ class NetworkTrainer:
 
                         # Make some labels.
 
-                        plt.hist(lora_weight, bins=100, alpha=args.lora_weight_alpha, color='blue', label='lora', histtype = 'stepfilled')
+                        plt.hist(lora_weight, bins=10, alpha=args.lora_weight_alpha, color='blue', label='lora', histtype = 'stepfilled')
                         plt.hist(total_weight, bins=100, alpha=args.total_weight_alpha, color='green', label='total_weight', histtype='stepfilled')
                         plt.title(f'{lora_name}')
                         plt.legend()
