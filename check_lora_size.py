@@ -381,6 +381,8 @@ class NetworkTrainer:
                         lora_weight = conved * lora_module.scale
 
                     total_weight = lora_weight + org_weight
+                    print(f'org_weight : {org_weight.shape}')
+                    print(f'lora_weight : {lora_weight.shape}')
 
                     org_weight = torch.flatten(org_weight).to('cpu')
                     lora_weight = torch.flatten(lora_weight).to('cpu')
