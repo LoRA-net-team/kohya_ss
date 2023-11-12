@@ -389,7 +389,12 @@ class NetworkTrainer:
                     total_weight = torch.flatten(total_weight).to('cpu')
 
                     plt.figure()
-                    plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
+                    n, bins, patches = plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
+                    for bin in bins :
+                        print(bin)
+                    
+                    # Make some labels.
+
                     plt.hist(lora_weight, bins=100, alpha=0.5, color='blue', label='lora', histtype = 'stepfilled')
                     plt.hist(total_weight, bins=100, alpha=0.5, color='green', label='total_weight', histtype='stepfilled')
                     plt.title(f'{lora_name}')
