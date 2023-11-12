@@ -1067,7 +1067,8 @@ class NetworkTrainer:
                         progress_bar.update(1)
                         global_step += 1
                     if is_main_process:
-                        wandb.log(losses)
+                        if global_step > 200 :
+                            wandb.log(losses)
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 4) text preserving

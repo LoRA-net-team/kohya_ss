@@ -1,22 +1,20 @@
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_2_3_config --main_process_port 22364 train_network_pretraining.py \
-                  --logging_dir ../result/logs --process_title parksooyeon \
-                  --seed 42 --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
-                  --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
-                  --wandb_init_name iom_pretraining --max_token_length 225 \
-                  --wandb_run_name iom_pretrain_sen_10_unet_inlayers_heatmap_backprop_infer_inlayers_class_preserving \
-                  --output_dir ../result/perfusion_experiment/cat/iom_pretrain_sen_10_unet_inlayers_heatmap_backprop_infer_inlayers_class_preserving \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_2_3_config --main_process_port 22324 train_network_pretraining.py \
+                  --logging_dir ../result/logs --process_title parksooyeon --max_token_length 225 \
+                  --seed 42 --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
+                  --output_dir ../result/perfusion_experiment/cat/iom_pretrain_10_unet_inlayers_heatmap_backprop_infer_key_value_reg_high_preservating_loss_ratio \
                   --train_data_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1 \
                   --mask_dir /data7/sooyeon/MyData/perfusion_dataset/cat/iom_1_mask \
+                  --log_with wandb \
+                  --wandb_init_name iom_pretraining --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
+                  --wandb_run_name iom_pretrain_10_unet_inlayers_heatmap_backprop_infer_key_value_reg_high_preservating_loss_ratio \
                   --class_token 'cat' --class_caption 'cat' --trg_concept iom --class_caption_dir /data7/sooyeon/MyData/perfusion_dataset/cat/cat_sentences.txt \
                   --network_module networks.lora --resolution 512,512 --net_key_names text --network_dim 64 --network_alpha 4 --train_batch_size 1 \
                   --optimizer_type AdamW --lr_scheduler cosine_with_restarts --lr_warmup_steps 144 \
                   --learning_rate 0.0003 --unet_lr 0.0001 --text_encoder_lr 0.00005 --pretraining_epochs 10 --unet_net_key_names 'unet' \
                   --save_every_n_epochs 1 --sample_every_n_epochs 1 --sample_prompts /data7/sooyeon/MyData/perfusion_dataset/cat/iom_inference.txt \
                   --heatmap_loss --mask_threshold 0.5 --first_second_training --attn_loss_ratio 1 --heatmap_backprop \
-                  --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer' --class_preserving
-
-
-
+                  --efficient_layer 'text,down_blocks_2,mid,up_blocks_1' --save_folder_name 'inlayer' --class_preserving --class_preserving_ratio 10.0 \
+                  --class_lora_preserving --class_lora_preserving_ratio 10.0
 
 
 
