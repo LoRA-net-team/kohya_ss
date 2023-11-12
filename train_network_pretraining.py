@@ -1159,7 +1159,7 @@ class NetworkTrainer:
                                text_encoder_copy, unet_copy,
                                efficient=True,
                                save_folder_name = args.save_folder_name,
-                               attention_storer=attention_storer_org,)
+                               attention_storer=None)
             attention_storer.reset()
             del vae_copy, text_encoder_copy, unet_copy, temp_network
 
