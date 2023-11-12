@@ -365,46 +365,44 @@ class NetworkTrainer:
 
                 for i, lora_module in enumerate(lora_modules) :
                     lora_name = lora_module.lora_name
-                    org_sd = lora_module.org_module.state_dict()
-                    org_weight = org_sd["weight"]#.to(torch.float)
+                    if 'att1_to_k' in lora_name or 'att1_to_v' in lora_name  :
+                        org_sd = lora_module.org_module.state_dict()
+                        org_weight = org_sd["weight"]#.to(torch.float)
 
-                    down_weight = lora_module.lora_down.weight.data
-                    up_weight = lora_module.lora_up.weight.data
-                    # merge weight
-                    if len(org_weight.size()) == 2:
-                        lora_weight = (up_weight @ down_weight) * lora_module.scale
+                        down_weight = lora_module.lora_down.weight.data
+                        up_weight = lora_module.lora_up.weight.data
+                        # merge weight
+                        if len(org_weight.size()) == 2:
+                            lora_weight = (up_weight @ down_weight) * lora_module.scale
 
-                    elif down_weight.size()[2:4] == (1, 1):
-                        lora_weight = (up_weight.squeeze(3).squeeze(2) @ down_weight.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)* lora_module.scale
-                    else:
-                        conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
-                        lora_weight = conved * lora_module.scale
+                        elif down_weight.size()[2:4] == (1, 1):
+                            lora_weight = (up_weight.squeeze(3).squeeze(2) @ down_weight.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)* lora_module.scale
+                        else:
+                            conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
+                            lora_weight = conved * lora_module.scale
+                        total_weight = lora_weight + org_weight
 
-                    total_weight = lora_weight + org_weight
-                    print(f'org_weight : {org_weight.shape}')
-                    print(f'lora_weight : {lora_weight.shape}')
+                        org_weight = torch.flatten(org_weight).to('cpu')
+                        lora_weight = torch.flatten(lora_weight).to('cpu')
+                        total_weight = torch.flatten(total_weight).to('cpu')
 
-                    org_weight = torch.flatten(org_weight).to('cpu')
-                    lora_weight = torch.flatten(lora_weight).to('cpu')
-                    total_weight = torch.flatten(total_weight).to('cpu')
+                        plt.figure()
+                        n, bins, patches = plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
+                        #for bin, patch in zip(bins,patches) :
+                        #    print(f'patch : {patch.__dict__}')
+                        #    print(f'bin : {bin.__dict__}')
+                        #    print()
 
-                    plt.figure()
-                    n, bins, patches = plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
-                    for bin, patch in zip(bins,patches) :
-                        print(f'patch : {patch.__dict__}')
-                        print(f'bin : {bin.__dict__}')
-                        print()
+                        # Make some labels.
 
-                    # Make some labels.
-
-                    plt.hist(lora_weight, bins=100, alpha=0.5, color='blue', label='lora', histtype = 'stepfilled')
-                    plt.hist(total_weight, bins=100, alpha=0.5, color='green', label='total_weight', histtype='stepfilled')
-                    plt.title(f'{lora_name}')
-                    plt.legend()
-                    base_dir = 'histogram_file_total'
-                    os.makedirs(base_dir, exist_ok=True)
-                    save_dir = os.path.join(base_dir, f'histogram_{i+1}.jpg')
-                    plt.savefig(save_dir)
+                        plt.hist(lora_weight, bins=100, alpha=0.5, color='blue', label='lora', histtype = 'stepfilled')
+                        plt.hist(total_weight, bins=100, alpha=0.5, color='green', label='total_weight', histtype='stepfilled')
+                        plt.title(f'{lora_name}')
+                        plt.legend()
+                        base_folder = os.path.join(args.output_dir, 'trained_model_weight_histogram')
+                        os.makedirs(base_folder, exist_ok=True)
+                        save_dir = os.path.join(base_folder, f'histogram_{i+1}.jpg')
+                        plt.savefig(save_dir)
 
 
 
