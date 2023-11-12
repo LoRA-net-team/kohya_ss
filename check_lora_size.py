@@ -409,6 +409,7 @@ class NetworkTrainer:
                         os.makedirs(base_folder, exist_ok=True)
                         save_dir = os.path.join(base_folder, f'histogram_{i+1}.jpg')
                         plt.savefig(save_dir)
+                        plt.close()
 
 
 
