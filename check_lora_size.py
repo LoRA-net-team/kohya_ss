@@ -370,8 +370,6 @@ class NetworkTrainer:
 
                         down_weight = lora_module.lora_down.weight.data
                         up_weight = lora_module.lora_up.weight.data
-                        print(f'down_weight : {down_weight}')
-                        print(f'up_weight : {up_weight}')
                         # merge weight
                         if len(org_weight.size()) == 2:
                             lora_weight = (up_weight @ down_weight) * lora_module.scale
@@ -382,6 +380,7 @@ class NetworkTrainer:
                             conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1, 0, 2,3)
                             lora_weight = conved * lora_module.scale
                         total_weight = lora_weight + org_weight
+                        print(f'lora_weight : {lora_weight}')
 
                         org_weight = torch.flatten(org_weight).to('cpu')
                         lora_weight = torch.flatten(lora_weight).to('cpu')
