@@ -390,9 +390,10 @@ class NetworkTrainer:
 
                     plt.figure()
                     n, bins, patches = plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
-                    for bin in bins :
-                        print(bin)
-                    
+                    for patch in patches :
+                        print(patch)
+                        print()
+
                     # Make some labels.
 
                     plt.hist(lora_weight, bins=100, alpha=0.5, color='blue', label='lora', histtype = 'stepfilled')
