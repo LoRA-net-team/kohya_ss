@@ -1095,7 +1095,7 @@ class NetworkTrainer:
                     if global_step >= args.max_train_steps:
                         break
 
-                    def logs, losses
+                    del logs, losses, loss
 
             accelerator.wait_for_everyone()
             if args.save_every_n_epochs is not None:
