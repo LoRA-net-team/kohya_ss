@@ -998,6 +998,7 @@ class NetworkTrainer:
                     if args.v_pred_like_loss:
                         loss = add_v_prediction_like_loss(loss, timesteps, noise_scheduler, args.v_pred_like_loss)
                     loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
+                    loss = loss * args.vlb_loss_ratio
                     losses["loss/task_loss"] = loss
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1270,6 +1271,7 @@ if __name__ == "__main__":
     parser.add_argument("--weight_diff_loss_weight", type=float, default=1.0)
     parser.add_argument("--class_lora_preserving", action='store_true')
     parser.add_argument("--class_lora_preserving_ratio", type=float, default=1.0)
+    parser.add_argument("--vlb_loss_ratio", type=float, default=1.0)
 
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True

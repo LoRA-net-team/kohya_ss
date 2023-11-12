@@ -1,4 +1,4 @@
-accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_2_3_config --main_process_port 22324 train_network_pretraining.py \
+accelerate launch --config_file /data7/sooyeon/LyCORIS/gpu_config/gpu_4_5_config --main_process_port 24524 train_network_pretraining.py \
                   --logging_dir ../result/logs --process_title parksooyeon --max_token_length 225 \
                   --seed 42 --pretrained_model_name_or_path /data7/sooyeon/pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
                   --output_dir ../result/perfusion_experiment/cat/iom_pretrain_10_unet_inlayers_heatmap_backprop_infer_key_value_reg_high_preservating_loss_ratio \
