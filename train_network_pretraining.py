@@ -81,9 +81,8 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
-                print(f'key : {key.shape} | value : {value.shape}')
                 key_value_states = torch.matmul(key, value.permute(0,2,1))
-                print(f'key_value_states : {key_value_states.shape}')
+                controller.save_key_value_states(key_value_states, layer_name)
 
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
@@ -955,14 +954,14 @@ class NetworkTrainer:
                                                     batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
-                            attn_score_dict = attention_storer.attn_score_dict
+                            key_value_states_dict = attention_storer.key_value_states_dict
                             attention_storer.reset()
 
                         class_noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
                                                           class_encoder_hidden_states,batch, weight_dtype,
                                                           trg_indexs_list=None, mask_imgs=None)
                         if attention_storer is not None:
-                            class_attn_score_dict = attention_storer.attn_score_dict
+                            class_key_value_states_dict = attention_storer.key_value_states_dict
                             attention_storer.reset()
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
@@ -1010,6 +1009,18 @@ class NetworkTrainer:
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 3) attention score diff loss
+                    preserving_loss = 0
+                    if args.class_preserving:
+                        layer_names = key_value_states_dict.keys()
+                        for layer_name in layer_names:
+                            concept_key_value_states = key_value_states_dict[layer_name]
+                            concept_key_value_states = torch.cat(concept_key_value_states, dim=0)
+                            class_key_value_states = class_key_value_states_dict[layer_name]
+                            class_key_value_states = torch.cat(class_key_value_states, dim=0)
+                            key_value_diss = 1/torch.abs(concept_key_value_states - class_key_value_states)
+                            preserving_loss += key_value_diss.mean()
+                        losses["loss/class_preserving_loss"] = preserving_loss
+                        loss = loss + args.class_preserving_ratio * preserving_loss
 
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1028,6 +1039,9 @@ class NetworkTrainer:
                         wandb.log(losses)
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 4) text preserving
+
+
+
 
                     # text_batch
 
