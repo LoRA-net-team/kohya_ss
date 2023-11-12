@@ -937,9 +937,8 @@ class NetworkTrainer:
                             vae_copy.to(weight_dtype).to(accelerator.device)
                             unet_copy.to(weight_dtype).to(accelerator.device)
                             text_encoder_copy.to(weight_dtype).to(accelerator.device)
-
-
-                            class_encoder_hidden_states_org = self.get_class_text_cond(args, accelerator,batch, tokenizers, [text_encoder_org],
+                            class_encoder_hidden_states_org = self.get_class_text_cond(args, accelerator,batch,
+                                                                                       tokenizers, [text_encoder_org],
                                                                                        weight_dtype)
 
                             # ------------------------------------------------------------------------------------------------------
@@ -973,13 +972,16 @@ class NetworkTrainer:
                             attention_storer.reset()
 
                         attention_storer_org = AttentionStore()
-                        register_attention_control(unet_copy, attention_storer_org, mask_threshold=args.mask_threshold)
-                        class_noise_pred_org = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
-                                                              class_encoder_hidden_states_org, batch, weight_dtype,
+                        register_attention_control(unet_copy,
+                                                   attention_storer_org, mask_threshold=args.mask_threshold)
+                        class_noise_pred_org = self.call_unet(args,
+                                                              accelerator, unet_copy, noisy_latents, timesteps,
+                                                              class_encoder_hidden_states_org,
+                                                              batch,
+                                                              weight_dtype,
                                                               trg_indexs_list=None, mask_imgs=None)
 
                         class_key_value_states_dict_org = attention_storer_org.key_value_states_dict
-                        print(f'class_key_value_states_dict_org : {class_key_value_states_dict_org}')
                         attention_storer_org.reset()
                         del vae_copy, unet_copy, text_encoder_copy
                     if args.v_parameterization:
@@ -1032,11 +1034,17 @@ class NetworkTrainer:
                     if args.class_preserving:
                         layer_names = key_value_states_dict.keys()
                         for layer_name in layer_names:
+
                             concept_key_value_states = key_value_states_dict[layer_name]
-                            concept_key_value_states = torch.cat(concept_key_value_states, dim=0)
+                            concept_key_value_states = torch.cat(concept_key_value_states, dim=0) # [batch, 227,227]
+
                             class_key_value_states = class_key_value_states_dict[layer_name]
-                            class_key_value_states = torch.cat(class_key_value_states, dim=0)
-                            key_value_diss = 1/torch.abs(concept_key_value_states - class_key_value_states)
+                            class_key_value_states = torch.cat(class_key_value_states, dim=0) # [batch, 227,227]
+
+                            # should be large
+                            key_value_diss = torch.nn.functional.mse_loss(concept_key_value_states.float(),
+                                                        class_key_value_states.float(), reduction="none")
+                            key_value_diss = 1/key_value_diss.mean()
                             print(f'key_value_diss : {key_value_diss}')
                             preserving_loss += key_value_diss.mean()
                         losses["loss/class_preserving_loss"] = preserving_loss
