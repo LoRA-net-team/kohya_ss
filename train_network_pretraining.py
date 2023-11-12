@@ -646,8 +646,7 @@ class NetworkTrainer:
         if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
             args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
 
-        attention_storer = AttentionStore()
-        register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+
 
 
         # -----------------------------------------------------------------------------------------------------------------
@@ -894,18 +893,24 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         # ------------------------------------------------------------------------------------------------------
         # sampling right after text pretraining
-        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=attention_storer)
-        attention_storer.reset()
+        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=None)
+
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
         for epoch in range(num_train_epochs):
+
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
             current_epoch.value = epoch + 1
             metadata["ss_epoch"] = str(epoch + 1)
             network.on_epoch_start(text_encoder, unet)
             step = 0
-            for batch, text_batch in zip(train_dataloader, pretraining_dataloader):
+
+            for batch in train_dataloader :
+
+                attention_storer = AttentionStore()
+                register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+
                 current_step.value = global_step
                 with accelerator.accumulate(network):
                     on_step_start(text_encoder, unet)
@@ -1094,8 +1099,9 @@ class NetworkTrainer:
                             wandb.log(logs)
                     if global_step >= args.max_train_steps:
                         break
+                    del logs, losses, loss, attention_storer
 
-                    del logs, losses, loss
+
 
             accelerator.wait_for_everyone()
             if args.save_every_n_epochs is not None:
@@ -1110,8 +1116,6 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
-
-
             # ----------------------------------------------------------------------------------------------------------
             # inference every epoch
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=None)
@@ -1153,11 +1157,11 @@ class NetworkTrainer:
             text_encoder_copy.to(weight_dtype).to(accelerator.device)
             # 4) applying to deeplearning network
             temp_network.apply_to(text_encoder_org, unet_org)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy, unet_copy,efficient=True,save_folder_name = args.save_folder_name,attention_storer=None)
-            # ------------------------------------------------------------------------------------------------------------------------
-            # all erasing
-            attention_storer.reset()
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy, unet_copy,
+                               efficient=True, save_folder_name = args.save_folder_name,attention_storer=None)
             del vae_copy, text_encoder_copy, unet_copy, temp_network, weights_sd
+
+
 
         # ------------------------------------------------------------------------------------------------------
         metadata["ss_training_finished_at"] = str(time.time())
