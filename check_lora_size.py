@@ -405,10 +405,10 @@ class NetworkTrainer:
 
                         # Make some labels.
 
-                        plt.hist(lora_weight, bins=10, alpha=args.lora_weight_alpha, color='blue', label='lora', histtype = 'stepfilled')
-                        plt.hist(lora_down_weight, bins=100, alpha=0.5, color='red', label='lora_down',
+                        #plt.hist(lora_weight, bins=10, alpha=args.lora_weight_alpha, color='blue', label='lora', histtype = 'stepfilled')
+                        plt.hist(lora_down_weight, bins=10, alpha=0.5, color='red', label='lora_down',
                                  histtype='stepfilled')
-                        plt.hist(lora_up_weight, bins=100, alpha=0.5, color='blue',
+                        plt.hist(lora_up_weight, bins=10, alpha=0.5, color='blue',
                                  label='lora_up',
                                  histtype='stepfilled')
                         plt.hist(total_weight, bins=100, alpha=args.total_weight_alpha, color='green', label='total_weight', histtype='stepfilled')
