@@ -393,6 +393,7 @@ class NetworkTrainer:
                         lora_up_weight = np.array(lora_up_weight)
                         lora_weight = np.array(lora_weight)
                         total_weight = np.array(total_weight)
+                        print(f'lora_name : {lora_name} | lora_module.scale : {lora_module.scale}')
 
 
                         plt.figure()
