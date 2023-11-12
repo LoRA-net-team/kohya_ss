@@ -397,6 +397,7 @@ class NetworkTrainer:
 
 
                         plt.figure()
+
                         n, bins, patches = plt.hist(org_weight, bins=100, alpha=args.org_weight_alpha, color='red', label='original', histtype = 'stepfilled')
                         #for bin, patch in zip(bins,patches) :
                         #    print(f'patch : {patch.__dict__}')
@@ -412,6 +413,7 @@ class NetworkTrainer:
                                  label='lora_up',
                                  histtype='stepfilled')
                         plt.hist(total_weight, bins=100, alpha=args.total_weight_alpha, color='green', label='total_weight', histtype='stepfilled')
+                        plt.ylim(0, 10000)
                         plt.title(f'{lora_name}')
                         plt.legend()
                         base_folder = os.path.join(args.output_dir, args.histogram_save_folder_name)
