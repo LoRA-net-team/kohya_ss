@@ -365,7 +365,7 @@ class NetworkTrainer:
 
                 for i, lora_module in enumerate(lora_modules) :
                     lora_name = lora_module.lora_name
-                    if 'attn1_to_k' not in lora_name and 'attn1_to_v' not in lora_name and 'text' not in lora_name :
+                    if 'text' not in lora_name :
                         org_sd = lora_module.org_module.state_dict()
                         org_weight = org_sd["weight"]#.to(torch.float)
 
@@ -384,10 +384,14 @@ class NetworkTrainer:
 
 
                         org_weight = torch.flatten(org_weight).to('cpu')
+                        lora_down_weight = torch.flatten(lora_down_weight).to('cpu')
+                        lora_up_weight = torch.flatten(lora_up_weight).to('cpu')
                         lora_weight = torch.flatten(lora_weight).to('cpu')
                         total_weight = torch.flatten(total_weight).to('cpu')
 
                         org_weight = np.array(org_weight)
+                        lora_down_weight = np.array(lora_down_weight)
+                        lora_up_weight = np.array(lora_up_weight)
                         lora_weight = np.array(lora_weight)
                         total_weight = np.array(total_weight)
 
@@ -402,6 +406,8 @@ class NetworkTrainer:
                         # Make some labels.
 
                         plt.hist(lora_weight, bins=10, alpha=args.lora_weight_alpha, color='blue', label='lora', histtype = 'stepfilled')
+                        plt.hist(lora_down_weight, bins=10, alpha=args.lora_weight_alpha, color='red', label='lora_down',
+                                 histtype='stepfilled')
                         plt.hist(total_weight, bins=100, alpha=args.total_weight_alpha, color='green', label='total_weight', histtype='stepfilled')
                         plt.title(f'{lora_name}')
                         plt.legend()
