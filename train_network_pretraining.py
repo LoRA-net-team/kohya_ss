@@ -932,15 +932,15 @@ class NetworkTrainer:
                             class_encoder_hidden_states = self.get_class_text_cond(args, accelerator,
                                                                     batch, tokenizers, text_encoders,
                                                                     weight_dtype)
+
                             vae_copy, text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu"), copy.deepcopy(unet_org)
                             vae_copy.to(weight_dtype).to(accelerator.device)
                             unet_copy.to(weight_dtype).to(accelerator.device)
                             text_encoder_copy.to(weight_dtype).to(accelerator.device)
-                            attention_storer_org = AttentionStore()
-                            register_attention_control(unet_copy, attention_storer_org, mask_threshold=args.mask_threshold)
-                            class_encoder_hidden_states_org = self.get_class_text_cond(args, accelerator,
-                                                                                   batch, tokenizers, [text_encoder_org],
-                                                                                   weight_dtype)
+
+
+                            class_encoder_hidden_states_org = self.get_class_text_cond(args, accelerator,batch, tokenizers, [text_encoder_org],
+                                                                                       weight_dtype)
 
                             # ------------------------------------------------------------------------------------------------------
                             #text_dim = text_encoder_conds.shape[-1]
@@ -972,13 +972,16 @@ class NetworkTrainer:
                             class_key_value_states_dict = attention_storer.key_value_states_dict
                             attention_storer.reset()
 
+                        attention_storer_org = AttentionStore()
+                        register_attention_control(unet_copy, attention_storer_org, mask_threshold=args.mask_threshold)
                         class_noise_pred_org = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
                                                               class_encoder_hidden_states_org, batch, weight_dtype,
                                                               trg_indexs_list=None, mask_imgs=None)
-                        del vae_copy, unet_copy, text_encoder_copy
-                        class_key_value_states_dict_org = attention_storer_org.key_value_states_dict
-                        attention_storer_org.reset()
 
+                        class_key_value_states_dict_org = attention_storer_org.key_value_states_dict
+                        print(f'class_key_value_states_dict_org : {class_key_value_states_dict_org}')
+                        attention_storer_org.reset()
+                        del vae_copy, unet_copy, text_encoder_copy
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
