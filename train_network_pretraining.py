@@ -6,7 +6,7 @@ import math
 import os
 import sys
 import random
-import time
+import time, wandb
 import json
 from multiprocessing import Value
 from tqdm import tqdm
@@ -307,7 +307,6 @@ class NetworkTrainer:
         accelerator = train_util.prepare_accelerator(args)
         is_main_process = accelerator.is_main_process
         if args.log_with == 'wandb' and is_main_process:
-            import wandb
             wandb.init(project=args.wandb_init_name,name=args.wandb_run_name)
 
         print("\n step 4. save config")
