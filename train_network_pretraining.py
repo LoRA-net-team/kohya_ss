@@ -648,8 +648,7 @@ class NetworkTrainer:
 
         attention_storer = AttentionStore()
         register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
-        attention_storer_org = AttentionStore()
-        register_attention_control(unet_org, attention_storer_org, mask_threshold=args.mask_threshold)
+
 
         # -----------------------------------------------------------------------------------------------------------------
         # effective sampling
@@ -933,6 +932,16 @@ class NetworkTrainer:
                             class_encoder_hidden_states = self.get_class_text_cond(args, accelerator,
                                                                     batch, tokenizers, text_encoders,
                                                                     weight_dtype)
+
+                            vae_copy.to(weight_dtype).to(accelerator.device)
+                            unet_copy.to(weight_dtype).to(accelerator.device)
+                            text_encoder_copy.to(weight_dtype).to(accelerator.device)
+                            attention_storer_org = AttentionStore()
+                            register_attention_control(unet_copy, attention_storer_org, mask_threshold=args.mask_threshold)
+                            class_encoder_hidden_states_org = self.get_class_text_cond(args, accelerator,
+                                                                                   batch, tokenizers, [text_encoder_org],
+                                                                                   weight_dtype)
+
                             # ------------------------------------------------------------------------------------------------------
                             #text_dim = text_encoder_conds.shape[-1]
                             #caption_attention_mask = batch['caption_attention_mask']
@@ -962,6 +971,13 @@ class NetworkTrainer:
                         if attention_storer is not None:
                             class_key_value_states_dict = attention_storer.key_value_states_dict
                             attention_storer.reset()
+
+                        class_noise_pred_org = self.call_unet(args, accelerator, unet_org, noisy_latents, timesteps,
+                                                              class_encoder_hidden_states_org, batch, weight_dtype,
+                                                              trg_indexs_list=None, mask_imgs=None)
+                        class_key_value_states_dict_org = attention_storer_org.key_value_states_dict
+                        attention_storer_org.reset()
+
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
@@ -1017,9 +1033,30 @@ class NetworkTrainer:
                             class_key_value_states = class_key_value_states_dict[layer_name]
                             class_key_value_states = torch.cat(class_key_value_states, dim=0)
                             key_value_diss = 1/torch.abs(concept_key_value_states - class_key_value_states)
+                            print(f'key_value_diss : {key_value_diss}')
                             preserving_loss += key_value_diss.mean()
                         losses["loss/class_preserving_loss"] = preserving_loss
                         loss = loss + args.class_preserving_ratio * preserving_loss
+
+                    # -------------------------------------------------------------------------------------------------------------------------------------------------
+                    # 4) preserving k,v of new unet with original unet
+                    preserving_lora_loss = 0
+                    if args.class_lora_preserving :
+                        layer_names = class_key_value_states_dict.keys()
+
+                        for layer_name in layer_names:
+                            class_key_value_states = class_key_value_states_dict[layer_name]
+                            class_key_value_states = torch.cat(class_key_value_states, dim=0)
+
+                            class_key_value_states_org = class_key_value_states_dict_org[layer_name]
+                            class_key_value_states_org = torch.cat(class_key_value_states_org, dim=0)
+                            class_preserv_loss = torch.nn.functional.mse_loss(class_key_value_states.float(),
+                                                                              class_key_value_states_org.float(), reduction="none")
+                            class_preserve_loss_mean = class_preserv_loss.mean()
+                            preserving_lora_loss += class_preserve_loss_mean
+                            print(f'class_preserve_loss_mean : {class_preserve_loss_mean}')
+                        losses["loss/class_preserving_loss_from_org_unet"] = preserving_lora_loss
+                        loss = loss + args.class_lora_preserving_ratio * preserving_lora_loss
 
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
@@ -1243,7 +1280,8 @@ if __name__ == "__main__":
     parser.add_argument("--class_preserving_ratio", type=float, default=1.0)
     parser.add_argument("--weight_diff_loss", action='store_true')
     parser.add_argument("--weight_diff_loss_weight", type=float, default=1.0)
-
+    parser.add_argument("--class_lora_preserving", action='store_true')
+    parser.add_argument("--class_lora_preserving_ratio", type=float, default=1.0)
 
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
