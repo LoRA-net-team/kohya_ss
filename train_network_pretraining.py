@@ -81,9 +81,7 @@ def register_attention_control(unet : nn.Module, controller:AttentionStore, mask
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if is_cross_attention:
-                controller.save_attn_score(attention_scores, layer_name)
-
-
+                print(f'key : {key.shape} | value : {value.shape}')
                 if trg_indexs_list is not None and mask is not None:
                     trg_indexs = trg_indexs_list
                     batch_num = len(trg_indexs)
@@ -527,7 +525,7 @@ class NetworkTrainer:
             unwrapped_nw.save_weights(ckpt_file, save_dtype,metadata=None)
 
         print("\n step 13. image inference before training anything")
-        self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
+        #self.sample_images(accelerator, args, -1, 0, accelerator.device, vae, tokenizer, text_encoder, unet)
 
         print("\n step 14. text encoder lora pretraining")
         pretraining_epochs = args.pretraining_epochs
@@ -896,7 +894,7 @@ class NetworkTrainer:
             save_model(ckpt_name, accelerator.unwrap_model(network), global_step, 0)
         # ------------------------------------------------------------------------------------------------------
         # sampling right after text pretraining
-        self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=attention_storer)
+        #self.sample_images(accelerator, args, 0, 0, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=attention_storer)
         attention_storer.reset()
 
         print("\n step 13. training loop")
@@ -1009,46 +1007,6 @@ class NetworkTrainer:
 
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 3) attention score diff loss
-                    """
-                    if args.class_preserving :
-                        class_preserving_loss = 0
-                        layer_names = attn_score_dict.keys()
-                        for layer_name in layer_names:
-                            concept_attn_score = torch.cat(attn_score_dict[layer_name], dim=0)
-                            class_attn_score = torch.cat(class_attn_score_dict[layer_name], dim=0)
-                            attn_diff = torch.abs(concept_attn_score - class_attn_score)
-                            attn_diff = 1 / attn_diff.mean()
-                            class_preserving_loss += 1/attn_diff.mean()
-                        losses["loss/class_preserving_loss"] = class_preserving_loss
-                        loss = loss + args.class_preserving_ratio * class_preserving_loss
-                    """
-                    # -------------------------------------------------------------------------------------------------------------------------------------------------
-                    # 4) attention score diff loss
-                    if args.weight_diff_loss :
-                        weight_diff_loss = 0
-                        lora_modules = network.text_encoder_loras + network.unet_loras
-                        for i, lora_module in enumerate(lora_modules):
-                            lora_name = lora_module.lora_name
-                            org_sd = lora_module.org_module.state_dict()
-                            org_weight = org_sd["weight"]  # .to(torch.float)
-
-                            down_weight = lora_module.lora_down.weight.data
-                            up_weight = lora_module.lora_up.weight.data
-                            # merge weight
-                            if len(org_weight.size()) == 2:
-                                lora_weight = (up_weight @ down_weight) * lora_module.scale
-
-                            elif down_weight.size()[2:4] == (1, 1):
-                                lora_weight = (up_weight.squeeze(3).squeeze(2) @ down_weight.squeeze(3).squeeze(
-                                    2)).unsqueeze(2).unsqueeze(3) * lora_module.scale
-                            else:
-                                conved = torch.nn.functional.conv2d(down_weight.permute(1, 0, 2, 3), up_weight).permute(1,0,2,3)
-                                lora_weight = conved * lora_module.scale
-                            org_weight_mean = torch.flatten(org_weight).mean()
-                            lora_weight_mean = torch.flatten(lora_weight).mean()
-                            weight_diff_loss += torch.abs(org_weight_mean - lora_weight_mean)
-                        loss = loss + args.weight_diff_loss_weight * weight_diff_loss
-                        losses["loss/weight_diff_loss_"] = weight_diff_loss
 
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
