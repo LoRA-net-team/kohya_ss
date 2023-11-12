@@ -386,7 +386,7 @@ class NetworkTrainer:
                         total_weight = torch.flatten(total_weight).to('cpu')
 
                         plt.figure()
-                        n, bins, patches = plt.hist(org_weight, bins=100, alpha=0.5, color='red', label='original', histtype = 'stepfilled')
+                        n, bins, patches = plt.hist(org_weight, bins=100, alpha=args.org_weight_alpha, color='red', label='original', histtype = 'stepfilled')
                         #for bin, patch in zip(bins,patches) :
                         #    print(f'patch : {patch.__dict__}')
                         #    print(f'bin : {bin.__dict__}')
@@ -394,11 +394,11 @@ class NetworkTrainer:
 
                         # Make some labels.
 
-                        plt.hist(lora_weight, bins=100, alpha=0.5, color='blue', label='lora', histtype = 'stepfilled')
-                        plt.hist(total_weight, bins=100, alpha=0.5, color='green', label='total_weight', histtype='stepfilled')
+                        plt.hist(lora_weight, bins=100, alpha=args.lora_weight_alpha, color='blue', label='lora', histtype = 'stepfilled')
+                        plt.hist(total_weight, bins=100, alpha=args.total_weight_alpha, color='green', label='total_weight', histtype='stepfilled')
                         plt.title(f'{lora_name}')
                         plt.legend()
-                        base_folder = os.path.join(args.output_dir, 'trained_model_weight_histogram')
+                        base_folder = os.path.join(args.output_dir, args.histogram_save_folder_name)
                         os.makedirs(base_folder, exist_ok=True)
                         save_dir = os.path.join(base_folder, f'histogram_{i+1}.jpg')
                         plt.savefig(save_dir)
@@ -481,6 +481,12 @@ if __name__ == "__main__":
     parser.add_argument("--efficient_layer", type=str)
     parser.add_argument("--unefficient_layer", type=str)
     parser.add_argument("--save_folder_name", type=str)
+    parser.add_argument("--org_weight_alpha", type=float, default=0)
+    parser.add_argument("--lora_weight_alpha", type=float, default=1)
+    parser.add_argument("--total_weight_alpha", type=float, default = 1)
+    parser.add_argument("--histogram_save_folder_name", type=str, default='histogram_selfattntion_only_lora_weight')
+
+
     args = parser.parse_args()
     # overwrite args.attn_loss_layers if only_second_training, only_third_training, second_third_training, first_second_third_training is True
     if args.only_second_training:
