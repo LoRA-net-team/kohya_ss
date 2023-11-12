@@ -1085,7 +1085,6 @@ class NetworkTrainer:
                             losses[k] = v.detach().item()
                         else :
                             losses[k] = v
-
                     progress_bar.set_postfix(**logs)
                     if args.scale_weight_norms:
                         progress_bar.set_postfix(**{**max_mean_logs, **logs})
@@ -1095,6 +1094,8 @@ class NetworkTrainer:
                             wandb.log(logs)
                     if global_step >= args.max_train_steps:
                         break
+
+                    def logs, losses
 
             accelerator.wait_for_everyone()
             if args.save_every_n_epochs is not None:
@@ -1109,13 +1110,11 @@ class NetworkTrainer:
                         remove_model(remove_ckpt_name)
                     if args.save_state:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
+
+
             # ----------------------------------------------------------------------------------------------------------
             # inference every epoch
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
-                               text_encoder, unet, attention_storer=attention_storer)
-            attention_storer.reset()
-            #attention_storer_org.reset()
-            # ------------------------------------------------------------------------------------------------------------------------
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=None)
             # learned network state dict
             weights_sd = network.state_dict()
             layer_names = weights_sd.keys()
@@ -1131,7 +1130,6 @@ class NetworkTrainer:
                     weights_sd[layer_name] = weights_sd[layer_name] * 1
                 # because alpha is np, should be on cpu
                 weights_sd[layer_name] = weights_sd[layer_name].to("cpu")
-
             # 2) make empty network
             unet_org = accelerator.unwrap_model(unet_org)
             vae_copy,text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu" ), copy.deepcopy(unet_org)
@@ -1155,13 +1153,11 @@ class NetworkTrainer:
             text_encoder_copy.to(weight_dtype).to(accelerator.device)
             # 4) applying to deeplearning network
             temp_network.apply_to(text_encoder_org, unet_org)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,
-                               text_encoder_copy, unet_copy,
-                               efficient=True,
-                               save_folder_name = args.save_folder_name,
-                               attention_storer=None)
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy, unet_copy,efficient=True,save_folder_name = args.save_folder_name,attention_storer=None)
+            # ------------------------------------------------------------------------------------------------------------------------
+            # all erasing
             attention_storer.reset()
-            del vae_copy, text_encoder_copy, unet_copy, temp_network
+            del vae_copy, text_encoder_copy, unet_copy, temp_network, weights_sd
 
         # ------------------------------------------------------------------------------------------------------
         metadata["ss_training_finished_at"] = str(time.time())
