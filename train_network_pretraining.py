@@ -898,6 +898,11 @@ class NetworkTrainer:
 
         print("\n step 13. training loop")
         attn_loss_records = [['epoch', 'global_step', 'attn_loss']]
+
+        attention_storer = AttentionStore()
+        register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
+
+
         for epoch in range(num_train_epochs):
 
             accelerator.print(f"\nepoch {epoch + 1}/{num_train_epochs}")
@@ -907,9 +912,6 @@ class NetworkTrainer:
             step = 0
 
             for batch in train_dataloader :
-
-                attention_storer = AttentionStore()
-                register_attention_control(unet, attention_storer, mask_threshold=args.mask_threshold)
 
                 current_step.value = global_step
                 with accelerator.accumulate(network):
@@ -1099,9 +1101,8 @@ class NetworkTrainer:
                             wandb.log(logs)
                     if global_step >= args.max_train_steps:
                         break
-                    del logs, losses, loss, attention_storer
-
-
+                    del logs, losses, loss
+                    attention_storer.reset()
 
             accelerator.wait_for_everyone()
             if args.save_every_n_epochs is not None:
@@ -1118,7 +1119,11 @@ class NetworkTrainer:
                         train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
             # ----------------------------------------------------------------------------------------------------------
             # inference every epoch
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,text_encoder, unet, attention_storer=None)
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,text_encoder, unet,
+                               attention_storer=attention_storer)
+            attention_storer.reset()
+
+            # ----------------------------------------------------------------------------------------------------------
             # learned network state dict
             weights_sd = network.state_dict()
             layer_names = weights_sd.keys()
@@ -1157,12 +1162,13 @@ class NetworkTrainer:
             text_encoder_copy.to(weight_dtype).to(accelerator.device)
             # 4) applying to deeplearning network
             temp_network.apply_to(text_encoder_org, unet_org)
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy, unet_copy,
+            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae_copy, tokenizer,text_encoder_copy,
+                               unet_copy,
                                efficient=True, save_folder_name = args.save_folder_name,attention_storer=None)
             del vae_copy, text_encoder_copy, unet_copy, temp_network, weights_sd
 
 
-
+        """
         # ------------------------------------------------------------------------------------------------------
         metadata["ss_training_finished_at"] = str(time.time())
         if is_main_process:
@@ -1180,6 +1186,7 @@ class NetworkTrainer:
             with open(attn_loss_save_dir, 'w') as f:
                 writer = csv.writer(f)
                 writer.writerows(attn_loss_records)
+        """
 
 
 if __name__ == "__main__":
