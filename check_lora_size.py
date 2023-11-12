@@ -1,6 +1,5 @@
 import importlib
 import argparse
-import gc
 import re
 import math
 import os
@@ -17,6 +16,7 @@ import torch.nn.functional as F
 from functools import lru_cache
 from attention_store import AttentionStore
 import copy
+from safetensors.torch import load_file, safe_open
 try:
     from setproctitle import setproctitle
 except (ImportError, ModuleNotFoundError):
@@ -297,16 +297,15 @@ class NetworkTrainer:
         for network_dir in network_dirs :
             if 'safetensors' in network_dir and 'last' in network_dir :
                 network_file = os.path.join(pretrained_network_dir, network_dir)
-                #print(f"load network from {network_file}")
                 network_name, ext = os.path.splitext(network_dir)
-                if 'epoch' in network_name :
-                    epoch_info = int(network_name.split('-')[-1])
-                elif 'last' in network_name :
-                    epoch_info = 1000
-                else :
-                    epoch_info = -1
+                #if 'epoch' in network_name :
+                #    epoch_info = int(network_name.split('-')[-1])
+                #elif 'last' in network_name :
+                #    epoch_info = 1000
+                #else :
+                #    epoch_info = -1
                     # learned network state dict
-                from safetensors.torch import load_file, safe_open
+                print(f'loading network from {network_file}')
                 weights_sd = load_file(network_file)
                 layer_names = weights_sd.keys()
                 efficient_layers = args.efficient_layer.split(",")
