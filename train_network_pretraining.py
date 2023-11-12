@@ -918,28 +918,22 @@ class NetworkTrainer:
                                 accelerator.print("NaN found in latents, replacing with zeros")
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
-                    b_size = latents.shape[0]
                     with torch.set_grad_enabled(train_text_encoder):
                         if args.weighted_captions:
                             text_encoder_conds = get_weighted_text_embeddings(tokenizer, text_encoder, batch["captions"], accelerator.device,
                                                                               args.max_token_length // 75 if args.max_token_length else 1,
                                                                               clip_skip=args.clip_skip, )
                         else:
-
-                            text_encoder_conds = self.get_text_cond(args, accelerator,
-                                                                    batch, tokenizers, text_encoders,
-                                                                    weight_dtype)
-                            class_encoder_hidden_states = self.get_class_text_cond(args, accelerator,
-                                                                    batch, tokenizers, text_encoders,
-                                                                    weight_dtype)
+                            text_encoder_conds = self.get_text_cond(args, accelerator,batch, tokenizers, text_encoders,weight_dtype)
+                            class_encoder_hidden_states = self.get_class_text_cond(args, accelerator,batch, tokenizers, text_encoders,weight_dtype)
 
                             vae_copy, text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu"), copy.deepcopy(unet_org)
                             vae_copy.to(weight_dtype).to(accelerator.device)
-                            unet_copy.to(weight_dtype).to(accelerator.device)
                             text_encoder_copy.to(weight_dtype).to(accelerator.device)
                             class_encoder_hidden_states_org = self.get_class_text_cond(args, accelerator,batch,
                                                                                        tokenizers, [text_encoder_org],
                                                                                        weight_dtype)
+                            del vae_copy, text_encoder_copy
 
                             # ------------------------------------------------------------------------------------------------------
                             #text_dim = text_encoder_conds.shape[-1]
@@ -947,47 +941,35 @@ class NetworkTrainer:
                             #caption_attention_mask = torch.cat(caption_attention_mask, dim=0).unsqueeze(-1)
                             #caption_attention_mask = torch.repeat_interleave(caption_attention_mask, text_dim, dim=-1)
                             #text_encoder_conds = text_encoder_conds * caption_attention_mask
-
-
-                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,
-                                                                                                       noise_scheduler,
-                                                                                                       latents)
+                    noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args,noise_scheduler,latents)
                     with accelerator.autocast():
-                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
-                                                    text_encoder_conds,
-                                                    batch, weight_dtype,
-                                                    batch["trg_indexs_list"],
-                                                    # trg_index_list,
-                                                    batch['mask_imgs'])
+                        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                        noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,text_encoder_conds,
+                                                    batch, weight_dtype,batch["trg_indexs_list"],batch['mask_imgs'])
                         if attention_storer is not None:
                             atten_collection = attention_storer.step_store
                             key_value_states_dict = attention_storer.key_value_states_dict
                             attention_storer.reset()
-
-                        class_noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,
-                                                          class_encoder_hidden_states,batch, weight_dtype,
-                                                          trg_indexs_list=None, mask_imgs=None)
+                        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                        class_noise_pred = self.call_unet(args, accelerator, unet, noisy_latents, timesteps,class_encoder_hidden_states,batch, weight_dtype,trg_indexs_list=None, mask_imgs=None)
                         if attention_storer is not None:
                             class_key_value_states_dict = attention_storer.key_value_states_dict
                             attention_storer.reset()
 
+                        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
                         attention_storer_org = AttentionStore()
-                        register_attention_control(unet_copy,
-                                                   attention_storer_org, mask_threshold=args.mask_threshold)
-                        class_noise_pred_org = self.call_unet(args,
-                                                              accelerator, unet_copy, noisy_latents, timesteps,
-                                                              class_encoder_hidden_states_org,
-                                                              batch,
-                                                              weight_dtype,
-                                                              trg_indexs_list=None, mask_imgs=None)
-
+                        unet_copy.to(weight_dtype).to(accelerator.device)
+                        register_attention_control(unet_copy, attention_storer_org, mask_threshold=args.mask_threshold)
+                        class_noise_pred_org = self.call_unet(args,accelerator, unet_copy, noisy_latents, timesteps,class_encoder_hidden_states_org,batch,weight_dtype,trg_indexs_list=None, mask_imgs=None)
                         class_key_value_states_dict_org = attention_storer_org.key_value_states_dict
                         attention_storer_org.reset()
-                        del vae_copy, unet_copy, text_encoder_copy
+                        del unet_copy, attention_storer_org
+
                     if args.v_parameterization:
                         target = noise_scheduler.get_velocity(latents, noise, timesteps)
                     else:
                         target = noise
+
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 1) VLB loss + Masked loss
                     losses = {}
@@ -998,8 +980,7 @@ class NetworkTrainer:
                         mask_imgs = torch.cat(mask_imgs, dim=0)  # [batch_size, 1, 256, 256]
                         noise_pred = noise_pred * mask_imgs
                         target = target * mask_imgs
-                    loss = torch.nn.functional.mse_loss(noise_pred.float(),
-                                                        target.float(), reduction="none")
+                    loss = torch.nn.functional.mse_loss(noise_pred.float(),target.float(), reduction="none")
                     loss = loss.mean([1, 2, 3])
                     loss_weights = batch["loss_weights"]  # 各sampleごとのweight
                     loss = loss * loss_weights
@@ -1027,7 +1008,7 @@ class NetworkTrainer:
                         assert attn_loss != 0, f"attn_loss is 0. check attn_loss_layers or attn_loss_ratio.\n available layers: {layer_names}\n given layers: {args.attn_loss_layers}"
                         if args.heatmap_backprop:
                             loss = loss + args.attn_loss_ratio * attn_loss
-
+                        del atten_collection
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 3) attention score diff loss
                     preserving_loss = 0
@@ -1042,23 +1023,20 @@ class NetworkTrainer:
                             class_key_value_states = torch.cat(class_key_value_states, dim=0) # [batch, 227,227]
 
                             # should be large
-                            key_value_diss = torch.nn.functional.mse_loss(concept_key_value_states.float(),
-                                                        class_key_value_states.float(), reduction="none")
+                            key_value_diss = torch.nn.functional.mse_loss(concept_key_value_states.float(), class_key_value_states.float(), reduction="none")
                             key_value_diss = 1/key_value_diss.mean()
                             preserving_loss += key_value_diss.mean()
                         losses["loss/class_preserving_loss"] = preserving_loss
                         loss = loss + args.class_preserving_ratio * preserving_loss
-
+                        del key_value_states_dict
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 4) preserving k,v of new unet with original unet
                     preserving_lora_loss = 0
                     if args.class_lora_preserving :
                         layer_names = class_key_value_states_dict.keys()
-
                         for layer_name in layer_names:
                             class_key_value_states = class_key_value_states_dict[layer_name]
                             class_key_value_states = torch.cat(class_key_value_states, dim=0)
-
                             class_key_value_states_org = class_key_value_states_dict_org[layer_name]
                             class_key_value_states_org = torch.cat(class_key_value_states_org, dim=0)
                             class_preserv_loss = torch.nn.functional.mse_loss(class_key_value_states.float(),
@@ -1067,7 +1045,7 @@ class NetworkTrainer:
                             preserving_lora_loss += class_preserve_loss_mean
                         losses["loss/class_preserving_loss_from_org_unet"] = preserving_lora_loss
                         loss = loss + args.class_lora_preserving_ratio * preserving_lora_loss
-
+                        del class_key_value_states_dict, class_key_value_states_dict_org
 
                     if accelerator.sync_gradients and args.max_grad_norm != 0.0:
                         params_to_clip = network.get_trainable_params()
@@ -1083,15 +1061,9 @@ class NetworkTrainer:
                         global_step += 1
                     if is_main_process:
                         wandb.log(losses)
+
                     # -------------------------------------------------------------------------------------------------------------------------------------------------
                     # 4) text preserving
-
-
-
-
-                    # text_batch
-
-
                     accelerator.backward(loss, retain_graph=True)
                     optimizer.step()
                     lr_scheduler.step()
@@ -1140,9 +1112,9 @@ class NetworkTrainer:
             # ----------------------------------------------------------------------------------------------------------
             # inference every epoch
             self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer,
-                               text_encoder, unet,attention_storer=attention_storer)
+                               text_encoder, unet, attention_storer=attention_storer)
             attention_storer.reset()
-            attention_storer_org.reset()
+            #attention_storer_org.reset()
             # ------------------------------------------------------------------------------------------------------------------------
             # learned network state dict
             weights_sd = network.state_dict()
@@ -1189,9 +1161,7 @@ class NetworkTrainer:
                                save_folder_name = args.save_folder_name,
                                attention_storer=attention_storer_org,)
             attention_storer.reset()
-            attention_storer_org.reset()
             del vae_copy, text_encoder_copy, unet_copy, temp_network
-
 
         # ------------------------------------------------------------------------------------------------------
         metadata["ss_training_finished_at"] = str(time.time())
