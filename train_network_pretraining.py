@@ -1045,7 +1045,6 @@ class NetworkTrainer:
                             key_value_diss = torch.nn.functional.mse_loss(concept_key_value_states.float(),
                                                         class_key_value_states.float(), reduction="none")
                             key_value_diss = 1/key_value_diss.mean()
-                            print(f'key_value_diss : {key_value_diss}')
                             preserving_loss += key_value_diss.mean()
                         losses["loss/class_preserving_loss"] = preserving_loss
                         loss = loss + args.class_preserving_ratio * preserving_loss
@@ -1066,7 +1065,6 @@ class NetworkTrainer:
                                                                               class_key_value_states_org.float(), reduction="none")
                             class_preserve_loss_mean = class_preserv_loss.mean()
                             preserving_lora_loss += class_preserve_loss_mean
-                            print(f'class_preserve_loss_mean : {class_preserve_loss_mean}')
                         losses["loss/class_preserving_loss_from_org_unet"] = preserving_lora_loss
                         loss = loss + args.class_lora_preserving_ratio * preserving_lora_loss
 
