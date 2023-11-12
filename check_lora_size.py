@@ -16,6 +16,7 @@ import torch.nn.functional as F
 from functools import lru_cache
 from attention_store import AttentionStore
 import copy
+import numpy as np
 from safetensors.torch import load_file, safe_open
 try:
     from setproctitle import setproctitle
@@ -384,8 +385,12 @@ class NetworkTrainer:
 
                         org_weight = torch.flatten(org_weight).to('cpu')
                         lora_weight = torch.flatten(lora_weight).to('cpu')
-                        print(f'lora_weight : {lora_weight}')
                         total_weight = torch.flatten(total_weight).to('cpu')
+
+                        org_weight = np.array(org_weight)
+                        lora_weight = np.array(lora_weight)
+                        total_weight = np.array(total_weight)
+
 
                         plt.figure()
                         n, bins, patches = plt.hist(org_weight, bins=100, alpha=args.org_weight_alpha, color='red', label='original', histtype = 'stepfilled')
