@@ -932,7 +932,7 @@ class NetworkTrainer:
                             class_encoder_hidden_states = self.get_class_text_cond(args, accelerator,
                                                                     batch, tokenizers, text_encoders,
                                                                     weight_dtype)
-
+                            vae_copy, text_encoder_copy, unet_copy = copy.deepcopy(vae_org), copy.deepcopy(text_encoder_org).to("cpu"), copy.deepcopy(unet_org)
                             vae_copy.to(weight_dtype).to(accelerator.device)
                             unet_copy.to(weight_dtype).to(accelerator.device)
                             text_encoder_copy.to(weight_dtype).to(accelerator.device)
