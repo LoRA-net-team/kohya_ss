@@ -409,7 +409,7 @@ class NetworkTrainer:
                         plt.hist(lora_up_weight, bins=100, alpha=args.lora_up_weight_alpha, color='blue', label='lora_up', histtype='stepfilled')
 
                         plt.hist(total_weight, bins=100, alpha=args.total_weight_alpha, color='green', label='total_weight', histtype='stepfilled')
-                        plt.ylim(0, 5000)
+                        plt.ylim(0, 200)
                         plt.title(f'{lora_name}')
                         plt.legend()
                         base_folder = os.path.join(args.output_dir, args.histogram_save_folder_name)
